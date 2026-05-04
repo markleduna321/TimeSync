@@ -1,0 +1,192 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Link, usePage, router } from '@inertiajs/react';
+import { useDispatch } from 'react-redux';
+import { toggleSidebar } from '@/features/ui/uiSlice';
+import {
+    Menu,
+    Bell,
+    ChevronDown,
+    User,
+    LogOut,
+    Settings,
+} from 'lucide-react';
+
+function getInitials(name) {
+    if (!name) return '?';
+    return name
+        .split(' ')
+        .slice(0, 2)
+        .map((w) => w[0].toUpperCase())
+        .join('');
+}
+
+export default function Topbar({ title }) {
+    const dispatch = useDispatch();
+    const { props } = usePage();
+    const user = props.auth?.user;
+
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    /* Close dropdown on outside click */
+    useEffect(() => {
+        function handleOutside(e) {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setDropdownOpen(false);
+            }
+        }
+        document.addEventListener('mousedown', handleOutside);
+        return () => document.removeEventListener('mousedown', handleOutside);
+    }, []);
+
+    /* Close dropdown on Escape */
+    useEffect(() => {
+        function handleKey(e) {
+            if (e.key === 'Escape') setDropdownOpen(false);
+        }
+        document.addEventListener('keydown', handleKey);
+        return () => document.removeEventListener('keydown', handleKey);
+    }, []);
+
+    function handleLogout(e) {
+        e.preventDefault();
+        setDropdownOpen(false);
+        router.post(route('logout'));
+    }
+
+    return (
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 bg-white px-4 sm:px-6">
+
+            {/* ── Left: hamburger + page title ─────────────── */}
+            <div className="flex items-center gap-4">
+                {/* Mobile hamburger */}
+                <button
+                    onClick={() => dispatch(toggleSidebar())}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:hidden"
+                    aria-label="Toggle navigation menu"
+                >
+                    <Menu size={20} />
+                </button>
+
+                {/* Desktop collapse button mirror */}
+                <button
+                    onClick={() => dispatch(toggleSidebar())}
+                    className="hidden lg:flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    aria-label="Toggle sidebar"
+                >
+                    <Menu size={18} />
+                </button>
+
+                {title && (
+                    <div className="hidden sm:block">
+                        <h1 className="text-base font-semibold text-slate-900">
+                            {title}
+                        </h1>
+                    </div>
+                )}
+            </div>
+
+            {/* ── Right: notifications + user ──────────────── */}
+            <div className="flex items-center gap-2">
+
+                {/* Notification bell */}
+                <button
+                    className="relative flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    aria-label="Notifications"
+                >
+                    <Bell size={18} />
+                    {/* Unread badge */}
+                    <span
+                        className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-indigo-600 ring-2 ring-white"
+                        aria-hidden="true"
+                    />
+                </button>
+
+                {/* Divider */}
+                <div className="mx-1 h-6 w-px bg-slate-200" aria-hidden="true" />
+
+                {/* User dropdown */}
+                <div className="relative" ref={dropdownRef}>
+                    <button
+                        onClick={() => setDropdownOpen((v) => !v)}
+                        aria-haspopup="true"
+                        aria-expanded={dropdownOpen}
+                        className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 transition-colors hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                        {/* Avatar */}
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-xs font-bold text-white">
+                            {getInitials(user?.name)}
+                        </div>
+
+                        {/* Name — hidden on very small screens */}
+                        <div className="hidden sm:block text-left">
+                            <p className="text-sm font-medium leading-tight text-slate-800">
+                                {user?.name ?? 'User'}
+                            </p>
+                            <p className="text-xs leading-tight text-slate-400">
+                                {user?.email ?? ''}
+                            </p>
+                        </div>
+
+                        <ChevronDown
+                            size={14}
+                            className={`hidden sm:block shrink-0 text-slate-400 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
+                        />
+                    </button>
+
+                    {/* Dropdown menu */}
+                    {dropdownOpen && (
+                        <div
+                            className="absolute right-0 top-full z-50 mt-2 w-56 rounded-2xl border border-slate-100 bg-white py-1.5 shadow-xl shadow-slate-200/60"
+                            role="menu"
+                            aria-orientation="vertical"
+                        >
+                            {/* User info header */}
+                            <div className="border-b border-slate-100 px-4 py-3">
+                                <p className="text-sm font-semibold text-slate-900">
+                                    {user?.name}
+                                </p>
+                                <p className="mt-0.5 text-xs text-slate-400 truncate">
+                                    {user?.email}
+                                </p>
+                            </div>
+
+                            <div className="py-1">
+                                <Link
+                                    href={route('profile.edit')}
+                                    onClick={() => setDropdownOpen(false)}
+                                    role="menuitem"
+                                    className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:bg-slate-50"
+                                >
+                                    <User size={15} className="text-slate-400 shrink-0" />
+                                    My Profile
+                                </Link>
+
+                                <Link
+                                    href="/admin/settings"
+                                    onClick={() => setDropdownOpen(false)}
+                                    role="menuitem"
+                                    className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:bg-slate-50"
+                                >
+                                    <Settings size={15} className="text-slate-400 shrink-0" />
+                                    Settings
+                                </Link>
+                            </div>
+
+                            <div className="border-t border-slate-100 py-1">
+                                <button
+                                    onClick={handleLogout}
+                                    role="menuitem"
+                                    className="flex w-full items-center gap-3 px-4 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:bg-red-50"
+                                >
+                                    <LogOut size={15} className="shrink-0" />
+                                    Log Out
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </header>
+    );
+}
