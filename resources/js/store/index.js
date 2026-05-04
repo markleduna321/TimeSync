@@ -5,6 +5,11 @@ import uiReducer from '@/features/ui/uiSlice';
 import { timelogApi } from '@/features/timekeeping/timelogApi';
 import { scheduleApi } from '@/features/timekeeping/scheduleApi';
 import { breakConfigApi } from '@/features/timekeeping/breakConfigApi';
+import { timesheetApi } from '@/features/timekeeping/timesheetApi';
+import { attendanceApi } from '@/features/timekeeping/attendanceApi';
+import { usersApi } from '@/features/users/usersApi';
+import { teamsApi } from '@/features/teams/teamsApi';
+import { rolesApi } from '@/features/roles/rolesApi';
 import { baseQueryWithCsrf } from '@/features/csrfBaseQuery';
 
 // Base RTK Query API - extend this from `features/*` later.
@@ -29,6 +34,11 @@ const store = configureStore({
 		[timelogApi.reducerPath]: timelogApi.reducer,
 		[scheduleApi.reducerPath]: scheduleApi.reducer,
 		[breakConfigApi.reducerPath]: breakConfigApi.reducer,
+		[timesheetApi.reducerPath]: timesheetApi.reducer,
+		[attendanceApi.reducerPath]: attendanceApi.reducer,
+		[usersApi.reducerPath]: usersApi.reducer,
+		[teamsApi.reducerPath]: teamsApi.reducer,
+		[rolesApi.reducerPath]: rolesApi.reducer,
 	},
 	middleware: (getDefaultMiddleware) =>
 		getDefaultMiddleware().concat(
@@ -36,10 +46,14 @@ const store = configureStore({
 			timelogApi.middleware,
 			scheduleApi.middleware,
 			breakConfigApi.middleware,
+			timesheetApi.middleware,
+			attendanceApi.middleware,
+			usersApi.middleware,
+			teamsApi.middleware,
+			rolesApi.middleware,
 		),
 });
 
 setupListeners(store.dispatch);
 
 export default store;
-

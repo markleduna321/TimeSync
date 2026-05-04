@@ -15,6 +15,7 @@ export function baseQueryWithCsrf(baseUrl) {
         baseUrl,
         credentials: 'include',
         prepareHeaders: (headers) => {
+            headers.set('Accept', 'application/json');
             const token = getCookie('XSRF-TOKEN');
             if (token) {
                 headers.set('X-XSRF-TOKEN', token);

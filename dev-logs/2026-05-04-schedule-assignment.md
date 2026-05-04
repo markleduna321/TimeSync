@@ -1,0 +1,35 @@
+### Phase 5: Admin Schedule Assignment UI
+
+- **Timestamp:** 2026-05-04
+- **Persona(s) Active:** Tech Lead + Backend + Frontend + Designer + QA
+- **Files Modified:**
+  - `app/Models/User.php` — Added `schedule(): HasOne` relationship + `HasOne` import
+  - `app/Http/Resources/UserResource.php` — Added `schedule` key via `whenLoaded('schedule', ScheduleResource)`
+  - `app/Http/Controllers/Api/ScheduleController.php` — Rewrote `index()`: now returns paginated `UserResource` collection (users + their schedules); team_lead scoped to led-team members
+  - `routes/web.php` — Added `GET /admin/schedules` → `Inertia::render('admin/schedules/page')`
+  - `resources/js/features/timekeeping/scheduleApi.js` — Replaced `getSchedules` with `getUsersWithSchedules` (paginated, per-user providesTags); refined `invalidatesTags` on `upsertSchedule`
+  - `resources/js/components/layout/Sidebar.jsx` — Added `CalendarClock` icon import; added "Schedules" nav item (admin / manager / team_lead)
+- **Files Created:**
+  - `resources/js/pages/admin/schedules/page.jsx` — Route entry point; orchestrates query + modal state
+  - `resources/js/pages/admin/schedules/_sections/ScheduleTable.jsx` — Ant Design table: employee avatar + name, work-day chips, shift time, Assigned/Unassigned badge, Edit/Assign action button
+  - `resources/js/pages/admin/schedules/_sections/ScheduleFormModal.jsx` — Ant Design modal: 7-day pill toggle, shift start/end time inputs, live preview strip, 422 errors inline
+- **Issues Encountered:** None.
+- **Resolution:** N/A
+- **QA Checklist Result:** Pass
+  - ✅ All code plain JavaScript
+  - ✅ `web.php` contains only Inertia renders
+  - ✅ `api.php` only JSON routes (no new routes needed — PUT `/schedules/{user}` already existed)
+  - ✅ Existing `StoreScheduleRequest` + `SchedulePolicy` cover the upsert endpoint
+  - ✅ `UserResource` (with `ScheduleResource` nested) wraps all responses
+  - ✅ `providesTags` + `invalidatesTags` set correctly — table refreshes after assign/edit
+  - ✅ 422 errors mapped inline (work_days, shift_start, shift_end)
+  - ✅ Persistent layout on `AdminSchedulesPage`
+  - ✅ Loading state: Ant Design skeleton rows
+  - ✅ Empty state: CalendarClock icon + description
+  - ✅ Unassigned users show "Assign" (blue fill), assigned users show "Edit" (outlined)
+  - ✅ Schedule preview strip in modal (days + times)
+  - ✅ Team lead sees only their own team members
+- **Next Steps:** Awaiting approval for next phase — candidate areas:
+  - Break config assignment panel (same pattern as schedules)
+  - My Time page (personal daily timesheet for employees)
+  - Attendance calendar (monthly heatmap view)

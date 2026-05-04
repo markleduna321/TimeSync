@@ -13,6 +13,8 @@ import {
     DollarSign,
     FileText,
     Users,
+    Users2,
+    CalendarClock,
     BarChart2,
     Settings,
     ChevronLeft,
@@ -20,6 +22,20 @@ import {
     LogOut,
 } from 'lucide-react';
 import { router } from '@inertiajs/react';
+
+/* ── Role helpers ────────────────────────────────────────────────────── */
+const ROLE_LEVEL = { super_admin: 5, admin: 4, manager: 3, team_lead: 2, employee: 1 };
+const ROLE_LABEL = { super_admin: 'Super Admin', admin: 'Admin', manager: 'Manager', team_lead: 'Team Lead', employee: 'Employee' };
+
+function hasRole(roles, ...slugs) {
+    return slugs.some((s) => roles.includes(s));
+}
+
+function getPrimaryRoleLabel(roles) {
+    if (!roles?.length) return 'Employee';
+    const top = [...roles].sort((a, b) => (ROLE_LEVEL[b] ?? 0) - (ROLE_LEVEL[a] ?? 0))[0];
+    return ROLE_LABEL[top] ?? top;
+}
 
 /* ── Nav structure ───────────────────────────────────────────────────── */
 const NAV_SECTIONS = [
@@ -46,22 +62,40 @@ const NAV_SECTIONS = [
     },
     {
         label: 'Administration',
-        adminOnly: true,
         items: [
-            { label: 'Team',     href: '/admin/team',     icon: Users },
-            { label: 'Reports',  href: '/admin/reports',  icon: BarChart2 },
-            { label: 'Settings', href: '/admin/settings', icon: Settings },
+            {
+                label: 'Users',
+                href: '/admin/users',
+                icon: Users,
+                roles: ['super_admin', 'admin'],
+            },
+            {
+                label: 'Schedules',
+                href: '/admin/schedules',
+                icon: CalendarClock,
+                roles: ['super_admin', 'admin', 'manager', 'team_lead'],
+            },
+            {
+                label: 'Teams',
+                href: '/teams',
+                icon: Users2,
+                roles: ['super_admin', 'admin', 'manager', 'team_lead'],
+            },
+            {
+                label: 'Reports',
+                href: '/admin/reports',
+                icon: BarChart2,
+                roles: ['super_admin', 'admin', 'manager'],
+            },
+            {
+                label: 'Settings',
+                href: '/admin/settings',
+                icon: Settings,
+                roles: ['super_admin', 'admin'],
+            },
         ],
     },
 ];
-
-const ADMIN_ROLES = ['super_admin', 'admin'];
-
-function getRoleLabel(role) {
-    if (role === 'super_admin') return 'Super Admin';
-    if (role === 'admin')       return 'Admin';
-    return 'Employee';
-}
 
 function getInitials(name) {
     if (!name) return '?';
@@ -79,7 +113,7 @@ export default function Sidebar() {
     const isOpen     = useSelector((s) => s.ui.sidebarOpen);
     const { props, url } = usePage();
     const user       = props.auth?.user;
-    const isAdmin    = ADMIN_ROLES.includes(user?.role);
+    const userRoles  = user?.roles ?? []; // array of slugs
 
     function handleLogout(e) {
         e.preventDefault();
@@ -168,7 +202,12 @@ export default function Sidebar() {
                 {/* ── Nav items ──────────────────────────────── */}
                 <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-4" aria-label="Sidebar navigation">
                     {NAV_SECTIONS.map((section) => {
-                        if (section.adminOnly && !isAdmin) return null;
+                        // Filter items the user is allowed to see
+                        const visibleItems = section.items.filter((item) => {
+                            if (!item.roles) return true; // no restriction
+                            return hasRole(userRoles, ...item.roles);
+                        });
+                        if (visibleItems.length === 0) return null;
                         return (
                             <div key={section.label} className="mb-5">
                                 {!collapsed && (
@@ -179,7 +218,7 @@ export default function Sidebar() {
                                 {collapsed && <div className="mb-1 border-t border-white/5" />}
 
                                 <ul className="space-y-0.5">
-                                    {section.items.map(({ label, href, icon: Icon }) => {
+                                    {visibleItems.map(({ label, href, icon: Icon }) => {
                                         const active = isActive(href);
                                         return (
                                             <li key={href}>
@@ -231,7 +270,7 @@ export default function Sidebar() {
                                     {user?.name ?? 'User'}
                                 </p>
                                 <p className="truncate text-xs text-slate-400">
-                                    {getRoleLabel(user?.role)}
+                                    {getPrimaryRoleLabel(userRoles)}
                                 </p>
                             </div>
                         )}

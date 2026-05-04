@@ -10,6 +10,10 @@ export const timelogApi = createApi({
             query: () => '/time-log/today',
             providesTags: ['TimeLog'],
         }),
+        getHistory: builder.query({
+            query: (params = {}) => ({ url: '/time-log/history', params }),
+            providesTags: [{ type: 'TimeLog', id: 'HISTORY' }],
+        }),
         clockIn: builder.mutation({
             query: () => ({ url: '/time-log/clock-in', method: 'POST' }),
             invalidatesTags: ['TimeLog'],
@@ -39,6 +43,7 @@ export const timelogApi = createApi({
 
 export const {
     useGetTodayQuery,
+    useGetHistoryQuery,
     useClockInMutation,
     useClockOutMutation,
     useLunchStartMutation,

@@ -7,8 +7,10 @@ use App\Http\Requests\ClockActionRequest;
 use App\Http\Resources\TimeLogResource;
 use App\Models\TimeLog;
 use App\Models\UserBreakConfig;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class TimeLogController extends Controller
 {
@@ -127,5 +129,29 @@ class TimeLogController extends Controller
         $log->update(['breaks' => $breaks, 'status' => 'active']);
 
         return new TimeLogResource($log->fresh());
+    }
+
+    /**
+     * Employee: paginated time-log history for a given month.
+     * Only returns the authenticated user's own records.
+     */
+    public function history(Request $request): AnonymousResourceCollection
+    {
+        $month = $request->query('month', now()->format('Y-m'));
+
+        try {
+            $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth()->toDateString();
+            $end   = Carbon::createFromFormat('Y-m', $month)->endOfMonth()->toDateString();
+        } catch (\Exception) {
+            $start = now()->startOfMonth()->toDateString();
+            $end   = now()->endOfMonth()->toDateString();
+        }
+
+        $logs = TimeLog::where('user_id', auth()->id())
+            ->whereBetween('date', [$start, $end])
+            ->orderByDesc('date')
+            ->paginate(31);
+
+        return TimeLogResource::collection($logs);
     }
 }

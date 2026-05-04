@@ -10,23 +10,38 @@ export const scheduleApi = createApi({
             query: () => '/schedule/me',
             providesTags: ['Schedule'],
         }),
-        getSchedules: builder.query({
-            query: () => '/schedules',
-            providesTags: ['Schedule'],
+
+        /**
+         * Admin/manager/team_lead: paginated list of users with their schedules.
+         * Returns UserResource collection (each item has a `schedule` key).
+         */
+        getUsersWithSchedules: builder.query({
+            query: (params = {}) => ({ url: '/schedules', params }),
+            providesTags: (result) =>
+                result?.data
+                    ? [
+                        ...result.data.map(({ id }) => ({ type: 'Schedule', id })),
+                        { type: 'Schedule', id: 'LIST' },
+                    ]
+                    : [{ type: 'Schedule', id: 'LIST' }],
         }),
+
         upsertSchedule: builder.mutation({
             query: ({ userId, ...body }) => ({
                 url: `/schedules/${userId}`,
                 method: 'PUT',
                 body,
             }),
-            invalidatesTags: ['Schedule'],
+            invalidatesTags: (_r, _e, { userId }) => [
+                { type: 'Schedule', id: userId },
+                { type: 'Schedule', id: 'LIST' },
+            ],
         }),
     }),
 });
 
 export const {
     useGetMyScheduleQuery,
-    useGetSchedulesQuery,
+    useGetUsersWithSchedulesQuery,
     useUpsertScheduleMutation,
 } = scheduleApi;

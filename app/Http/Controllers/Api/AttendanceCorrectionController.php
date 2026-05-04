@@ -1,0 +1,173 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\ReviewAttendanceCorrectionRequest;
+use App\Http\Requests\StoreAttendanceCorrectionRequest;
+use App\Http\Resources\AttendanceCorrectionResource;
+use App\Models\AttendanceCorrection;
+use App\Models\OvertimeRecord;
+use App\Models\TimeLog;
+use App\Models\TimeLogHistory;
+use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Storage;
+
+class AttendanceCorrectionController extends Controller
+{
+    /**
+     * List corrections.
+     * - Managers+ see all (filterable by status).
+     * - Employees see only their own.
+     *
+     * GET /api/attendance/corrections?status=pending&page=1
+     */
+    public function index(Request $request): AnonymousResourceCollection
+    {
+        $this->authorize('viewAny', AttendanceCorrection::class);
+
+        $caller  = $request->user();
+        $status  = $request->query('status'); // nullable
+
+        $query = AttendanceCorrection::with(['user', 'reviewer', 'history.changedBy'])
+            ->orderByDesc('created_at');
+
+        // Employees only see their own
+        if (! $caller->hasAnyRole(['super_admin', 'admin', 'manager'])) {
+            $query->where('user_id', $caller->id);
+        }
+
+        if ($status && in_array($status, ['pending', 'approved', 'rejected'])) {
+            $query->where('status', $status);
+        }
+
+        return AttendanceCorrectionResource::collection($query->paginate(20));
+    }
+
+    /**
+     * File a new correction request (with proof upload).
+     *
+     * POST /api/attendance/corrections
+     */
+    public function store(StoreAttendanceCorrectionRequest $request): AttendanceCorrectionResource
+    {
+        $this->authorize('create', AttendanceCorrection::class);
+
+        $proofPath = $request->file('proof')->store('corrections', 'local');
+
+        $correction = AttendanceCorrection::create([
+            'user_id'              => auth()->id(),
+            'date'                 => $request->date,
+            'type'                 => $request->input('type', 'correction'),
+            'reason'               => $request->reason,
+            'proof_path'           => $proofPath,
+            'requested_clock_in'   => $request->requested_clock_in,
+            'requested_clock_out'  => $request->requested_clock_out,
+            'status'               => 'pending',
+        ]);
+
+        return new AttendanceCorrectionResource($correction->load(['user', 'reviewer']));
+    }
+
+    /**
+     * Approve or reject a correction.
+     *
+     * PATCH /api/attendance/corrections/{correction}
+     */
+    public function review(ReviewAttendanceCorrectionRequest $request, AttendanceCorrection $correction): AttendanceCorrectionResource
+    {
+        $this->authorize('review', AttendanceCorrection::class);
+
+        if ($correction->status !== 'pending') {
+            abort(422, 'This correction has already been reviewed.');
+        }
+
+        $correction->update([
+            'status'      => $request->action,
+            'reviewed_by' => auth()->id(),
+            'reviewed_at' => now(),
+            'admin_note'  => $request->admin_note,
+        ]);
+
+        if ($request->action === 'approved') {
+            if ($correction->type === 'correction') {
+                $dateStr     = $correction->date->format('Y-m-d');
+                $existingLog = TimeLog::where('user_id', $correction->user_id)
+                    ->where('date', $dateStr)->first();
+
+                $newClockIn  = $correction->requested_clock_in
+                    ? Carbon::parse($dateStr . ' ' . $correction->requested_clock_in)
+                    : $existingLog?->clock_in;
+                $newClockOut = $correction->requested_clock_out
+                    ? Carbon::parse($dateStr . ' ' . $correction->requested_clock_out)
+                    : $existingLog?->clock_out;
+
+                TimeLogHistory::create([
+                    'user_id'       => $correction->user_id,
+                    'date'          => $dateStr,
+                    'time_log_id'   => $existingLog?->id,
+                    'old_clock_in'  => $existingLog?->clock_in,
+                    'old_clock_out' => $existingLog?->clock_out,
+                    'new_clock_in'  => $newClockIn,
+                    'new_clock_out' => $newClockOut,
+                    'correction_id' => $correction->id,
+                    'changed_by'    => auth()->id(),
+                ]);
+
+                $fields = ['status' => 'clocked_out'];
+                if ($correction->requested_clock_in) {
+                    $fields['clock_in'] = $newClockIn;
+                }
+                if ($correction->requested_clock_out) {
+                    $fields['clock_out'] = $newClockOut;
+                }
+                TimeLog::updateOrCreate(
+                    ['user_id' => $correction->user_id, 'date' => $dateStr],
+                    $fields
+                );
+            } elseif ($correction->type === 'overtime') {
+                $start = Carbon::parse($correction->requested_clock_in);
+                $end   = Carbon::parse($correction->requested_clock_out);
+
+                OvertimeRecord::create([
+                    'user_id'       => $correction->user_id,
+                    'date'          => $correction->date->format('Y-m-d'),
+                    'start_time'    => $correction->requested_clock_in,
+                    'end_time'      => $correction->requested_clock_out,
+                    'total_minutes' => (int) $start->diffInMinutes($end),
+                    'correction_id' => $correction->id,
+                    'approved_by'   => auth()->id(),
+                    'approved_at'   => now(),
+                ]);
+            }
+        }
+
+        return new AttendanceCorrectionResource($correction->fresh()->load(['user', 'reviewer']));
+    }
+
+    /**
+     * Serve the proof file via a signed, private download.
+     * Registered as a named web route — not an API endpoint.
+     *
+     * GET /attendance/corrections/{correction}/proof
+     */
+    public function proof(AttendanceCorrection $correction): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $caller = auth()->user();
+
+        // Only the owner or managers+ may download the proof
+        if (
+            $caller->id !== $correction->user_id &&
+            ! $caller->hasAnyRole(['super_admin', 'admin', 'manager'])
+        ) {
+            abort(403);
+        }
+
+        abort_unless($correction->proof_path && Storage::disk('local')->exists($correction->proof_path), 404);
+
+        return Storage::disk('local')->download($correction->proof_path);
+    }
+}
