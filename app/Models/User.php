@@ -56,7 +56,11 @@ class User extends Authenticatable
         return $this->hasMany(Team::class, 'leader_id');
     }
 
-    /** The user's assigned work schedule (one per user). */
+    /** Teams where this user is the assigned manager. */
+    public function managedTeams(): HasMany
+    {
+        return $this->hasMany(Team::class, 'manager_id');
+    }
     public function schedule(): HasOne
     {
         return $this->hasOne(Schedule::class);

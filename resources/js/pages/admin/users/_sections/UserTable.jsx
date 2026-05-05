@@ -32,7 +32,7 @@ const AVATAR_COLORS = [
     'bg-amber-500',  'bg-sky-500',     'bg-rose-500',
 ];
 
-export default function UserTable({ users, meta, isLoading, page, onPageChange, onEdit, onDelete }) {
+export default function UserTable({ users, meta, isLoading, page, onPageChange, onEdit, onDelete, hasFilters }) {
     const columns = [
         {
             title: 'Name',
@@ -110,8 +110,17 @@ export default function UserTable({ users, meta, isLoading, page, onPageChange, 
                 <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
                     <Users size={26} className="text-slate-400" />
                 </div>
-                <p className="font-medium text-slate-700">No users yet</p>
-                <p className="mt-1 text-sm text-slate-400">Create your first user to get started.</p>
+                {hasFilters ? (
+                    <>
+                        <p className="font-medium text-slate-700">No users match your filters</p>
+                        <p className="mt-1 text-sm text-slate-400">Try adjusting your search or filter criteria.</p>
+                    </>
+                ) : (
+                    <>
+                        <p className="font-medium text-slate-700">No users yet</p>
+                        <p className="mt-1 text-sm text-slate-400">Create your first user to get started.</p>
+                    </>
+                )}
             </div>
         );
     }

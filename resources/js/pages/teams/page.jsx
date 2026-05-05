@@ -20,6 +20,14 @@ export default function TeamsPage() {
     const meta  = data?.meta ?? {};
     const users = usersData?.data ?? [];
 
+    // Role-filtered subsets for dropdowns in the modal
+    const teamLeadUsers = users.filter((u) =>
+        u.roles?.some((r) => r.slug === 'team_lead')
+    );
+    const managerUsers = users.filter((u) =>
+        u.roles?.some((r) => r.slug === 'manager')
+    );
+
     function openCreate() {
         setEditingTeam(null);
         setModalOpen(true);
@@ -78,7 +86,9 @@ export default function TeamsPage() {
                 open={modalOpen}
                 onClose={() => setModalOpen(false)}
                 editingTeam={editingTeam}
-                users={users}
+                teamLeadUsers={teamLeadUsers}
+                managerUsers={managerUsers}
+                allUsers={users}
             />
         </div>
     );

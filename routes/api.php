@@ -124,6 +124,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/payslips',                      [PayslipController::class, 'index']);
     Route::post('/payslips',                     [PayslipController::class, 'generate']);
     Route::get('/payslips/13th-month',           [PayslipController::class, 'thirteenthMonth']);
+    Route::post('/payslips/bulk-draft',          [PayslipController::class, 'bulkDraft']);
+    Route::post('/payslips/bulk-release',        [PayslipController::class, 'bulkRelease']);
     Route::get('/payslips/{payslip}',            [PayslipController::class, 'show']);
     Route::patch('/payslips/{payslip}/release',  [PayslipController::class, 'release']);
     Route::delete('/payslips/{payslip}',         [PayslipController::class, 'destroy']);

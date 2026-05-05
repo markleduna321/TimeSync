@@ -8,11 +8,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Team extends Model
 {
-    protected $fillable = ['name', 'description', 'leader_id'];
+    protected $fillable = ['name', 'description', 'leader_id', 'manager_id'];
 
     public function leader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'leader_id');
+    }
+
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'manager_id');
     }
 
     public function members(): BelongsToMany

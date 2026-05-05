@@ -93,6 +93,14 @@ export const payrollApi = createApi({
             query: (id) => ({ url: `/payslips/${id}`, method: 'DELETE' }),
             invalidatesTags: [{ type: 'Payslip', id: 'LIST' }],
         }),
+        bulkDraftPayslips: builder.mutation({
+            query: (body) => ({ url: '/payslips/bulk-draft', method: 'POST', body }),
+            invalidatesTags: [{ type: 'Payslip', id: 'LIST' }],
+        }),
+        bulkReleasePayslips: builder.mutation({
+            query: (body) => ({ url: '/payslips/bulk-release', method: 'POST', body }),
+            invalidatesTags: [{ type: 'Payslip', id: 'LIST' }],
+        }),
         getThirteenthMonth: builder.query({
             query: (params = {}) => ({ url: '/payslips/13th-month', params }),
         }),
@@ -161,6 +169,8 @@ export const {
     useGeneratePayslipMutation,
     useReleasePayslipMutation,
     useDeletePayslipMutation,
+    useBulkDraftPayslipsMutation,
+    useBulkReleasePayslipsMutation,
     useGetThirteenthMonthQuery,
     useGetAllowanceTypesQuery,
     useCreateAllowanceTypeMutation,

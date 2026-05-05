@@ -82,7 +82,7 @@ function FileUploadArea({ file, onFileChange, error }) {
                 ) : (
                     <>
                         <Upload size={22} className="mb-1.5 text-slate-400" />
-                        <p className="text-xs font-medium text-slate-600">Click or drag to upload proof</p>
+                        <p className="text-xs font-medium text-slate-600">Click or drag to upload proof <span className="font-normal text-slate-400">(optional)</span></p>
                         <p className="text-[10px] text-slate-400 mt-0.5">JPG, PNG, PDF · max 5 MB</p>
                     </>
                 )}

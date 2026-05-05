@@ -17,6 +17,7 @@ class StoreTeamRequest extends FormRequest
             'name'        => 'required|string|max:191',
             'description' => 'nullable|string|max:500',
             'leader_id'   => 'nullable|integer|exists:users,id',
+            'manager_id'  => 'nullable|integer|exists:users,id',
             'member_ids'  => 'nullable|array',
             'member_ids.*'=> 'integer|exists:users,id',
         ];

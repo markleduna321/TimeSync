@@ -17,7 +17,7 @@ function fmtCurrency(val) {
     return '₱' + Number(val).toLocaleString('en-PH', { minimumFractionDigits: 2 });
 }
 
-export default function PayslipTable({ payslips, isLoading, onView, onRelease, onDelete, releasingId, deletingId }) {
+export default function PayslipTable({ payslips, isLoading, onView, onRelease, onDelete, releasingId, deletingId, selectedIds = [], onSelectChange }) {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-16 text-slate-400 text-sm">
@@ -32,6 +32,28 @@ export default function PayslipTable({ payslips, isLoading, onView, onRelease, o
                 <p className="text-sm text-slate-400">No payslips found.</p>
             </div>
         );
+    }
+
+    function toggleSelect(id) {
+        if (!onSelectChange) return;
+        onSelectChange(
+            selectedIds.includes(id)
+                ? selectedIds.filter((x) => x !== id)
+                : [...selectedIds, id]
+        );
+    }
+
+    const draftIds   = payslips.filter((p) => p.status === 'draft').map((p) => p.id);
+    const allChecked = draftIds.length > 0 && draftIds.every((id) => selectedIds.includes(id));
+    const someChecked = !allChecked && draftIds.some((id) => selectedIds.includes(id));
+
+    function toggleAll() {
+        if (!onSelectChange) return;
+        if (allChecked) {
+            onSelectChange(selectedIds.filter((id) => !draftIds.includes(id)));
+        } else {
+            onSelectChange([...new Set([...selectedIds, ...draftIds])]);
+        }
     }
 
     function confirmRelease(p) {
@@ -61,6 +83,16 @@ export default function PayslipTable({ payslips, isLoading, onView, onRelease, o
             <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-100">
                     <tr>
+                        <th className="px-4 py-3 w-10">
+                            <input
+                                type="checkbox"
+                                checked={allChecked}
+                                ref={(el) => { if (el) el.indeterminate = someChecked; }}
+                                onChange={toggleAll}
+                                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                title="Select all draft payslips"
+                            />
+                        </th>
                         <th className="px-5 py-3 text-left font-medium text-slate-500">Employee</th>
                         <th className="px-5 py-3 text-left font-medium text-slate-500">Period</th>
                         <th className="px-5 py-3 text-left font-medium text-slate-500">Cutoff</th>
@@ -74,6 +106,16 @@ export default function PayslipTable({ payslips, isLoading, onView, onRelease, o
                 <tbody className="divide-y divide-slate-50">
                     {payslips.map((p) => (
                         <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-3">
+                                {p.status === 'draft' ? (
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedIds.includes(p.id)}
+                                        onChange={() => toggleSelect(p.id)}
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                ) : null}
+                            </td>
                             <td className="px-5 py-3 font-medium text-slate-800">{p.user?.name ?? '—'}</td>
                             <td className="px-5 py-3 text-slate-500 font-mono text-xs">
                                 {p.period_start}<br />{p.period_end}

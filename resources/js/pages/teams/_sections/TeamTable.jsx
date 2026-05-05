@@ -34,6 +34,22 @@ export default function TeamTable({ teams, meta, isLoading, page, onPageChange, 
                 ),
         },
         {
+            title: 'Manager',
+            dataIndex: 'manager',
+            key: 'manager',
+            render: (manager) =>
+                manager ? (
+                    <div className="flex items-center gap-2">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-100 text-xs font-semibold text-violet-700">
+                            {getInitials(manager.name)}
+                        </span>
+                        <span className="text-sm text-slate-700">{manager.name}</span>
+                    </div>
+                ) : (
+                    <span className="text-xs text-slate-400">Unassigned</span>
+                ),
+        },
+        {
             title: 'Members',
             dataIndex: 'members',
             key: 'members',

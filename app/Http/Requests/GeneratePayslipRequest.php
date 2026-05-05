@@ -17,6 +17,9 @@ class GeneratePayslipRequest extends FormRequest
             'pay_date'              => 'nullable|date_format:Y-m-d',
             'incentive_amount'      => 'nullable|numeric|min:0',
             'incentive_description' => 'nullable|string|max:255',
+            'prior_period_amount'   => 'nullable|numeric|min:0',
+            'prior_period_start'    => 'nullable|date_format:Y-m-d',
+            'prior_period_end'      => 'nullable|date_format:Y-m-d|after_or_equal:prior_period_start',
         ];
     }
 }

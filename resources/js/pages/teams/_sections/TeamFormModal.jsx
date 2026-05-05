@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Select } from 'antd';
 import { useCreateTeamMutation, useUpdateTeamMutation } from '@/features/teams/teamsApi';
 
-const DEFAULT_FORM = { name: '', description: '', leader_id: null, member_ids: [] };
+const DEFAULT_FORM = { name: '', description: '', leader_id: null, manager_id: null, member_ids: [] };
 
-export default function TeamFormModal({ open, onClose, editingTeam, users }) {
+export default function TeamFormModal({ open, onClose, editingTeam, teamLeadUsers, managerUsers, allUsers }) {
     const [form, setForm]     = useState(DEFAULT_FORM);
     const [errors, setErrors] = useState({});
 
@@ -19,6 +19,7 @@ export default function TeamFormModal({ open, onClose, editingTeam, users }) {
                 name:        editingTeam.name        ?? '',
                 description: editingTeam.description ?? '',
                 leader_id:   editingTeam.leader_id   ?? null,
+                manager_id:  editingTeam.manager_id  ?? null,
                 member_ids:  editingTeam.members?.map((m) => m.id) ?? [],
             });
         } else {
@@ -32,7 +33,9 @@ export default function TeamFormModal({ open, onClose, editingTeam, users }) {
         setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
 
-    const userOptions = users.map((u) => ({ value: u.id, label: u.name }));
+    const teamLeadOptions = (teamLeadUsers ?? []).map((u) => ({ value: u.id, label: u.name }));
+    const managerOptions  = (managerUsers  ?? []).map((u) => ({ value: u.id, label: u.name }));
+    const allUserOptions  = (allUsers      ?? []).map((u) => ({ value: u.id, label: u.name }));
 
     async function handleSubmit() {
         setErrors({});
@@ -98,29 +101,60 @@ export default function TeamFormModal({ open, onClose, editingTeam, users }) {
                     {errors.description && <p className="mt-1 text-xs text-rose-600">{errors.description[0]}</p>}
                 </div>
 
-                {/* Team Lead */}
+                {/* Team Lead — only users with team_lead role */}
                 <div>
                     <label className="block text-sm font-medium text-slate-700" htmlFor="t-leader">
                         Team Lead
                     </label>
-                    <Select
-                        id="t-leader"
-                        className="mt-1 w-full"
-                        placeholder="Select a team lead…"
-                        value={form.leader_id}
-                        onChange={(val) => set('leader_id', val ?? null)}
-                        options={userOptions}
-                        allowClear
-                        showSearch
-                        filterOption={(input, option) =>
-                            (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                        }
-                        disabled={isLoading}
-                    />
+                    {teamLeadOptions.length === 0 ? (
+                        <p className="mt-1 text-xs text-slate-400">No users with the Team Lead role yet.</p>
+                    ) : (
+                        <Select
+                            id="t-leader"
+                            className="mt-1 w-full"
+                            placeholder="Select a team lead…"
+                            value={form.leader_id}
+                            onChange={(val) => set('leader_id', val ?? null)}
+                            options={teamLeadOptions}
+                            allowClear
+                            showSearch
+                            filterOption={(input, option) =>
+                                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                            }
+                            disabled={isLoading}
+                        />
+                    )}
                     {errors.leader_id && <p className="mt-1 text-xs text-rose-600">{errors.leader_id[0]}</p>}
                 </div>
 
-                {/* Members */}
+                {/* Manager — only users with manager role */}
+                <div>
+                    <label className="block text-sm font-medium text-slate-700" htmlFor="t-manager">
+                        Manager
+                        <span className="ml-1 font-normal text-slate-400">(approves team lead requests)</span>
+                    </label>
+                    {managerOptions.length === 0 ? (
+                        <p className="mt-1 text-xs text-slate-400">No users with the Manager role yet.</p>
+                    ) : (
+                        <Select
+                            id="t-manager"
+                            className="mt-1 w-full"
+                            placeholder="Select a manager…"
+                            value={form.manager_id}
+                            onChange={(val) => set('manager_id', val ?? null)}
+                            options={managerOptions}
+                            allowClear
+                            showSearch
+                            filterOption={(input, option) =>
+                                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                            }
+                            disabled={isLoading}
+                        />
+                    )}
+                    {errors.manager_id && <p className="mt-1 text-xs text-rose-600">{errors.manager_id[0]}</p>}
+                </div>
+
+                {/* Members — all users */}
                 <div>
                     <label className="block text-sm font-medium text-slate-700" htmlFor="t-members">
                         Members
@@ -132,7 +166,7 @@ export default function TeamFormModal({ open, onClose, editingTeam, users }) {
                         placeholder="Select team members…"
                         value={form.member_ids}
                         onChange={(val) => set('member_ids', val)}
-                        options={userOptions}
+                        options={allUserOptions}
                         allowClear
                         showSearch
                         filterOption={(input, option) =>

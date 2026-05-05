@@ -20,7 +20,7 @@ class StoreAttendanceCorrectionRequest extends FormRequest
             'date'                 => ['required', 'date', 'before_or_equal:today'],
             'type'                 => ['nullable', 'in:correction,overtime'],
             'reason'               => ['required', 'string', 'min:10', 'max:1000'],
-            'proof'                => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'proof'                => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'requested_clock_in'   => [
                 Rule::requiredIf($isOvertime),
                 'nullable',
@@ -38,7 +38,6 @@ class StoreAttendanceCorrectionRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'proof.required'                  => 'Supporting proof (image or PDF) is required.',
             'proof.mimes'                     => 'Accepted formats: JPG, PNG, PDF.',
             'proof.max'                       => 'Proof file must not exceed 5 MB.',
             'reason.min'                      => 'Please provide at least 10 characters explaining the reason.',

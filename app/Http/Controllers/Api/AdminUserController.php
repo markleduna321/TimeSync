@@ -19,12 +19,31 @@ class AdminUserController extends Controller
     {
         $this->authorize('viewAny', User::class);
 
-        $users = User::with(['roles', 'schedule', 'department', 'account'])
+        $query = User::with(['roles', 'schedule', 'department', 'account'])
             ->orderBy('last_name')
-            ->orderBy('first_name')
-            ->paginate(20);
+            ->orderBy('first_name');
 
-        return UserResource::collection($users);
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('middle_name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
+            });
+        }
+
+        if ($role = $request->input('role')) {
+            $query->whereHas('roles', fn ($q) => $q->where('slug', $role));
+        }
+
+        if ($departmentId = $request->input('department_id')) {
+            $query->where('department_id', (int) $departmentId);
+        }
+
+        $perPage = min((int) $request->input('per_page', 20), 500);
+
+        return UserResource::collection($query->paginate($perPage));
     }
 
     public function store(StoreUserRequest $request): UserResource

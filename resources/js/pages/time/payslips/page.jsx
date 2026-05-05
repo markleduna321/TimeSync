@@ -30,7 +30,7 @@ export default function MyPayslipsPage() {
             {/* Header */}
             <div>
                 <h1 className="text-xl font-bold text-slate-800">My Payslips</h1>
-                <p className="mt-0.5 text-sm text-slate-500">View your released payslips and earnings history.</p>
+                <p className="mt-0.5 text-sm text-slate-500">View your payslips. Drafts are visible before final release so you can check and file corrections.</p>
             </div>
 
             {/* Year filter */}
@@ -55,7 +55,7 @@ export default function MyPayslipsPage() {
             ) : payslips.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
                     <FileText size={32} className="text-slate-300" />
-                    <p className="text-sm text-slate-400">No payslips available for {year}.</p>
+                    <p className="text-sm text-slate-400">No payslips found for {year}.</p>
                 </div>
             ) : (
                 <div className="space-y-3">

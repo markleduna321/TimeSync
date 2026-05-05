@@ -131,6 +131,25 @@ class PayslipComputationService
         return round(($dailyRate / 8.0) * $multiplier * ($overtimeMinutes / 60.0), 2);
     }
 
+    /**
+     * Rest day work — first 8 hours: +30% over regular hourly rate (DOLE Art. 93).
+     */
+    public function computeRestDayPay(float $dailyRate, int $minutes): float
+    {
+        if ($minutes <= 0) return 0.0;
+        return round(($dailyRate / 8.0) * 1.30 * ($minutes / 60.0), 2);
+    }
+
+    /**
+     * Rest Day Overtime (RDOT) — hours beyond 8 on a rest day: +30% over rest-day rate
+     * = hourly rate × 1.30 × 1.30 = 1.69× (DOLE Art. 93; BIR TRAIN-compliant).
+     */
+    public function computeRestDayOtPay(float $dailyRate, int $minutes): float
+    {
+        if ($minutes <= 0) return 0.0;
+        return round(($dailyRate / 8.0) * 1.69 * ($minutes / 60.0), 2);
+    }
+
     public function computeHolidayExtra(float $dailyRate, string $holidayType, bool $worked): float
     {
         if ($holidayType === 'regular' && !$worked) return round($dailyRate, 2);
@@ -173,6 +192,8 @@ class PayslipComputationService
 
         $daysScheduled = $daysWorked = $daysAbsent = $lateMinutes = $undertimeMins = 0;
         $holidayPayExtra = $overtimePay = 0.0;
+        $otMinutes = $restDayMinutes = $restDayOtMinutes = 0;
+        $restDayPay = $restDayOtPay = 0.0;
 
         foreach (CarbonPeriod::create($periodStart, $periodEnd) as $cursor) {
             $dateStr   = $cursor->toDateString();
@@ -182,7 +203,21 @@ class PayslipComputationService
             $log     = $logs[$dateStr] ?? null;
             $worked  = $log && $log->clock_in;
 
-            if (!$isWorkDay && !$holiday) continue;
+            if (!$isWorkDay && !$holiday) {
+                // Pure rest day — track if employee actually worked
+                if ($worked) {
+                    $workedMins = (int)($log->total_worked_minutes ?? 0);
+                    if ($workedMins > 0) {
+                        $rdRegular     = min($workedMins, 480);
+                        $rdOt          = max(0, $workedMins - 480);
+                        $restDayMinutes   += $rdRegular;
+                        $restDayOtMinutes += $rdOt;
+                        $restDayPay    += $this->computeRestDayPay($dailyRate, $rdRegular);
+                        $restDayOtPay  += $this->computeRestDayOtPay($dailyRate, $rdOt);
+                    }
+                }
+                continue;
+            }
 
             if (!$isWorkDay && $holiday) {
                 if (!$worked) {
@@ -223,7 +258,9 @@ class PayslipComputationService
             }
 
             if ($log->overtime_minutes ?? 0) {
-                $overtimePay += $this->computeOvertimePay($dailyRate, (int)$log->overtime_minutes, (bool)$holiday);
+                $otMins = (int)$log->overtime_minutes;
+                $otMinutes += $otMins;
+                $overtimePay += $this->computeOvertimePay($dailyRate, $otMins, (bool)$holiday);
             }
         }
 
@@ -278,7 +315,13 @@ class PayslipComputationService
             $earnings[] = ['code' => 'HOLIDAY_PAY', 'description' => 'Holiday Pay', 'sort_order' => $sort++, 'amount' => $holidayPayExtra, 'is_taxable' => true];
         }
         if ($overtimePay > 0) {
-            $earnings[] = ['code' => 'OVERTIME',    'description' => 'Overtime Pay', 'sort_order' => $sort++, 'amount' => $overtimePay, 'is_taxable' => true];
+            $earnings[] = ['code' => 'OVERTIME',    'description' => 'Overtime Pay (OT)', 'sort_order' => $sort++, 'amount' => $overtimePay, 'is_taxable' => true];
+        }
+        if ($restDayPay > 0) {
+            $earnings[] = ['code' => 'RESTDAY_PAY', 'description' => 'Rest Day Pay (+30%)', 'sort_order' => $sort++, 'amount' => $restDayPay, 'is_taxable' => true];
+        }
+        if ($restDayOtPay > 0) {
+            $earnings[] = ['code' => 'RDOT',        'description' => 'Rest Day OT Pay (RDOT +69%)', 'sort_order' => $sort++, 'amount' => $restDayOtPay, 'is_taxable' => true];
         }
 
         foreach ($allowances as $ua) {
@@ -385,6 +428,9 @@ class PayslipComputationService
                 'days_absent'       => $daysAbsent,
                 'late_minutes'      => $lateMinutes,
                 'undertime_minutes' => $undertimeMins,
+                'ot_minutes'          => $otMinutes,
+                'rest_day_minutes'    => $restDayMinutes,
+                'rest_day_ot_minutes' => $restDayOtMinutes,
             ],
         ];
     }

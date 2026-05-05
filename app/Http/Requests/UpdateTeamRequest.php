@@ -17,6 +17,7 @@ class UpdateTeamRequest extends FormRequest
             'name'        => 'sometimes|string|max:191',
             'description' => 'sometimes|nullable|string|max:500',
             'leader_id'   => 'sometimes|nullable|integer|exists:users,id',
+            'manager_id'  => 'sometimes|nullable|integer|exists:users,id',
             'member_ids'  => 'sometimes|array',
             'member_ids.*'=> 'integer|exists:users,id',
         ];
