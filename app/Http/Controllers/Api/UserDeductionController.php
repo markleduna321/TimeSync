@@ -18,7 +18,7 @@ class UserDeductionController extends Controller
 
         $deductions = UserDeduction::with('deductionType', 'addedBy')
             ->where('user_id', $user->id)
-            ->orderByDesc('is_active')
+            ->where('is_active', true)
             ->orderBy('effective_from')
             ->get();
 

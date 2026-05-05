@@ -13,11 +13,13 @@ class AllowanceType extends Model
         'is_taxable',
         'monthly_de_minimis_limit',
         'description',
+        'is_active',
     ];
 
     protected $casts = [
         'is_taxable'               => 'boolean',
         'monthly_de_minimis_limit' => 'decimal:2',
+        'is_active'                => 'boolean',
     ];
 
     public function userAllowances(): HasMany

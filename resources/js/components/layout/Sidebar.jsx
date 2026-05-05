@@ -13,6 +13,7 @@ import {
     CheckSquare,
     DollarSign,
     FileText,
+    Layers,
     Users,
     Users2,
     BarChart2,
@@ -73,6 +74,12 @@ const NAV_SECTIONS = [
                 label: 'Users',
                 href: '/admin/users',
                 icon: Users,
+                roles: ['super_admin', 'admin'],
+            },
+            {
+                label: 'Compensation',
+                href: '/admin/compensation',
+                icon: Layers,
                 roles: ['super_admin', 'admin'],
             },
             {

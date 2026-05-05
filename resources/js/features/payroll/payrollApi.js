@@ -4,7 +4,7 @@ import { baseQueryWithCsrf } from '@/features/csrfBaseQuery';
 export const payrollApi = createApi({
     reducerPath: 'payrollApi',
     baseQuery: baseQueryWithCsrf('/api'),
-    tagTypes: ['Holiday', 'DeductionType', 'UserDeduction', 'Payslip', 'AllowanceType', 'UserAllowance'],
+    tagTypes: ['Holiday', 'DeductionType', 'UserDeduction', 'Payslip', 'AllowanceType', 'UserAllowance', 'UserGovDeduction'],
     endpoints: (builder) => ({
 
         /* ── Holidays ──────────────────────────────────────────────── */
@@ -33,8 +33,23 @@ export const payrollApi = createApi({
 
         /* ── Deduction Types ───────────────────────────────────────── */
         getDeductionTypes: builder.query({
-            query: () => '/deduction-types',
-            providesTags: [{ type: 'DeductionType', id: 'LIST' }],
+            query: (params = {}) => ({ url: '/deduction-types', params }),
+            providesTags: (result) =>
+                result?.data
+                    ? [...result.data.map(({ id }) => ({ type: 'DeductionType', id })), { type: 'DeductionType', id: 'LIST' }]
+                    : [{ type: 'DeductionType', id: 'LIST' }],
+        }),
+        createDeductionType: builder.mutation({
+            query: (body) => ({ url: '/deduction-types', method: 'POST', body }),
+            invalidatesTags: [{ type: 'DeductionType', id: 'LIST' }],
+        }),
+        updateDeductionType: builder.mutation({
+            query: ({ id, ...body }) => ({ url: `/deduction-types/${id}`, method: 'PATCH', body }),
+            invalidatesTags: (_r, _e, { id }) => [{ type: 'DeductionType', id }, { type: 'DeductionType', id: 'LIST' }],
+        }),
+        deleteDeductionType: builder.mutation({
+            query: (id) => ({ url: `/deduction-types/${id}`, method: 'DELETE' }),
+            invalidatesTags: [{ type: 'DeductionType', id: 'LIST' }],
         }),
 
         /* ── User Deductions ───────────────────────────────────────── */
@@ -84,8 +99,23 @@ export const payrollApi = createApi({
 
         /* ── Allowance Types ───────────────────────────────────────── */
         getAllowanceTypes: builder.query({
-            query: () => '/allowance-types',
-            providesTags: [{ type: 'AllowanceType', id: 'LIST' }],
+            query: (params = {}) => ({ url: '/allowance-types', params }),
+            providesTags: (result) =>
+                result?.data
+                    ? [...result.data.map(({ id }) => ({ type: 'AllowanceType', id })), { type: 'AllowanceType', id: 'LIST' }]
+                    : [{ type: 'AllowanceType', id: 'LIST' }],
+        }),
+        createAllowanceType: builder.mutation({
+            query: (body) => ({ url: '/allowance-types', method: 'POST', body }),
+            invalidatesTags: [{ type: 'AllowanceType', id: 'LIST' }],
+        }),
+        updateAllowanceType: builder.mutation({
+            query: ({ id, ...body }) => ({ url: `/allowance-types/${id}`, method: 'PATCH', body }),
+            invalidatesTags: (_r, _e, { id }) => [{ type: 'AllowanceType', id }, { type: 'AllowanceType', id: 'LIST' }],
+        }),
+        deleteAllowanceType: builder.mutation({
+            query: (id) => ({ url: `/allowance-types/${id}`, method: 'DELETE' }),
+            invalidatesTags: [{ type: 'AllowanceType', id: 'LIST' }],
         }),
 
         /* ── User Allowances ───────────────────────────────────────── */
@@ -101,6 +131,16 @@ export const payrollApi = createApi({
             query: ({ userId, allowanceId }) => ({ url: `/users/${userId}/allowances/${allowanceId}`, method: 'DELETE' }),
             invalidatesTags: (_r, _e, { userId }) => [{ type: 'UserAllowance', id: `user-${userId}` }],
         }),
+
+        /* ── Government Contribution Toggles ───────────────────────── */
+        getUserGovDeductions: builder.query({
+            query: (userId) => `/users/${userId}/government-deductions`,
+            providesTags: (_r, _e, userId) => [{ type: 'UserGovDeduction', id: `user-${userId}` }],
+        }),
+        updateUserGovDeduction: builder.mutation({
+            query: ({ userId, code, ...body }) => ({ url: `/users/${userId}/government-deductions/${code}`, method: 'PATCH', body }),
+            invalidatesTags: (_r, _e, { userId }) => [{ type: 'UserGovDeduction', id: `user-${userId}` }],
+        }),
     }),
 });
 
@@ -110,6 +150,9 @@ export const {
     useUpdateHolidayMutation,
     useDeleteHolidayMutation,
     useGetDeductionTypesQuery,
+    useCreateDeductionTypeMutation,
+    useUpdateDeductionTypeMutation,
+    useDeleteDeductionTypeMutation,
     useGetUserDeductionsQuery,
     useCreateUserDeductionMutation,
     useDeleteUserDeductionMutation,
@@ -120,7 +163,12 @@ export const {
     useDeletePayslipMutation,
     useGetThirteenthMonthQuery,
     useGetAllowanceTypesQuery,
+    useCreateAllowanceTypeMutation,
+    useUpdateAllowanceTypeMutation,
+    useDeleteAllowanceTypeMutation,
     useGetUserAllowancesQuery,
     useCreateUserAllowanceMutation,
     useDeleteUserAllowanceMutation,
+    useGetUserGovDeductionsQuery,
+    useUpdateUserGovDeductionMutation,
 } = payrollApi;

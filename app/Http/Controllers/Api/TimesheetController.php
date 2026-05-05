@@ -22,7 +22,8 @@ class TimesheetController extends Controller
         $caller = $request->user();
 
         if ($caller->hasAnyRole(['super_admin', 'admin', 'manager'])) {
-            $users = User::select('id', 'name', 'email')->orderBy('name')->get();
+            $users = User::select('id', 'first_name', 'middle_name', 'last_name', 'email')
+                ->orderBy('first_name')->orderBy('last_name')->get();
         } elseif ($caller->hasRole('team_lead')) {
             $memberIds = $caller->ledTeams()
                 ->with('members:id')
@@ -31,9 +32,9 @@ class TimesheetController extends Controller
                 ->unique()
                 ->values();
 
-            $users = User::select('id', 'name', 'email')
+            $users = User::select('id', 'first_name', 'middle_name', 'last_name', 'email')
                 ->whereIn('id', $memberIds)
-                ->orderBy('name')
+                ->orderBy('first_name')->orderBy('last_name')
                 ->get();
         } else {
             $users = collect();

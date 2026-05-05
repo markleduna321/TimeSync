@@ -31,7 +31,7 @@ class ScheduleController extends Controller
 
         $caller = $request->user();
 
-        $query = User::with(['schedule', 'roles'])->orderBy('name');
+        $query = User::with(['schedule', 'roles'])->orderBy('first_name')->orderBy('last_name');
 
         // Team leads are scoped to members of their led teams
         if (

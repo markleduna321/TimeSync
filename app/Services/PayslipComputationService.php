@@ -8,6 +8,7 @@ use App\Models\PayslipLine;
 use App\Models\TimeLog;
 use App\Models\UserAllowance;
 use App\Models\UserDeduction;
+use App\Models\UserGovernmentDeductionSetting;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 
@@ -250,6 +251,19 @@ class PayslipComputationService
         $philhealth = $this->computePhilHealth($monthlySalary);
         $pagibig    = $this->computePagIbig($monthlySalary);
 
+        // --- Government contribution toggles (per-user override) ---
+        $govEnabled = UserGovernmentDeductionSetting::where('user_id', $employee->id)
+            ->pluck('is_enabled', 'code');
+        $sssEnabled = (bool)($govEnabled['SSS']             ?? true);
+        $phEnabled  = (bool)($govEnabled['PHILHEALTH']       ?? true);
+        $piEnabled  = (bool)($govEnabled['PAGIBIG']          ?? true);
+        $whtEnabled = (bool)($govEnabled['WITHHOLDING_TAX']  ?? true);
+
+        if (!$sssEnabled) { $sss = ['ss' => 0.0, 'wisp' => 0.0]; }
+        if (!$phEnabled)  { $philhealth = 0.0; }
+        if (!$piEnabled)  { $pagibig    = 0.0; }
+        // $whtEnabled applied below when building $wht
+
         $sssHalf        = round($sss['ss']   / 2, 2);
         $wispHalf       = round($sss['wisp'] / 2, 2);
         $philhealthHalf = round($philhealth   / 2, 2);
@@ -305,24 +319,34 @@ class PayslipComputationService
             $wht             = max(0.0, round($totalMonthlyWht - $firstWht, 2));
         }
 
+        if (!$whtEnabled) { $wht = 0.0; }
+
         $deductions = [];
         $dsort = 0;
 
-        $deductions[] = ['code' => 'SSS',        'description' => 'SSS Contribution',        'sort_order' => $dsort++, 'amount' => $sssHalf,        'is_taxable' => false];
-        if ($wispHalf > 0) {
-            $deductions[] = ['code' => 'SSS_WISP', 'description' => 'SSS WISP (Provident)',  'sort_order' => $dsort++, 'amount' => $wispHalf,        'is_taxable' => false];
+        if ($sssEnabled) {
+            $deductions[] = ['code' => 'SSS', 'description' => 'SSS Contribution', 'sort_order' => $dsort++, 'amount' => $sssHalf, 'is_taxable' => false];
+            if ($wispHalf > 0) {
+                $deductions[] = ['code' => 'SSS_WISP', 'description' => 'SSS WISP (Provident)', 'sort_order' => $dsort++, 'amount' => $wispHalf, 'is_taxable' => false];
+            }
         }
-        $deductions[] = ['code' => 'PHILHEALTH',  'description' => 'PhilHealth Contribution', 'sort_order' => $dsort++, 'amount' => $philhealthHalf, 'is_taxable' => false];
-        $deductions[] = ['code' => 'PAGIBIG',      'description' => 'Pag-IBIG Contribution',  'sort_order' => $dsort++, 'amount' => $pagibigHalf,    'is_taxable' => false];
-        $deductions[] = [
-            'code'        => 'WITHHOLDING_TAX',
-            'description' => $cutoffType === 'first'
-                ? 'Withholding Tax — Semi-Monthly (TRAIN)'
-                : 'Withholding Tax — Cumulative Adjustment (TRAIN)',
-            'sort_order'  => $dsort++,
-            'amount'      => $wht,
-            'is_taxable'  => false,
-        ];
+        if ($phEnabled) {
+            $deductions[] = ['code' => 'PHILHEALTH', 'description' => 'PhilHealth Contribution', 'sort_order' => $dsort++, 'amount' => $philhealthHalf, 'is_taxable' => false];
+        }
+        if ($piEnabled) {
+            $deductions[] = ['code' => 'PAGIBIG', 'description' => 'Pag-IBIG Contribution', 'sort_order' => $dsort++, 'amount' => $pagibigHalf, 'is_taxable' => false];
+        }
+        if ($whtEnabled) {
+            $deductions[] = [
+                'code'        => 'WITHHOLDING_TAX',
+                'description' => $cutoffType === 'first'
+                    ? 'Withholding Tax — Semi-Monthly (TRAIN)'
+                    : 'Withholding Tax — Cumulative Adjustment (TRAIN)',
+                'sort_order'  => $dsort++,
+                'amount'      => $wht,
+                'is_taxable'  => false,
+            ];
+        }
 
         if ($lateDeduction > 0) {
             $deductions[] = ['code' => 'LATE',      'description' => 'Late Deduction',      'sort_order' => $dsort++, 'amount' => $lateDeduction, 'is_taxable' => false];

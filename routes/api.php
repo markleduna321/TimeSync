@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\TimesheetController;
 use App\Http\Controllers\Api\UserAllowanceController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserDeductionController;
+use App\Http\Controllers\Api\UserGovernmentDeductionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -79,21 +80,31 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/holidays/{holiday}',  [HolidayController::class, 'update']);
     Route::delete('/holidays/{holiday}', [HolidayController::class, 'destroy']);
 
-    // --- Deduction Types (read-only list) ---
-    Route::get('/deduction-types', [DeductionTypeController::class, 'index']);
+    // --- Deduction Types ---
+    Route::get('/deduction-types',           [DeductionTypeController::class, 'index']);
+    Route::post('/deduction-types',          [DeductionTypeController::class, 'store']);
+    Route::patch('/deduction-types/{type}',  [DeductionTypeController::class, 'update']);
+    Route::delete('/deduction-types/{type}', [DeductionTypeController::class, 'destroy']);
 
     // --- User Deductions ---
     Route::get('/users/{user}/deductions',              [UserDeductionController::class, 'index']);
     Route::post('/users/{user}/deductions',             [UserDeductionController::class, 'store']);
     Route::delete('/users/{user}/deductions/{deduction}', [UserDeductionController::class, 'destroy']);
 
-    // --- Allowance Types (lookup) ---
-    Route::get('/allowance-types', [AllowanceTypeController::class, 'index']);
+    // --- Allowance Types ---
+    Route::get('/allowance-types',              [AllowanceTypeController::class, 'index']);
+    Route::post('/allowance-types',             [AllowanceTypeController::class, 'store']);
+    Route::patch('/allowance-types/{type}',     [AllowanceTypeController::class, 'update']);
+    Route::delete('/allowance-types/{type}',    [AllowanceTypeController::class, 'destroy']);
 
     // --- User Allowances ---
     Route::get('/users/{user}/allowances',              [UserAllowanceController::class, 'index']);
     Route::post('/users/{user}/allowances',             [UserAllowanceController::class, 'store']);
     Route::delete('/users/{user}/allowances/{allowance}', [UserAllowanceController::class, 'destroy']);
+
+    // --- Government Contribution Toggles (per user) ---
+    Route::get('/users/{user}/government-deductions',          [UserGovernmentDeductionController::class, 'index']);
+    Route::patch('/users/{user}/government-deductions/{code}', [UserGovernmentDeductionController::class, 'update']);
 
     // --- Payslips ---
     Route::get('/payslips',                      [PayslipController::class, 'index']);

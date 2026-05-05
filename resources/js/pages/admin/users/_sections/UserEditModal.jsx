@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Tabs, Spin } from 'antd';
+import { Modal, Tabs, Spin, Switch } from 'antd';
 import {
     User, Shield, CalendarClock, Tag, Gift, Building2, AtSign,
-    PlusCircle, Trash2, CheckCircle2,
+    PlusCircle, Trash2, CheckCircle2, ShieldCheck,
 } from 'lucide-react';
 import { useUpdateUserMutation } from '@/features/users/usersApi';
 import { useGetRolesQuery } from '@/features/roles/rolesApi';
@@ -16,6 +16,8 @@ import {
     useGetAllowanceTypesQuery,
     useCreateUserAllowanceMutation,
     useDeleteUserAllowanceMutation,
+    useGetUserGovDeductionsQuery,
+    useUpdateUserGovDeductionMutation,
 } from '@/features/payroll/payrollApi';
 
 /* ─── Shared helpers ─────────────────────────────────────────────────────── */
@@ -690,6 +692,54 @@ function AllowancesTab({ user }) {
     );
 }
 
+/* ─── Gov Contributions Tab ──────────────────────────────────────────────── */
+function GovContributionsTab({ user }) {
+    const { data, isLoading } = useGetUserGovDeductionsQuery(user?.id, { skip: !user?.id });
+    const [updateToggle] = useUpdateUserGovDeductionMutation();
+
+    const items = data?.data ?? [];
+
+    const handleToggle = (code, checked) => {
+        updateToggle({ userId: user.id, code, is_enabled: checked });
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center py-16">
+                <Spin />
+            </div>
+        );
+    }
+
+    return (
+        <TabSection title="Government Contributions">
+            <p className="text-xs text-slate-500 mb-4">
+                Toggle each contribution to include or waive it from this employee's payslips.
+                Changes take effect on the next generated payslip.
+            </p>
+            <div className="space-y-3">
+                {items.map((item) => (
+                    <div key={item.code} className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 bg-white">
+                        <div>
+                            <p className="text-sm font-medium text-slate-800">{item.name}</p>
+                            <p className="text-xs text-slate-500 font-mono">{item.code}</p>
+                            {!item.is_enabled && (
+                                <p className="text-xs text-amber-600 mt-1">
+                                    Waived — will be excluded from payslips until re-enabled
+                                </p>
+                            )}
+                        </div>
+                        <Switch
+                            checked={item.is_enabled}
+                            onChange={(checked) => handleToggle(item.code, checked)}
+                        />
+                    </div>
+                ))}
+            </div>
+        </TabSection>
+    );
+}
+
 /* ─── Coming Soon placeholder ────────────────────────────────────────────── */
 function ComingSoon({ icon: Icon, label }) {
     return (
@@ -740,6 +790,11 @@ export default function UserEditModal({ open, onClose, user }) {
             key:      'allowances',
             label:    <span className="flex items-center gap-1.5"><Gift size={13} /> Allowances</span>,
             children: <AllowancesTab user={user} />,
+        },
+        {
+            key:      'gov-contributions',
+            label:    <span className="flex items-center gap-1.5"><ShieldCheck size={13} /> Gov. Contributions</span>,
+            children: <GovContributionsTab user={user} />,
         },
         {
             key:      'account',

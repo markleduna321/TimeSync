@@ -15,6 +15,7 @@ class AllowanceTypeResource extends JsonResource
             'is_taxable'              => $this->is_taxable,
             'monthly_de_minimis_limit' => $this->monthly_de_minimis_limit,
             'description'             => $this->description,
+            'is_active'               => $this->is_active,
         ];
     }
 }
