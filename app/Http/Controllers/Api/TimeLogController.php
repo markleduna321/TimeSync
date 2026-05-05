@@ -29,6 +29,10 @@ class TimeLogController extends Controller
 
     public function clockIn(ClockActionRequest $request): TimeLogResource|JsonResponse
     {
+        if (! auth()->user()->hasRole('employee')) {
+            return response()->json(['message' => 'Only employees can clock in.'], 403);
+        }
+
         if ($this->todayLog()) {
             return response()->json(['message' => 'Already clocked in today.'], 409);
         }

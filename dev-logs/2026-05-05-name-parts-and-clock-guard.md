@@ -1,0 +1,26 @@
+### Phase: Name split (first/middle/last) + Employee-only clock-in
+
+- **Timestamp:** 2026-05-05
+- **Persona(s) Active:** Backend + Frontend + QA
+- **Files Modified/Created:**
+  - `database/migrations/2026_05_05_000001_add_name_parts_to_users_table.php` — Created. Adds `first_name`, `middle_name` (nullable), `last_name`; back-fills from old `name`; drops `name`. `down()` is reversible.
+  - `app/Models/User.php` — Removed `name` from `$fillable`; added `first_name`, `middle_name`, `last_name`. Added `getNameAttribute()` virtual accessor → returns `trim("first middle last")` so all existing code using `$user->name` keeps working.
+  - `app/Http/Resources/UserResource.php` — Added `first_name`, `middle_name`, `last_name` fields. Kept `name` (computed) for backward compatibility.
+  - `app/Http/Requests/StoreUserRequest.php` — Replaced `name` rule with `first_name` (required), `middle_name` (nullable), `last_name` (required).
+  - `app/Http/Requests/UpdateUserRequest.php` — Same replacement; all three are `sometimes`.
+  - `app/Http/Controllers/Api/AdminUserController.php` — Updated `store()` to pass three name fields. Changed `orderBy('name')` to `orderBy('last_name')->orderBy('first_name')`.
+  - `app/Http/Controllers/Api/TimeLogController.php` — Added role guard at the top of `clockIn()`: returns 403 if the authenticated user does not have the `employee` role.
+  - `resources/js/pages/admin/users/_sections/UserFormModal.jsx` — Replaced single "Full Name" field with First Name + Last Name (two-column grid) and Middle Name (optional, below).
+  - `resources/js/pages/admin/users/_sections/UserEditModal.jsx` — Updated ProfileTab: state now holds `first_name`, `middle_name`, `last_name`; `useEffect` pre-fills from `user.first_name` etc.; form renders two-column first/last + optional middle; `handleSave` payload updated.
+  - `resources/js/pages/home-page/page.jsx` — Added `usePage()` to read `auth.user.roles`. If the user does not have the `employee` role, ClockWidget + TodayTimeline are replaced with a "Time tracking not available" info card.
+- **Issues Encountered:** None.
+- **Resolution:** N/A
+- **QA Checklist Result:** Pass
+  - Plain JS only ✓
+  - Migration has valid `down()` ✓
+  - `$fillable` updated, no `name` column mass-assignment ✓
+  - Virtual accessor keeps all `$user->name` references working ✓
+  - 403 returned (not 422) for non-employee clock-in attempt ✓
+  - Frontend guard mirrors backend — non-employees never see the clock widget ✓
+  - Build: ✅ 6.42 s, no errors
+- **Next Steps:** None planned — awaiting next feature request.

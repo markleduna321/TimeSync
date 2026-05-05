@@ -84,14 +84,21 @@ function inputCls(err) {
 
 /* ─── Profile Tab ────────────────────────────────────────────────────────── */
 function ProfileTab({ user }) {
-    const [form, setForm]   = useState({ name: '', email: '', password: '', monthly_salary: '' });
+    const [form, setForm]   = useState({ first_name: '', middle_name: '', last_name: '', email: '', password: '', monthly_salary: '' });
     const [errors, setErrors] = useState({});
     const [saved, setSaved]   = useState(false);
 
     const [updateUser, { isLoading }] = useUpdateUserMutation();
 
     useEffect(() => {
-        setForm({ name: user?.name ?? '', email: user?.email ?? '', password: '', monthly_salary: user?.monthly_salary ?? '' });
+        setForm({
+            first_name:     user?.first_name     ?? '',
+            middle_name:    user?.middle_name    ?? '',
+            last_name:      user?.last_name      ?? '',
+            email:          user?.email          ?? '',
+            password:       '',
+            monthly_salary: user?.monthly_salary ?? '',
+        });
         setErrors({});
         setSaved(false);
     }, [user?.id]);
@@ -106,8 +113,14 @@ function ProfileTab({ user }) {
         setErrors({});
         setSaved(false);
         try {
-            const payload = { id: user.id, name: form.name, email: form.email };
-            if (form.password) payload.password = form.password;
+            const payload = {
+                id:         user.id,
+                first_name: form.first_name,
+                last_name:  form.last_name,
+                email:      form.email,
+            };
+            if (form.middle_name !== '') payload.middle_name = form.middle_name || null;
+            if (form.password)           payload.password = form.password;
             if (form.monthly_salary !== '') payload.monthly_salary = parseFloat(form.monthly_salary);
             await updateUser(payload).unwrap();
             setSaved(true);
@@ -119,9 +132,23 @@ function ProfileTab({ user }) {
 
     return (
         <form onSubmit={handleSave} className="space-y-4 pt-1">
-            <Field label="Full Name" required error={errors.name}>
-                <input type="text" value={form.name} onChange={(e) => set('name', e.target.value)}
-                    className={inputCls(errors.name)} placeholder="Jane Doe" disabled={isLoading} />
+            <div className="grid grid-cols-2 gap-3">
+                <Field label="First Name" required error={errors.first_name}>
+                    <input type="text" value={form.first_name} onChange={(e) => set('first_name', e.target.value)}
+                        className={inputCls(errors.first_name)} placeholder="Jane" disabled={isLoading} />
+                </Field>
+                <Field label="Last Name" required error={errors.last_name}>
+                    <input type="text" value={form.last_name} onChange={(e) => set('last_name', e.target.value)}
+                        className={inputCls(errors.last_name)} placeholder="Doe" disabled={isLoading} />
+                </Field>
+            </div>
+
+            <Field
+                label={<>Middle Name <span className="font-normal text-slate-400">(optional)</span></>}
+                error={errors.middle_name}
+            >
+                <input type="text" value={form.middle_name} onChange={(e) => set('middle_name', e.target.value)}
+                    className={inputCls(errors.middle_name)} placeholder="Marie" disabled={isLoading} />
             </Field>
 
             <Field label="Email" required error={errors.email}>

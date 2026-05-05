@@ -20,7 +20,8 @@ class AdminUserController extends Controller
         $this->authorize('viewAny', User::class);
 
         $users = User::with(['roles', 'schedule'])
-            ->orderBy('name')
+            ->orderBy('last_name')
+            ->orderBy('first_name')
             ->paginate(20);
 
         return UserResource::collection($users);
@@ -31,9 +32,11 @@ class AdminUserController extends Controller
         $this->authorize('create', User::class);
 
         $user = User::create([
-            'name'     => $request->name,
-            'email'    => $request->email,
-            'password' => Hash::make($request->password),
+            'first_name'  => $request->first_name,
+            'middle_name' => $request->middle_name,
+            'last_name'   => $request->last_name,
+            'email'       => $request->email,
+            'password'    => Hash::make($request->password),
         ]);
 
         if ($request->filled('roles')) {

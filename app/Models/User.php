@@ -15,11 +15,25 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     protected $fillable = [
-        'name',
+        'first_name',
+        'middle_name',
+        'last_name',
         'email',
         'password',
         'monthly_salary',
     ];
+
+    /**
+     * Virtual full-name accessor so all existing code using $user->name keeps working.
+     */
+    public function getNameAttribute(): string
+    {
+        return trim(implode(' ', array_filter([
+            $this->first_name,
+            $this->middle_name,
+            $this->last_name,
+        ])));
+    }
 
     /* ── Relationships ─────────────────────────────────── */
 

@@ -15,7 +15,10 @@ class UserResource extends JsonResource
     {
         return [
             'id'                => $this->when(isset($this->id), $this->id),
-            'name'              => $this->name,
+            'first_name'        => $this->first_name,
+            'middle_name'       => $this->middle_name,
+            'last_name'         => $this->last_name,
+            'name'              => $this->name, // computed accessor: first + middle + last
             'email'             => $this->email,
             'monthly_salary'    => $this->monthly_salary,
             'roles'             => $this->whenLoaded('roles', fn () =>

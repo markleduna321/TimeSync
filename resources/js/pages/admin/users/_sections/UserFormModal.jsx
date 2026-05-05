@@ -3,7 +3,7 @@ import { Modal } from 'antd';
 import { useCreateUserMutation } from '@/features/users/usersApi';
 import { useGetRolesQuery } from '@/features/roles/rolesApi';
 
-const DEFAULT_FORM = { name: '', email: '', password: '', monthly_salary: '', roles: [] };
+const DEFAULT_FORM = { first_name: '', middle_name: '', last_name: '', email: '', password: '', monthly_salary: '', roles: [] };
 
 const ROLE_COLORS = {
     super_admin: 'text-purple-700',
@@ -47,7 +47,9 @@ export default function UserFormModal({ open, onClose }) {
         setErrors({});
         try {
             await createUser({
-                name:           form.name,
+                first_name:     form.first_name,
+                middle_name:    form.middle_name || null,
+                last_name:      form.last_name,
                 email:          form.email,
                 password:       form.password,
                 monthly_salary: form.monthly_salary || null,
@@ -71,23 +73,61 @@ export default function UserFormModal({ open, onClose }) {
             destroyOnHidden
         >
             <div className="mt-4 space-y-4">
-                {/* Name */}
+                {/* First Name + Last Name */}
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700" htmlFor="u-fname">
+                            First Name <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                            id="u-fname"
+                            type="text"
+                            value={form.first_name}
+                            onChange={(e) => set('first_name', e.target.value)}
+                            className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                                errors.first_name ? 'border-rose-400 bg-rose-50' : 'border-slate-200'
+                            }`}
+                            placeholder="Jane"
+                            disabled={isLoading}
+                        />
+                        {errors.first_name && <p className="mt-1 text-xs text-rose-600">{errors.first_name[0]}</p>}
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700" htmlFor="u-lname">
+                            Last Name <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                            id="u-lname"
+                            type="text"
+                            value={form.last_name}
+                            onChange={(e) => set('last_name', e.target.value)}
+                            className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                                errors.last_name ? 'border-rose-400 bg-rose-50' : 'border-slate-200'
+                            }`}
+                            placeholder="Doe"
+                            disabled={isLoading}
+                        />
+                        {errors.last_name && <p className="mt-1 text-xs text-rose-600">{errors.last_name[0]}</p>}
+                    </div>
+                </div>
+
+                {/* Middle Name */}
                 <div>
-                    <label className="block text-sm font-medium text-slate-700" htmlFor="u-name">
-                        Full Name <span className="text-rose-500">*</span>
+                    <label className="block text-sm font-medium text-slate-700" htmlFor="u-mname">
+                        Middle Name <span className="text-slate-400 font-normal">(optional)</span>
                     </label>
                     <input
-                        id="u-name"
+                        id="u-mname"
                         type="text"
-                        value={form.name}
-                        onChange={(e) => set('name', e.target.value)}
+                        value={form.middle_name}
+                        onChange={(e) => set('middle_name', e.target.value)}
                         className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                            errors.name ? 'border-rose-400 bg-rose-50' : 'border-slate-200'
+                            errors.middle_name ? 'border-rose-400 bg-rose-50' : 'border-slate-200'
                         }`}
-                        placeholder="Jane Doe"
+                        placeholder="Marie"
                         disabled={isLoading}
                     />
-                    {errors.name && <p className="mt-1 text-xs text-rose-600">{errors.name[0]}</p>}
+                    {errors.middle_name && <p className="mt-1 text-xs text-rose-600">{errors.middle_name[0]}</p>}
                 </div>
 
                 {/* Email */}
