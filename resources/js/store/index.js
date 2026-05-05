@@ -10,6 +10,7 @@ import { attendanceApi } from '@/features/timekeeping/attendanceApi';
 import { usersApi } from '@/features/users/usersApi';
 import { teamsApi } from '@/features/teams/teamsApi';
 import { rolesApi } from '@/features/roles/rolesApi';
+import { payrollApi } from '@/features/payroll/payrollApi';
 import { baseQueryWithCsrf } from '@/features/csrfBaseQuery';
 
 // Base RTK Query API - extend this from `features/*` later.
@@ -39,6 +40,7 @@ const store = configureStore({
 		[usersApi.reducerPath]: usersApi.reducer,
 		[teamsApi.reducerPath]: teamsApi.reducer,
 		[rolesApi.reducerPath]: rolesApi.reducer,
+		[payrollApi.reducerPath]: payrollApi.reducer,
 	},
 	middleware: (getDefaultMiddleware) =>
 		getDefaultMiddleware().concat(
@@ -51,6 +53,7 @@ const store = configureStore({
 			usersApi.middleware,
 			teamsApi.middleware,
 			rolesApi.middleware,
+			payrollApi.middleware,
 		),
 });
 

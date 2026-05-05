@@ -27,7 +27,7 @@ function formatDuration(minutes) {
 
 function formatTime(isoString) {
     if (!isoString) return '--:--';
-    return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
 function calcLiveMinutes(timelog, now) {
@@ -159,7 +159,7 @@ export default function ClockWidget({ timelog, schedule, isLoading }) {
                     {/* Live digital clock */}
                     <div className="text-right">
                         <p className="text-2xl font-mono font-bold text-slate-900 tabular-nums leading-none">
-                            {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
                         </p>
                         <p className="text-xs text-slate-400 mt-1">
                             {now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}

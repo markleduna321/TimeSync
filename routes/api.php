@@ -2,15 +2,21 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AdminUserController;
+use App\Http\Controllers\Api\AllowanceTypeController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AttendanceCorrectionController;
 use App\Http\Controllers\Api\BreakConfigController;
+use App\Http\Controllers\Api\DeductionTypeController;
+use App\Http\Controllers\Api\HolidayController;
+use App\Http\Controllers\Api\PayslipController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\TimeLogController;
 use App\Http\Controllers\Api\TimesheetController;
+use App\Http\Controllers\Api\UserAllowanceController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\UserDeductionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -66,5 +72,35 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- Teams ---
     Route::apiResource('teams', TeamController::class);
+
+    // --- Holidays ---
+    Route::get('/holidays',              [HolidayController::class, 'index']);
+    Route::post('/holidays',             [HolidayController::class, 'store']);
+    Route::patch('/holidays/{holiday}',  [HolidayController::class, 'update']);
+    Route::delete('/holidays/{holiday}', [HolidayController::class, 'destroy']);
+
+    // --- Deduction Types (read-only list) ---
+    Route::get('/deduction-types', [DeductionTypeController::class, 'index']);
+
+    // --- User Deductions ---
+    Route::get('/users/{user}/deductions',              [UserDeductionController::class, 'index']);
+    Route::post('/users/{user}/deductions',             [UserDeductionController::class, 'store']);
+    Route::delete('/users/{user}/deductions/{deduction}', [UserDeductionController::class, 'destroy']);
+
+    // --- Allowance Types (lookup) ---
+    Route::get('/allowance-types', [AllowanceTypeController::class, 'index']);
+
+    // --- User Allowances ---
+    Route::get('/users/{user}/allowances',              [UserAllowanceController::class, 'index']);
+    Route::post('/users/{user}/allowances',             [UserAllowanceController::class, 'store']);
+    Route::delete('/users/{user}/allowances/{allowance}', [UserAllowanceController::class, 'destroy']);
+
+    // --- Payslips ---
+    Route::get('/payslips',                      [PayslipController::class, 'index']);
+    Route::post('/payslips',                     [PayslipController::class, 'generate']);
+    Route::get('/payslips/13th-month',           [PayslipController::class, 'thirteenthMonth']);
+    Route::get('/payslips/{payslip}',            [PayslipController::class, 'show']);
+    Route::patch('/payslips/{payslip}/release',  [PayslipController::class, 'release']);
+    Route::delete('/payslips/{payslip}',         [PayslipController::class, 'destroy']);
 });
 

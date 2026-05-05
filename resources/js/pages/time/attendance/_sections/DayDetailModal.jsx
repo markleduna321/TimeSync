@@ -19,9 +19,12 @@ const CORRECTION_STATUS = {
 
 function fmtTime(iso) {
     if (!iso) return '—';
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 }
-
+function fmtTimeStr(timeStr) {
+    if (!timeStr) return '—';
+    return new Date('1970-01-01T' + timeStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+}
 function fmtDate(dateStr) {
     if (!dateStr) return '';
     return new Date(dateStr + 'T00:00:00').toLocaleDateString([], {
@@ -185,7 +188,7 @@ export default function DayDetailModal({ day, open, onClose }) {
             footer={null}
             title={fmtDate(day.date)}
             width={480}
-            destroyOnClose
+            destroyOnHidden
         >
             <div className="space-y-4 pt-1">
                 {/* Status + times row — skip for rest days */}
@@ -205,6 +208,11 @@ export default function DayDetailModal({ day, open, onClose }) {
                         {day.total_worked_minutes != null && (
                             <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-bold text-indigo-700 tabular-nums">
                                 {fmtMinutes(day.total_worked_minutes)}
+                            </span>
+                        )}
+                        {day.undertime_minutes > 0 && (
+                            <span className="rounded-full bg-orange-50 px-3 py-1 text-sm font-bold text-orange-600 tabular-nums">
+                                -{fmtMinutes(day.undertime_minutes)} UT
                             </span>
                         )}
                     </div>
@@ -270,7 +278,7 @@ export default function DayDetailModal({ day, open, onClose }) {
                             </p>
                             {overtime.requested_clock_in && overtime.requested_clock_out && (
                                 <p className="mt-0.5 text-xs opacity-80">
-                                    {overtime.requested_clock_in} – {overtime.requested_clock_out}
+                                    {fmtTimeStr(overtime.requested_clock_in)} – {fmtTimeStr(overtime.requested_clock_out)}
                                 </p>
                             )}
                             {overtime.admin_note && (

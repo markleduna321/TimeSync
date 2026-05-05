@@ -11,7 +11,7 @@ const EVENT_CONFIG = {
 
 function formatTime(isoString) {
     if (!isoString) return '--:--';
-    return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
 function buildEvents(timelog) {

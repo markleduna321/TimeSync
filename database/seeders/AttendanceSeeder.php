@@ -67,8 +67,8 @@ class AttendanceSeeder extends Seeder
         }
 
         // ── Schedules ─────────────────────────────────────────────────────
-        $standardDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-        $shiftDays    = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        $standardDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        $shiftDays    = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
         foreach ([$manager, $teamLead, $emp1, $emp2] as $user) {
             Schedule::updateOrCreate(
@@ -89,7 +89,7 @@ class AttendanceSeeder extends Seeder
 
         foreach ([$manager, $teamLead, $emp1, $emp2, $emp3] as $user) {
             $schedule  = Schedule::where('user_id', $user->id)->first();
-            $workDays  = $schedule->work_days;   // ['monday', ...]
+            $workDays  = $schedule->work_days;
             $shiftHour = (int) explode(':', $schedule->shift_start)[0];
             $shiftMin  = (int) explode(':', $schedule->shift_start)[1];
             $endHour   = (int) explode(':', $schedule->shift_end)[0];
@@ -98,7 +98,7 @@ class AttendanceSeeder extends Seeder
             $dayCounter = 0;
 
             while ($cursor->lt($today)) {
-                $dayName = strtolower($cursor->englishDayOfWeek);
+                $dayName = $cursor->format('D');
 
                 if (! in_array($dayName, $workDays)) {
                     $cursor->addDay();

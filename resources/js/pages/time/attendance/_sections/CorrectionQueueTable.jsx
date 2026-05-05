@@ -30,9 +30,12 @@ function fmtDateTime(iso) {
 
 function fmtTime(iso) {
     if (!iso) return '—';
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 }
-
+function fmtTimeStr(timeStr) {
+    if (!timeStr) return '—';
+    return new Date('1970-01-01T' + timeStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+}
 function fmtFull(iso) {
     if (!iso) return '—';
     return new Date(iso).toLocaleString([], {
@@ -185,8 +188,8 @@ export default function CorrectionQueueTable() {
             width: 150,
             render: (_, r) => (
                 <div className="text-xs text-slate-500 tabular-nums">
-                    <span>In: <strong>{r.requested_clock_in ?? '—'}</strong></span>
-                    <span className="ml-2">Out: <strong>{r.requested_clock_out ?? '—'}</strong></span>
+                    <span>In: <strong>{fmtTimeStr(r.requested_clock_in)}</strong></span>
+                    <span className="ml-2">Out: <strong>{fmtTimeStr(r.requested_clock_out)}</strong></span>
                 </div>
             ),
         },

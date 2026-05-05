@@ -50,8 +50,9 @@ class AttendanceController extends Controller
             ->keyBy(fn ($c) => $c->date->format('Y-m-d') . '_' . $c->type);
 
         $schedule   = $target->schedule;
-        $workDays   = $schedule?->work_days ?? []; // ['monday', 'tuesday', ...]
+        $workDays   = $schedule?->work_days ?? []; // ['Mon', 'Tue', ...] or ['monday', ...]
         $shiftStart = $schedule?->shift_start;     // "08:00"
+        $shiftEnd   = $schedule?->shift_end;       // "17:00"
         $today      = now()->toDateString();
 
         $days = [];
@@ -59,12 +60,14 @@ class AttendanceController extends Controller
 
         while ($cursor <= $end) {
             $dateStr    = $cursor->toDateString();
-            $dayName    = strtolower($cursor->englishDayOfWeek); // 'monday' etc.
-            $isWorkDay  = in_array($dayName, $workDays);
+            // Support both storage formats: 'Mon' (UI) and 'monday' (seeder)
+            $isWorkDay  = in_array($cursor->format('D'), $workDays)
+                       || in_array(strtolower($cursor->englishDayOfWeek), $workDays);
             $isFuture   = $dateStr > $today;
-            $log        = $logs[$dateStr] ?? null;
-            $correction = $corrections["{$dateStr}_correction"] ?? null;
-            $overtime   = $corrections["{$dateStr}_overtime"]   ?? null;
+            $log              = $logs[$dateStr] ?? null;
+            $correction       = $corrections["{$dateStr}_correction"] ?? null;
+            $overtime         = $corrections["{$dateStr}_overtime"]   ?? null;
+            $undertimeMinutes = 0;
 
             if ($isFuture) {
                 $status = 'upcoming';
@@ -73,14 +76,23 @@ class AttendanceController extends Controller
             } elseif (! $log || ! $log->clock_in) {
                 $status = 'absent';
             } else {
-                // Determine present vs late — 15-minute grace period
+                // Determine present vs late — 1 minute over shift start = late
                 $status = 'present';
                 if ($shiftStart) {
                     $shiftCarbon   = Carbon::parse($dateStr . ' ' . $shiftStart);
                     $clockInCarbon = Carbon::parse($log->clock_in);
-                    if ($clockInCarbon->gt($shiftCarbon->addMinutes(15))) {
+                    if ($clockInCarbon->gt($shiftCarbon)) {
                         $status = 'late';
                     }
+                }
+
+                // Undertime — clocked out before shift end
+                $undertimeMinutes = 0;
+                if ($log->clock_out && $shiftEnd) {
+                    $shiftEndCarbon = Carbon::parse($dateStr . ' ' . $shiftEnd);
+                    $clockOutCarbon = Carbon::parse($log->clock_out);
+                    $diff = $shiftEndCarbon->diffInMinutes($clockOutCarbon, false);
+                    $undertimeMinutes = $diff < 0 ? (int) abs($diff) : 0;
                 }
             }
 
@@ -91,6 +103,7 @@ class AttendanceController extends Controller
                 'clock_in'             => $log?->clock_in?->toISOString(),
                 'clock_out'            => $log?->clock_out?->toISOString(),
                 'total_worked_minutes' => $log?->total_worked_minutes,
+                'undertime_minutes'    => $undertimeMinutes,
                 'correction'           => $correction,
                 'overtime'             => $overtime,
             ];

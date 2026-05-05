@@ -16,11 +16,12 @@ class UpdateUserRequest extends FormRequest
         $userId = $this->route('user')?->id;
 
         return [
-            'name'     => 'sometimes|string|max:191',
-            'email'    => "sometimes|email|max:191|unique:users,email,{$userId}",
-            'password' => 'sometimes|nullable|string|min:8',
-            'roles'    => 'sometimes|array',
-            'roles.*'  => 'integer|exists:roles,id',
+            'name'           => 'sometimes|string|max:191',
+            'email'          => "sometimes|email|max:191|unique:users,email,{$userId}",
+            'password'       => 'sometimes|nullable|string|min:8',
+            'monthly_salary' => 'sometimes|nullable|numeric|min:0',
+            'roles'          => 'sometimes|array',
+            'roles.*'        => 'integer|exists:roles,id',
         ];
     }
 }

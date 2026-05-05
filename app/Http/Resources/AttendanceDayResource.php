@@ -41,6 +41,7 @@ class AttendanceDayResource extends JsonResource
             'clock_in'             => $this->resource['clock_in'],
             'clock_out'            => $this->resource['clock_out'],
             'total_worked_minutes' => $this->resource['total_worked_minutes'],
+            'undertime_minutes'    => $this->resource['undertime_minutes'] ?? 0,
             'correction'           => $formatEntry($correction),
             'overtime'             => $formatEntry($overtime),
         ];

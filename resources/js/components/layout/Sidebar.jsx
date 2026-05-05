@@ -8,13 +8,13 @@ import {
 import {
     LayoutDashboard,
     Clock,
+    Calendar,
     CalendarDays,
     CheckSquare,
     DollarSign,
     FileText,
     Users,
     Users2,
-    CalendarClock,
     BarChart2,
     Settings,
     ChevronLeft,
@@ -51,29 +51,29 @@ const NAV_SECTIONS = [
             { label: 'My Time',     href: '/time/my-time',    icon: Clock },
             { label: 'Timesheets',  href: '/time/timesheets', icon: CalendarDays },
             { label: 'Attendance',  href: '/time/attendance',  icon: CheckSquare },
-        ],
-    },
-    {
-        label: 'Payroll',
-        items: [
-            { label: 'Overview',  href: '/payroll/overview', icon: DollarSign },
-            { label: 'Pay Slips', href: '/payroll/payslips', icon: FileText },
+            { label: 'Pay Slips',   href: '/time/payslips',   icon: FileText },
         ],
     },
     {
         label: 'Administration',
         items: [
             {
+                label: 'Payroll',
+                href: '/admin/payroll',
+                icon: DollarSign,
+                roles: ['super_admin', 'admin', 'manager'],
+            },
+            {
+                label: 'Holidays',
+                href: '/admin/holidays',
+                icon: Calendar,
+                roles: ['super_admin', 'admin'],
+            },
+            {
                 label: 'Users',
                 href: '/admin/users',
                 icon: Users,
                 roles: ['super_admin', 'admin'],
-            },
-            {
-                label: 'Schedules',
-                href: '/admin/schedules',
-                icon: CalendarClock,
-                roles: ['super_admin', 'admin', 'manager', 'team_lead'],
             },
             {
                 label: 'Teams',

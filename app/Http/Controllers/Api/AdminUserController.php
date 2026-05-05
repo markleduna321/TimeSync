@@ -19,7 +19,7 @@ class AdminUserController extends Controller
     {
         $this->authorize('viewAny', User::class);
 
-        $users = User::with('roles')
+        $users = User::with(['roles', 'schedule'])
             ->orderBy('name')
             ->paginate(20);
 
@@ -40,7 +40,7 @@ class AdminUserController extends Controller
             $user->roles()->sync($request->roles);
         }
 
-        $user->load('roles');
+        $user->load(['roles', 'schedule']);
 
         return new UserResource($user);
     }
@@ -49,7 +49,7 @@ class AdminUserController extends Controller
     {
         $this->authorize('view', $user);
 
-        $user->load('roles');
+        $user->load(['roles', 'schedule']);
 
         return new UserResource($user);
     }
@@ -80,7 +80,7 @@ class AdminUserController extends Controller
             $user->roles()->sync($request->roles);
         }
 
-        $user->load('roles');
+        $user->load(['roles', 'schedule']);
 
         return new UserResource($user);
     }

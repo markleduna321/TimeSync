@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Modal } from 'antd';
-import { useCreateUserMutation, useUpdateUserMutation } from '@/features/users/usersApi';
+import { useCreateUserMutation } from '@/features/users/usersApi';
+import { useGetRolesQuery } from '@/features/roles/rolesApi';
 
-const DEFAULT_FORM = { name: '', email: '', password: '', roles: [] };
+const DEFAULT_FORM = { name: '', email: '', password: '', monthly_salary: '', roles: [] };
 
 const ROLE_COLORS = {
     super_admin: 'text-purple-700',
@@ -12,28 +13,20 @@ const ROLE_COLORS = {
     employee:    'text-slate-600',
 };
 
-export default function UserFormModal({ open, onClose, editingUser, roles }) {
+export default function UserFormModal({ open, onClose }) {
     const [form, setForm]     = useState(DEFAULT_FORM);
     const [errors, setErrors] = useState({});
 
-    const [createUser, { isLoading: creating }] = useCreateUserMutation();
-    const [updateUser, { isLoading: updating }] = useUpdateUserMutation();
-    const isLoading = creating || updating;
+    const [createUser, { isLoading }] = useCreateUserMutation();
+    const { data: rolesData } = useGetRolesQuery();
+    const roles = rolesData?.data ?? rolesData ?? [];
 
-    /* Pre-fill form when editing */
     useEffect(() => {
-        if (editingUser) {
-            setForm({
-                name:     editingUser.name  ?? '',
-                email:    editingUser.email ?? '',
-                password: '',
-                roles:    editingUser.roles?.map((r) => r.id) ?? [],
-            });
-        } else {
+        if (open) {
             setForm(DEFAULT_FORM);
+            setErrors({});
         }
-        setErrors({});
-    }, [editingUser, open]);
+    }, [open]);
 
     function set(field, value) {
         setForm((prev) => ({ ...prev, [field]: value }));
@@ -53,31 +46,29 @@ export default function UserFormModal({ open, onClose, editingUser, roles }) {
     async function handleSubmit() {
         setErrors({});
         try {
-            if (editingUser) {
-                const payload = { id: editingUser.id, name: form.name, email: form.email, roles: form.roles };
-                if (form.password) payload.password = form.password;
-                await updateUser(payload).unwrap();
-            } else {
-                await createUser({ name: form.name, email: form.email, password: form.password, roles: form.roles }).unwrap();
-            }
+            await createUser({
+                name:           form.name,
+                email:          form.email,
+                password:       form.password,
+                monthly_salary: form.monthly_salary || null,
+                roles:          form.roles,
+            }).unwrap();
             onClose();
         } catch (err) {
-            if (err?.status === 422) {
-                setErrors(err.data?.errors ?? {});
-            }
+            if (err?.status === 422) setErrors(err.data?.errors ?? {});
         }
     }
 
     return (
         <Modal
             open={open}
-            title={<span className="font-semibold text-slate-800">{editingUser ? 'Edit User' : 'New User'}</span>}
+            title={<span className="font-semibold text-slate-800">New User</span>}
             onCancel={onClose}
             onOk={handleSubmit}
-            okText={editingUser ? 'Save Changes' : 'Create User'}
+            okText="Create User"
             okButtonProps={{ loading: isLoading, className: 'bg-indigo-600 hover:bg-indigo-700' }}
             cancelButtonProps={{ disabled: isLoading }}
-            destroyOnClose
+            destroyOnHidden
         >
             <div className="mt-4 space-y-4">
                 {/* Name */}
@@ -121,8 +112,7 @@ export default function UserFormModal({ open, onClose, editingUser, roles }) {
                 {/* Password */}
                 <div>
                     <label className="block text-sm font-medium text-slate-700" htmlFor="u-pass">
-                        Password {editingUser && <span className="text-slate-400">(leave blank to keep current)</span>}
-                        {!editingUser && <span className="text-rose-500"> *</span>}
+                        Password <span className="text-rose-500">*</span>
                     </label>
                     <input
                         id="u-pass"
@@ -132,10 +122,31 @@ export default function UserFormModal({ open, onClose, editingUser, roles }) {
                         className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
                             errors.password ? 'border-rose-400 bg-rose-50' : 'border-slate-200'
                         }`}
-                        placeholder={editingUser ? '••••••••' : 'Min. 8 characters'}
+                        placeholder="Min. 8 characters"
                         disabled={isLoading}
                     />
                     {errors.password && <p className="mt-1 text-xs text-rose-600">{errors.password[0]}</p>}
+                </div>
+
+                {/* Monthly Salary */}
+                <div>
+                    <label className="block text-sm font-medium text-slate-700" htmlFor="u-salary">
+                        Monthly Salary (₱)
+                    </label>
+                    <input
+                        id="u-salary"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={form.monthly_salary}
+                        onChange={(e) => set('monthly_salary', e.target.value)}
+                        className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                            errors.monthly_salary ? 'border-rose-400 bg-rose-50' : 'border-slate-200'
+                        }`}
+                        placeholder="e.g. 25000"
+                        disabled={isLoading}
+                    />
+                    {errors.monthly_salary && <p className="mt-1 text-xs text-rose-600">{errors.monthly_salary[0]}</p>}
                 </div>
 
                 {/* Roles */}

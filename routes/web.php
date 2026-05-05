@@ -13,11 +13,13 @@ Route::get('/dashboard', function () {
 
 Route::middleware('auth')->group(function () {
     Route::get('/admin/users',      fn () => Inertia::render('admin/users/page'))->name('admin.users');
-    Route::get('/admin/schedules',  fn () => Inertia::render('admin/schedules/page'))->name('admin.schedules');
+    Route::get('/admin/holidays',   fn () => Inertia::render('admin/holidays/page'))->name('admin.holidays');
+    Route::get('/admin/payroll',    fn () => Inertia::render('admin/payroll/page'))->name('admin.payroll');
     Route::get('/teams',            fn () => Inertia::render('teams/page'))->name('teams.index');
     Route::get('/time/my-time',     fn () => Inertia::render('time/my-time/page'))->name('time.my-time');
     Route::get('/time/timesheets',  fn () => Inertia::render('time/timesheets/page'))->name('time.timesheets');
     Route::get('/time/attendance',  fn () => Inertia::render('time/attendance/page'))->name('time.attendance');
+    Route::get('/time/payslips',    fn () => Inertia::render('time/payslips/page'))->name('time.payslips');
     // Proof download — web route so it streams through Laravel auth middleware
     Route::get('/attendance/corrections/{correction}/proof', [AttendanceCorrectionController::class, 'proof'])
         ->name('attendance.corrections.proof');

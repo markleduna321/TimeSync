@@ -14,7 +14,7 @@ const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function fmtTime(iso) {
     if (!iso) return null;
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
 /**
@@ -67,7 +67,8 @@ function DayCell({ cell, onClick }) {
     const hasPendingCorrection =
         dayData?.correction?.status === 'pending' ||
         dayData?.overtime?.status === 'pending';
-    const clockIn  = fmtTime(dayData?.clock_in);
+    const clockIn       = fmtTime(dayData?.clock_in);
+    const undertimeMins = dayData?.undertime_minutes ?? 0;
 
     return (
         <button
@@ -106,6 +107,11 @@ function DayCell({ cell, onClick }) {
                 </div>
                 {clockIn && (
                     <span className="text-[10px] text-slate-400 tabular-nums">{clockIn}</span>
+                )}
+                {undertimeMins > 0 && (
+                    <span className="text-[10px] font-semibold text-orange-500 tabular-nums">
+                        -{undertimeMins}m UT
+                    </span>
                 )}
             </div>
         </button>

@@ -18,6 +18,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'monthly_salary',
     ];
 
     /* ── Relationships ─────────────────────────────────── */
@@ -44,6 +45,21 @@ class User extends Authenticatable
         return $this->hasOne(Schedule::class);
     }
 
+    public function payslips(): HasMany
+    {
+        return $this->hasMany(Payslip::class);
+    }
+
+    public function userDeductions(): HasMany
+    {
+        return $this->hasMany(UserDeduction::class);
+    }
+
+    public function userAllowances(): HasMany
+    {
+        return $this->hasMany(UserAllowance::class);
+    }
+
     /* ── Role helpers ──────────────────────────────────── */
 
     public function hasRole(string $slug): bool
@@ -67,7 +83,8 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'password'          => 'hashed',
+            'monthly_salary'    => 'decimal:2',
         ];
     }
 }

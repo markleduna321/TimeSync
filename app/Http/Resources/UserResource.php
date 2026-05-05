@@ -17,6 +17,7 @@ class UserResource extends JsonResource
             'id'                => $this->when(isset($this->id), $this->id),
             'name'              => $this->name,
             'email'             => $this->email,
+            'monthly_salary'    => $this->monthly_salary,
             'roles'             => $this->whenLoaded('roles', fn () =>
                 $this->roles->map(fn ($r) => [
                     'id'    => $r->id,

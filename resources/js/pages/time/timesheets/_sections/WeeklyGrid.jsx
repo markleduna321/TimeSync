@@ -28,7 +28,7 @@ function fmtMinutes(mins) {
 
 function fmtTime(iso) {
     if (!iso) return null;
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
 /**

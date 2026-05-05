@@ -59,7 +59,7 @@ export default function TeamFormModal({ open, onClose, editingTeam, users }) {
             okText={editingTeam ? 'Save Changes' : 'Create Team'}
             okButtonProps={{ loading: isLoading, className: 'bg-indigo-600 hover:bg-indigo-700' }}
             cancelButtonProps={{ disabled: isLoading }}
-            destroyOnClose
+            destroyOnHidden
         >
             <div className="mt-4 space-y-4">
                 {/* Name */}
