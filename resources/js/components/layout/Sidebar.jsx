@@ -14,6 +14,7 @@ import {
     DollarSign,
     FileText,
     Layers,
+    Network,
     Users,
     Users2,
     BarChart2,
@@ -80,6 +81,12 @@ const NAV_SECTIONS = [
                 label: 'Compensation',
                 href: '/admin/compensation',
                 icon: Layers,
+                roles: ['super_admin', 'admin'],
+            },
+            {
+                label: 'Organization',
+                href: '/admin/organization',
+                icon: Network,
                 roles: ['super_admin', 'admin'],
             },
             {

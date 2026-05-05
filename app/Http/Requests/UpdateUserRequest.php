@@ -24,6 +24,8 @@ class UpdateUserRequest extends FormRequest
             'monthly_salary' => 'sometimes|nullable|numeric|min:0',
             'roles'          => 'sometimes|array',
             'roles.*'        => 'integer|exists:roles,id',
+            'department_id'  => 'nullable|integer|exists:departments,id',
+            'account_id'     => 'nullable|integer|exists:accounts,id',
         ];
     }
 }

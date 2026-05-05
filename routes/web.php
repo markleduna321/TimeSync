@@ -12,9 +12,10 @@ Route::get('/dashboard', function () {
 })->middleware(['auth'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/admin/users',        fn () => Inertia::render('admin/users/page'))->name('admin.users');
-    Route::get('/admin/compensation', fn () => Inertia::render('admin/compensation/page'))->name('admin.compensation');
-    Route::get('/admin/holidays',     fn () => Inertia::render('admin/holidays/page'))->name('admin.holidays');
+    Route::get('/admin/users',         fn () => Inertia::render('admin/users/page'))->name('admin.users');
+    Route::get('/admin/compensation',  fn () => Inertia::render('admin/compensation/page'))->name('admin.compensation');
+    Route::get('/admin/organization',  fn () => Inertia::render('admin/organization/page'))->name('admin.organization');
+    Route::get('/admin/holidays',      fn () => Inertia::render('admin/holidays/page'))->name('admin.holidays');
     Route::get('/admin/payroll',      fn () => Inertia::render('admin/payroll/page'))->name('admin.payroll');
     Route::get('/teams',            fn () => Inertia::render('teams/page'))->name('teams.index');
     Route::get('/time/my-time',     fn () => Inertia::render('time/my-time/page'))->name('time.my-time');

@@ -1,11 +1,13 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AllowanceTypeController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AttendanceCorrectionController;
 use App\Http\Controllers\Api\BreakConfigController;
+use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DeductionTypeController;
 use App\Http\Controllers\Api\HolidayController;
 use App\Http\Controllers\Api\PayslipController;
@@ -105,6 +107,18 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- Government Contribution Toggles (per user) ---
     Route::get('/users/{user}/government-deductions',          [UserGovernmentDeductionController::class, 'index']);
     Route::patch('/users/{user}/government-deductions/{code}', [UserGovernmentDeductionController::class, 'update']);
+
+    // --- Departments ---
+    Route::get('/departments',                   [DepartmentController::class, 'index']);
+    Route::post('/departments',                  [DepartmentController::class, 'store']);
+    Route::patch('/departments/{department}',    [DepartmentController::class, 'update']);
+    Route::delete('/departments/{department}',   [DepartmentController::class, 'destroy']);
+
+    // --- Accounts ---
+    Route::get('/accounts',              [AccountController::class, 'index']);
+    Route::post('/accounts',             [AccountController::class, 'store']);
+    Route::patch('/accounts/{account}',  [AccountController::class, 'update']);
+    Route::delete('/accounts/{account}', [AccountController::class, 'destroy']);
 
     // --- Payslips ---
     Route::get('/payslips',                      [PayslipController::class, 'index']);

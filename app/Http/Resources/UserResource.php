@@ -32,6 +32,14 @@ class UserResource extends JsonResource
             'schedule'          => $this->whenLoaded('schedule', fn () =>
                 $this->schedule ? new ScheduleResource($this->schedule) : null
             ),
+            'department'        => $this->whenLoaded('department', fn () =>
+                $this->department ? new DepartmentResource($this->department) : null
+            ),
+            'account'           => $this->whenLoaded('account', fn () =>
+                $this->account ? new AccountResource($this->account) : null
+            ),
+            'department_id'     => $this->department_id,
+            'account_id'        => $this->account_id,
             'email_verified_at' => $this->email_verified_at,
             'created_at'        => $this->created_at,
             'updated_at'        => $this->updated_at,

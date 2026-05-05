@@ -19,6 +19,10 @@ import {
     useGetUserGovDeductionsQuery,
     useUpdateUserGovDeductionMutation,
 } from '@/features/payroll/payrollApi';
+import {
+    useGetDepartmentsQuery,
+    useGetAccountsQuery,
+} from '@/features/organization/organizationApi';
 
 /* ─── Shared helpers ─────────────────────────────────────────────────────── */
 const ROLE_COLORS = {
@@ -86,11 +90,16 @@ function inputCls(err) {
 
 /* ─── Profile Tab ────────────────────────────────────────────────────────── */
 function ProfileTab({ user }) {
-    const [form, setForm]   = useState({ first_name: '', middle_name: '', last_name: '', email: '', password: '', monthly_salary: '' });
+    const [form, setForm]   = useState({ first_name: '', middle_name: '', last_name: '', email: '', password: '', monthly_salary: '', department_id: null, account_id: null });
     const [errors, setErrors] = useState({});
     const [saved, setSaved]   = useState(false);
 
     const [updateUser, { isLoading }] = useUpdateUserMutation();
+    const { data: deptData }  = useGetDepartmentsQuery({ active_only: 1 });
+    const { data: acctData }  = useGetAccountsQuery({ active_only: 1 });
+
+    const departments = deptData?.data ?? [];
+    const accounts    = acctData?.data ?? [];
 
     useEffect(() => {
         setForm({
@@ -100,6 +109,8 @@ function ProfileTab({ user }) {
             email:          user?.email          ?? '',
             password:       '',
             monthly_salary: user?.monthly_salary ?? '',
+            department_id:  user?.department_id  ?? null,
+            account_id:     user?.account_id     ?? null,
         });
         setErrors({});
         setSaved(false);
@@ -116,10 +127,12 @@ function ProfileTab({ user }) {
         setSaved(false);
         try {
             const payload = {
-                id:         user.id,
-                first_name: form.first_name,
-                last_name:  form.last_name,
-                email:      form.email,
+                id:            user.id,
+                first_name:    form.first_name,
+                last_name:     form.last_name,
+                email:         form.email,
+                department_id: form.department_id ?? null,
+                account_id:    form.account_id    ?? null,
             };
             if (form.middle_name !== '') payload.middle_name = form.middle_name || null;
             if (form.password)           payload.password = form.password;
@@ -171,6 +184,35 @@ function ProfileTab({ user }) {
                     onChange={(e) => set('monthly_salary', e.target.value)}
                     className={inputCls(errors.monthly_salary)} placeholder="e.g. 25000" disabled={isLoading} />
             </Field>
+
+            <div className="grid grid-cols-2 gap-3">
+                <Field label="Department" error={errors.department_id}>
+                    <select
+                        value={form.department_id ?? ''}
+                        onChange={(e) => set('department_id', e.target.value ? parseInt(e.target.value) : null)}
+                        className={inputCls(errors.department_id)}
+                        disabled={isLoading}
+                    >
+                        <option value="">— None —</option>
+                        {departments.map((d) => (
+                            <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                    </select>
+                </Field>
+                <Field label="Account" error={errors.account_id}>
+                    <select
+                        value={form.account_id ?? ''}
+                        onChange={(e) => set('account_id', e.target.value ? parseInt(e.target.value) : null)}
+                        className={inputCls(errors.account_id)}
+                        disabled={isLoading}
+                    >
+                        <option value="">— None —</option>
+                        {accounts.map((a) => (
+                            <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                    </select>
+                </Field>
+            </div>
 
             <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
                 {saved && <SavedBadge />}
