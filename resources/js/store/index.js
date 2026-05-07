@@ -12,6 +12,9 @@ import { teamsApi } from '@/features/teams/teamsApi';
 import { rolesApi } from '@/features/roles/rolesApi';
 import { payrollApi } from '@/features/payroll/payrollApi';
 import { organizationApi } from '@/features/organization/organizationApi';
+import { reportsApi } from '@/features/reports/reportsApi';
+import { dashboardApi } from '@/features/dashboard/dashboardApi';
+import { notificationsApi } from '@/features/notifications/notificationsApi';
 import { baseQueryWithCsrf } from '@/features/csrfBaseQuery';
 
 // Base RTK Query API - extend this from `features/*` later.
@@ -43,6 +46,9 @@ const store = configureStore({
 		[rolesApi.reducerPath]: rolesApi.reducer,
 		[payrollApi.reducerPath]: payrollApi.reducer,
 		[organizationApi.reducerPath]: organizationApi.reducer,
+		[reportsApi.reducerPath]: reportsApi.reducer,
+		[dashboardApi.reducerPath]: dashboardApi.reducer,
+		[notificationsApi.reducerPath]: notificationsApi.reducer,
 	},
 	middleware: (getDefaultMiddleware) =>
 		getDefaultMiddleware().concat(
@@ -57,6 +63,9 @@ const store = configureStore({
 			rolesApi.middleware,
 			payrollApi.middleware,
 			organizationApi.middleware,
+			reportsApi.middleware,
+			dashboardApi.middleware,
+			notificationsApi.middleware,
 		),
 });
 

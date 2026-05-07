@@ -17,10 +17,15 @@ class AttendanceCorrectionPolicy
         return true;
     }
 
-    /** Any authenticated user may file a correction for their own date. */
+    /**
+     * A user can file a correction/OT request if they hold a non-admin filing role.
+     * - employee, team_lead, manager  → can always file for themselves.
+     * - admin / super_admin only      → cannot file (approvers only).
+     * - admin + employee              → CAN file (employee role grants the right).
+     */
     public function create(User $authUser): bool
     {
-        return true;
+        return $authUser->hasAnyRole(['employee', 'team_lead', 'manager']);
     }
 
     /**

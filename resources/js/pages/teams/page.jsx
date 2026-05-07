@@ -1,31 +1,40 @@
-import React, { useState } from 'react';
-import MainLayout from '@/Layouts/MainLayout';
-import { Users } from 'lucide-react';
-import { Modal } from 'antd';
-import { useGetTeamsQuery, useDeleteTeamMutation } from '@/features/teams/teamsApi';
-import { useGetUsersQuery } from '@/features/users/usersApi';
-import TeamTable from './_sections/TeamTable';
-import TeamFormModal from './_sections/TeamFormModal';
+﻿import React, { useState } from "react";
+import MainLayout from "@/Layouts/MainLayout";
+import { usePage } from "@inertiajs/react";
+import { Users } from "lucide-react";
+import { Modal } from "antd";
+import { useGetTeamsQuery, useDeleteTeamMutation } from "@/features/teams/teamsApi";
+import { useGetUsersQuery } from "@/features/users/usersApi";
+import TeamTable from "./_sections/TeamTable";
+import TeamFormModal from "./_sections/TeamFormModal";
+import TeamMembersModal from "./_sections/TeamMembersModal";
+
+const MANAGE_ROLES = ["super_admin", "admin", "manager"];
 
 export default function TeamsPage() {
+    const { props }  = usePage();
+    const userRoles  = props.auth?.user?.roles ?? [];
+    const canManage  = userRoles.some((r) => MANAGE_ROLES.includes(r));
+
     const [page, setPage]               = useState(1);
     const [modalOpen, setModalOpen]     = useState(false);
     const [editingTeam, setEditingTeam] = useState(null);
+    const [viewingTeam, setViewingTeam] = useState(null);
+    const [viewOpen, setViewOpen]       = useState(false);
 
     const { data, isLoading }          = useGetTeamsQuery({ page });
-    const { data: usersData }          = useGetUsersQuery({ per_page: 200 });
+    const { data: usersData }          = useGetUsersQuery({ per_page: 200 }, { skip: !canManage });
     const [deleteTeam, { isLoading: deleting }] = useDeleteTeamMutation();
 
     const teams = data?.data ?? [];
     const meta  = data?.meta ?? {};
     const users = usersData?.data ?? [];
 
-    // Role-filtered subsets for dropdowns in the modal
     const teamLeadUsers = users.filter((u) =>
-        u.roles?.some((r) => r.slug === 'team_lead')
+        u.roles?.some((r) => r.slug === "team_lead")
     );
     const managerUsers = users.filter((u) =>
-        u.roles?.some((r) => r.slug === 'manager')
+        u.roles?.some((r) => r.slug === "manager")
     );
 
     function openCreate() {
@@ -38,13 +47,18 @@ export default function TeamsPage() {
         setModalOpen(true);
     }
 
+    function openView(team) {
+        setViewingTeam(team);
+        setViewOpen(true);
+    }
+
     function confirmDelete(team) {
         Modal.confirm({
-            title: 'Delete Team',
+            title: "Delete Team",
             content: `Permanently delete "${team.name}"? Members will be unassigned but not deleted.`,
-            okText: 'Delete',
+            okText: "Delete",
             okButtonProps: { danger: true, loading: deleting },
-            cancelText: 'Cancel',
+            cancelText: "Cancel",
             onOk: () => deleteTeam(team.id),
         });
     }
@@ -59,13 +73,15 @@ export default function TeamsPage() {
                         Organise employees under team leads and managers.
                     </p>
                 </div>
-                <button
-                    onClick={openCreate}
-                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
-                >
-                    <Users size={15} />
-                    New Team
-                </button>
+                {canManage && (
+                    <button
+                        onClick={openCreate}
+                        className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+                    >
+                        <Users size={15} />
+                        New Team
+                    </button>
+                )}
             </div>
 
             {/* Table card */}
@@ -78,17 +94,28 @@ export default function TeamsPage() {
                     onPageChange={setPage}
                     onEdit={openEdit}
                     onDelete={confirmDelete}
+                    onView={openView}
+                    canManage={canManage}
                 />
             </div>
 
             {/* Create / Edit modal */}
-            <TeamFormModal
-                open={modalOpen}
-                onClose={() => setModalOpen(false)}
-                editingTeam={editingTeam}
-                teamLeadUsers={teamLeadUsers}
-                managerUsers={managerUsers}
-                allUsers={users}
+            {canManage && (
+                <TeamFormModal
+                    open={modalOpen}
+                    onClose={() => setModalOpen(false)}
+                    editingTeam={editingTeam}
+                    teamLeadUsers={teamLeadUsers}
+                    managerUsers={managerUsers}
+                    allUsers={users}
+                />
+            )}
+
+            {/* View Members modal */}
+            <TeamMembersModal
+                team={viewingTeam}
+                open={viewOpen}
+                onClose={() => setViewOpen(false)}
             />
         </div>
     );

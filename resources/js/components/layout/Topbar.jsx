@@ -10,6 +10,8 @@ import {
     LogOut,
     Settings,
 } from 'lucide-react';
+import { useGetUnreadCountQuery } from '@/features/notifications/notificationsApi';
+import NotificationPanel from './NotificationPanel';
 
 function getInitials(name) {
     if (!name) return '?';
@@ -26,7 +28,12 @@ export default function Topbar({ title }) {
     const user = props.auth?.user;
 
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [notifOpen, setNotifOpen]       = useState(false);
     const dropdownRef = useRef(null);
+    const notifRef    = useRef(null);
+
+    const { data: countData } = useGetUnreadCountQuery(undefined, { pollingInterval: 30000 });
+    const unreadCount = countData?.unread ?? 0;
 
     /* Close dropdown on outside click */
     useEffect(() => {
@@ -34,15 +41,21 @@ export default function Topbar({ title }) {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
                 setDropdownOpen(false);
             }
+            if (notifRef.current && !notifRef.current.contains(e.target)) {
+                setNotifOpen(false);
+            }
         }
         document.addEventListener('mousedown', handleOutside);
         return () => document.removeEventListener('mousedown', handleOutside);
     }, []);
 
-    /* Close dropdown on Escape */
+    /* Close both panels on Escape */
     useEffect(() => {
         function handleKey(e) {
-            if (e.key === 'Escape') setDropdownOpen(false);
+            if (e.key === 'Escape') {
+                setDropdownOpen(false);
+                setNotifOpen(false);
+            }
         }
         document.addEventListener('keydown', handleKey);
         return () => document.removeEventListener('keydown', handleKey);
@@ -68,15 +81,6 @@ export default function Topbar({ title }) {
                     <Menu size={20} />
                 </button>
 
-                {/* Desktop collapse button mirror */}
-                <button
-                    onClick={() => dispatch(toggleSidebar())}
-                    className="hidden lg:flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    aria-label="Toggle sidebar"
-                >
-                    <Menu size={18} />
-                </button>
-
                 {title && (
                     <div className="hidden sm:block">
                         <h1 className="text-base font-semibold text-slate-900">
@@ -90,17 +94,32 @@ export default function Topbar({ title }) {
             <div className="flex items-center gap-2">
 
                 {/* Notification bell */}
-                <button
-                    className="relative flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    aria-label="Notifications"
-                >
-                    <Bell size={18} />
-                    {/* Unread badge */}
-                    <span
-                        className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-indigo-600 ring-2 ring-white"
-                        aria-hidden="true"
-                    />
-                </button>
+                <div className="relative" ref={notifRef}>
+                    <button
+                        onClick={() => { setNotifOpen((v) => !v); setDropdownOpen(false); }}
+                        className="relative flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        aria-label="Notifications"
+                        aria-haspopup="true"
+                        aria-expanded={notifOpen}
+                    >
+                        <Bell size={18} />
+                        {unreadCount > 0 && (
+                            <span
+                                className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white"
+                                aria-label={`${unreadCount} unread notifications`}
+                            >
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Notification panel dropdown */}
+                    {notifOpen && (
+                        <div className="absolute right-0 top-full z-50 mt-2">
+                            <NotificationPanel onClose={() => setNotifOpen(false)} />
+                        </div>
+                    )}
+                </div>
 
                 {/* Divider */}
                 <div className="mx-1 h-6 w-px bg-slate-200" aria-hidden="true" />
@@ -108,7 +127,7 @@ export default function Topbar({ title }) {
                 {/* User dropdown */}
                 <div className="relative" ref={dropdownRef}>
                     <button
-                        onClick={() => setDropdownOpen((v) => !v)}
+                        onClick={() => { setDropdownOpen((v) => !v); setNotifOpen(false); }}
                         aria-haspopup="true"
                         aria-expanded={dropdownOpen}
                         className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 transition-colors hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"

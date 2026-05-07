@@ -17,8 +17,11 @@ class TeamController extends Controller
     {
         $this->authorize('viewAny', Team::class);
 
-        $query = Team::with(['leader:id,first_name,middle_name,last_name,email', 'manager:id,first_name,middle_name,last_name,email', 'members:id,first_name,middle_name,last_name,email'])
-            ->orderBy('name');
+        $query = Team::with([
+            'leader:id,first_name,middle_name,last_name,email',
+            'manager:id,first_name,middle_name,last_name,email',
+            'members' => fn ($q) => $q->with('roles:id,name,slug'),
+        ])->orderBy('name');
 
         // Team leads only see teams they lead.
         $user = $request->user();
@@ -39,7 +42,11 @@ class TeamController extends Controller
             $team->members()->sync($request->member_ids);
         }
 
-        $team->load(['leader:id,first_name,middle_name,last_name,email', 'manager:id,first_name,middle_name,last_name,email', 'members:id,first_name,middle_name,last_name,email']);
+        $team->load([
+            'leader:id,first_name,middle_name,last_name,email',
+            'manager:id,first_name,middle_name,last_name,email',
+            'members' => fn ($q) => $q->with('roles:id,name,slug'),
+        ]);
 
         return new TeamResource($team);
     }
@@ -48,7 +55,11 @@ class TeamController extends Controller
     {
         $this->authorize('view', $team);
 
-        $team->load(['leader:id,first_name,middle_name,last_name,email', 'manager:id,first_name,middle_name,last_name,email', 'members:id,first_name,middle_name,last_name,email']);
+        $team->load([
+            'leader:id,first_name,middle_name,last_name,email',
+            'manager:id,first_name,middle_name,last_name,email',
+            'members' => fn ($q) => $q->with('roles:id,name,slug'),
+        ]);
 
         return new TeamResource($team);
     }
@@ -63,7 +74,11 @@ class TeamController extends Controller
             $team->members()->sync($request->member_ids);
         }
 
-        $team->load(['leader:id,first_name,middle_name,last_name,email', 'manager:id,first_name,middle_name,last_name,email', 'members:id,first_name,middle_name,last_name,email']);
+        $team->load([
+            'leader:id,first_name,middle_name,last_name,email',
+            'manager:id,first_name,middle_name,last_name,email',
+            'members' => fn ($q) => $q->with('roles:id,name,slug'),
+        ]);
 
         return new TeamResource($team);
     }

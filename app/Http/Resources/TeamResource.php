@@ -29,6 +29,10 @@ class TeamResource extends JsonResource
                     'id'    => $m->id,
                     'name'  => $m->name,
                     'email' => $m->email,
+                    'roles' => $m->roles->map(fn ($r) => [
+                        'slug' => $r->slug,
+                        'name' => $r->name,
+                    ])->values(),
                 ])
             ),
             'members_count' => $this->whenLoaded('members', fn () => $this->members->count()),

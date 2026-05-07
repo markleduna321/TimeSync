@@ -101,12 +101,6 @@ const NAV_SECTIONS = [
                 icon: BarChart2,
                 roles: ['super_admin', 'admin', 'manager'],
             },
-            {
-                label: 'Settings',
-                href: '/admin/settings',
-                icon: Settings,
-                roles: ['super_admin', 'admin'],
-            },
         ],
     },
 ];
@@ -270,49 +264,7 @@ export default function Sidebar() {
                     })}
                 </nav>
 
-                {/* ── User card ──────────────────────────────── */}
-                <div className="shrink-0 border-t border-white/5 p-3">
-                    <div className={`flex items-center gap-3 rounded-xl p-2.5 ${collapsed ? 'justify-center' : ''}`}>
-                        {/* Avatar */}
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-sm font-bold text-white ring-2 ring-white/10">
-                            {getInitials(user?.name)}
-                        </div>
-
-                        {!collapsed && (
-                            <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-medium text-white">
-                                    {user?.name ?? 'User'}
-                                </p>
-                                <p className="truncate text-xs text-slate-400">
-                                    {getPrimaryRoleLabel(userRoles)}
-                                </p>
-                            </div>
-                        )}
-
-                        {!collapsed && (
-                            <button
-                                onClick={handleLogout}
-                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-400 focus:outline-none focus:ring-2 focus:ring-red-500"
-                                aria-label="Log out"
-                                title="Log out"
-                            >
-                                <LogOut size={15} />
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Collapsed logout */}
-                    {collapsed && (
-                        <button
-                            onClick={handleLogout}
-                            className="mt-1.5 flex w-full items-center justify-center rounded-xl py-2 text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-400 focus:outline-none focus:ring-2 focus:ring-red-500"
-                            aria-label="Log out"
-                            title="Log out"
-                        >
-                            <LogOut size={15} />
-                        </button>
-                    )}
-                </div>
+                
             </aside>
         </>
     );

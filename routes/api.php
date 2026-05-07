@@ -7,10 +7,13 @@ use App\Http\Controllers\Api\AllowanceTypeController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AttendanceCorrectionController;
 use App\Http\Controllers\Api\BreakConfigController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DeductionTypeController;
 use App\Http\Controllers\Api\HolidayController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PayslipController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\TeamController;
@@ -34,6 +37,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // User profile
     Route::get('/user', [UserController::class, 'me']);
     Route::put('/user', [UserController::class, 'update']);
+
+    // --- Notifications ---
+    Route::get('/notifications',              [NotificationController::class, 'index']);
+    Route::get('/notifications/count',        [NotificationController::class, 'count']);
+    Route::patch('/notifications/{id}/read',  [NotificationController::class, 'markRead']);
+    Route::post('/notifications/read-all',    [NotificationController::class, 'markAllRead']);
 
     // --- Time Log (employee-scoped) ---
     Route::prefix('time-log')->group(function () {
@@ -129,5 +138,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/payslips/{payslip}',            [PayslipController::class, 'show']);
     Route::patch('/payslips/{payslip}/release',  [PayslipController::class, 'release']);
     Route::delete('/payslips/{payslip}',         [PayslipController::class, 'destroy']);
+
+    // --- Dashboard ---
+    Route::prefix('dashboard')->group(function () {
+        Route::get('/admin-kpis',     [DashboardController::class, 'adminKpis']);
+        Route::get('/admin-activity', [DashboardController::class, 'adminActivity']);
+        Route::get('/employee-kpis',  [DashboardController::class, 'employeeKpis']);
+    });
+
+    // --- Reports ---
+    Route::prefix('reports')->group(function () {
+        Route::get('/payroll-summary',    [ReportController::class, 'payrollSummary']);
+        Route::get('/payroll-trend',      [ReportController::class, 'payrollTrend']);
+        Route::get('/attendance',         [ReportController::class, 'attendanceSummary']);
+        Route::get('/contributions',      [ReportController::class, 'contributionsSummary']);
+        Route::get('/department-payroll', [ReportController::class, 'departmentPayroll']);
+        Route::post('/ai-insights',       [ReportController::class, 'aiInsights']);
+    });
 });
 

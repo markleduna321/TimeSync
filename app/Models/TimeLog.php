@@ -14,6 +14,7 @@ class TimeLog extends Model
     protected $fillable = [
         'user_id', 'date', 'clock_in', 'clock_out',
         'lunch_start', 'lunch_end', 'breaks', 'status',
+        'overtime_minutes',
     ];
 
     protected $casts = [

@@ -10,11 +10,14 @@ use App\Http\Resources\PayslipResource;
 use App\Models\Payslip;
 use App\Models\PayslipLine;
 use App\Models\User;
+use App\Notifications\PayslipDraftedNotification;
+use App\Notifications\PayslipReleasedNotification;
 use App\Services\PayslipComputationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Notification;
 
 class PayslipController extends Controller
 {
@@ -144,6 +147,10 @@ class PayslipController extends Controller
 
         $payslip->load('user', 'generatedBy', 'lines');
 
+        // Notify all admins that a draft payslip is ready.
+        $admins = User::whereHas('roles', fn ($q) => $q->whereIn('slug', ['super_admin', 'admin']))->get();
+        Notification::send($admins, new PayslipDraftedNotification($payslip));
+
         return new PayslipResource($payslip);
     }
 
@@ -158,6 +165,9 @@ class PayslipController extends Controller
 
         $payslip->load('user', 'generatedBy', 'lines');
 
+        // Notify the employee their payslip is available.
+        $payslip->user->notify(new PayslipReleasedNotification($payslip));
+
         return new PayslipResource($payslip);
     }
 
@@ -167,6 +177,7 @@ class PayslipController extends Controller
 
         $payslips = Payslip::whereIn('id', $ids)
             ->where('status', 'draft')
+            ->with('user')
             ->get();
 
         foreach ($payslips as $payslip) {
@@ -175,6 +186,8 @@ class PayslipController extends Controller
                 'status'      => 'released',
                 'released_at' => now(),
             ]);
+            // Notify each employee.
+            $payslip->user->notify(new PayslipReleasedNotification($payslip));
         }
 
         return response()->json([
@@ -260,6 +273,18 @@ class PayslipController extends Controller
             }
 
             $generated++;
+        }
+
+        // Notify admins once that bulk drafts were generated.
+        if ($generated > 0) {
+            $representative = Payslip::where('period_start', $periodStart->toDateString())
+                ->where('period_end', $periodEnd->toDateString())
+                ->latest()->first();
+
+            if ($representative) {
+                $admins = User::whereHas('roles', fn ($q) => $q->whereIn('slug', ['super_admin', 'admin']))->get();
+                Notification::send($admins, new PayslipDraftedNotification($representative));
+            }
         }
 
         return response()->json([

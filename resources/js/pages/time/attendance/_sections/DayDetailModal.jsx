@@ -100,15 +100,15 @@ function FileUploadArea({ file, onFileChange, error }) {
 }
 
 /* ── Main modal ───────────────────────────────────────────────────────── */
-export default function DayDetailModal({ day, open, onClose }) {
+export default function DayDetailModal({ day, open, onClose, canFile = true }) {
     const [fileCorrection, { isLoading: submitting }] = useFileCorrectionMutation();
 
     const today          = new Date().toISOString().slice(0, 10);
     const status         = day?.status ?? 'upcoming';
     const isRestDay      = status === 'rest_day';
     const isPastOrToday  = day?.date <= today;
-    const canFileCorrection = !day?.correction && isPastOrToday && status !== 'upcoming';
-    const canFileOvertime   = !day?.overtime   && isPastOrToday && status !== 'upcoming';
+    const canFileCorrection = canFile && !day?.correction && isPastOrToday && status !== 'upcoming';
+    const canFileOvertime   = canFile && !day?.overtime   && isPastOrToday && status !== 'upcoming';
 
     const [formType, setFormType] = useState(() => {
         if (isRestDay || !canFileCorrection) return 'overtime';

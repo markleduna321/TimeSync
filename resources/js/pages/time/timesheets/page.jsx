@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { usePage } from '@inertiajs/react';
 import { Select } from 'antd';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -38,6 +38,17 @@ export default function TimesheetsPage() {
 
     const logs     = timesheetData?.data ?? [];
     const subjects = subjectsData?.data  ?? [];
+
+    // Ensure the current user is always in the options list (team_lead subjects
+    // only include team members, not themselves, so the initial value would
+    // render as a raw ID without this guard).
+    const subjectOptions = useMemo(() => {
+        const list = subjects.map((s) => ({ value: s.id, label: s.name }));
+        if (authUser && !list.some((o) => o.value === authUser.id)) {
+            list.unshift({ value: authUser.id, label: authUser.name ?? 'Me' });
+        }
+        return list;
+    }, [subjects, authUser]);
 
     /* ── Month navigation ─────────────────────────────────────────────── */
     const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
@@ -95,7 +106,7 @@ export default function TimesheetsPage() {
                         placeholder="Select employee"
                         value={selectedUserId}
                         onChange={setSelectedUserId}
-                        options={subjects.map((s) => ({ value: s.id, label: s.name }))}
+                        options={subjectOptions}
                         filterOption={(input, opt) =>
                             opt.label.toLowerCase().includes(input.toLowerCase())
                         }

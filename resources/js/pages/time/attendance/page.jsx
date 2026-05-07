@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { usePage } from '@inertiajs/react';
 import { Select } from 'antd';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -28,6 +28,10 @@ export default function AttendancePage() {
     const [selectedDay, setSelectedDay]       = useState(null);
     const [modalOpen, setModalOpen]           = useState(false);
 
+    // Can file only when viewing your own attendance AND you hold a filing role
+    const canFile    = selectedUserId === authUser?.id &&
+                       userRoles.some((r) => ['employee', 'team_lead', 'manager'].includes(r));
+
     const monthParam = `${year}-${String(month).padStart(2, '0')}`;
 
     // Subjects dropdown — same endpoint as Timesheets
@@ -40,6 +44,17 @@ export default function AttendancePage() {
 
     const days     = calendarData?.data ?? [];
     const subjects = subjectsData?.data  ?? [];
+
+    // Ensure the current user is always in the options list (team_lead subjects
+    // only include team members, not themselves, so the initial value would
+    // render as a raw ID without this guard).
+    const subjectOptions = useMemo(() => {
+        const list = subjects.map((s) => ({ value: s.id, label: s.name }));
+        if (authUser && !list.some((o) => o.value === authUser.id)) {
+            list.unshift({ value: authUser.id, label: authUser.name ?? 'Me' });
+        }
+        return list;
+    }, [subjects, authUser]);
 
     const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
 
@@ -100,7 +115,7 @@ export default function AttendancePage() {
                         placeholder="Select employee"
                         value={selectedUserId}
                         onChange={setSelectedUserId}
-                        options={subjects.map((s) => ({ value: s.id, label: s.name }))}
+                        options={subjectOptions}
                         filterOption={(input, opt) =>
                             opt.label.toLowerCase().includes(input.toLowerCase())
                         }
@@ -126,6 +141,7 @@ export default function AttendancePage() {
                 day={selectedDay}
                 open={modalOpen}
                 onClose={() => setModalOpen(false)}
+                canFile={canFile}
             />
 
             {/* Correction queue — managers only */}

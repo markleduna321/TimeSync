@@ -11,10 +11,14 @@ use App\Models\OvertimeRecord;
 use App\Models\Team;
 use App\Models\TimeLog;
 use App\Models\TimeLogHistory;
+use App\Models\User;
+use App\Notifications\CorrectionFiledNotification;
+use App\Notifications\CorrectionReviewedNotification;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 
 class AttendanceCorrectionController extends Controller
@@ -96,7 +100,9 @@ class AttendanceCorrectionController extends Controller
     {
         $this->authorize('create', AttendanceCorrection::class);
 
-        $proofPath = $request->file('proof')->store('corrections', 'local');
+        $proofPath = $request->hasFile('proof')
+            ? $request->file('proof')->store('corrections', 'local')
+            : null;
 
         $correction = AttendanceCorrection::create([
             'user_id'              => auth()->id(),
@@ -108,6 +114,11 @@ class AttendanceCorrectionController extends Controller
             'requested_clock_out'  => $request->requested_clock_out,
             'status'               => 'pending',
         ]);
+
+        // Notify all potential reviewers for this user.
+        $filer     = $correction->load('user')->user;
+        $reviewers = $this->getReviewers($filer);
+        Notification::send($reviewers, new CorrectionFiledNotification($correction, $filer->name));
 
         return new AttendanceCorrectionResource($correction->load(['user', 'reviewer']));
     }
@@ -188,6 +199,9 @@ class AttendanceCorrectionController extends Controller
             }
         }
 
+        // Notify the original filer of the decision.
+        $correction->user->notify(new CorrectionReviewedNotification($correction, auth()->user()->name));
+
         return new AttendanceCorrectionResource($correction->fresh()->load(['user', 'reviewer']));
     }
 
@@ -213,4 +227,32 @@ class AttendanceCorrectionController extends Controller
 
         return Storage::disk('local')->download($correction->proof_path);
     }
+
+    /**
+     * Resolve the set of users who may review corrections filed by $filer.
+     * - super_admin and admin users always qualify.
+     * - The manager of any team the filer belongs to qualifies.
+     * - The team_lead of any team the filer belongs to qualifies (unless filer IS the lead).
+     */
+    private function getReviewers(User $filer): \Illuminate\Support\Collection
+    {
+        $adminIds = User::whereHas('roles', fn ($q) => $q->whereIn('slug', ['super_admin', 'admin']))
+            ->pluck('id');
+
+        $teamIds = $filer->teams()->pluck('teams.id');
+
+        $managerIds = Team::whereIn('id', $teamIds)
+            ->whereNotNull('manager_id')
+            ->pluck('manager_id');
+
+        $leaderIds = Team::whereIn('id', $teamIds)
+            ->whereNotNull('leader_id')
+            ->where('leader_id', '!=', $filer->id)
+            ->pluck('leader_id');
+
+        $ids = $adminIds->merge($managerIds)->merge($leaderIds)->unique()->diff([$filer->id]);
+
+        return User::whereIn('id', $ids)->get();
+    }
 }
+

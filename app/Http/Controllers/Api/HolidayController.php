@@ -7,9 +7,12 @@ use App\Http\Requests\StoreHolidayRequest;
 use App\Http\Requests\UpdateHolidayRequest;
 use App\Http\Resources\HolidayResource;
 use App\Models\Holiday;
+use App\Models\User;
+use App\Notifications\HolidayAddedNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Notification;
 
 class HolidayController extends Controller
 {
@@ -31,6 +34,10 @@ class HolidayController extends Controller
         $this->authorize('create', Holiday::class);
 
         $holiday = Holiday::create($request->validated());
+
+        // Notify all users about the new holiday.
+        $allUsers = User::all();
+        Notification::send($allUsers, new HolidayAddedNotification($holiday));
 
         return new HolidayResource($holiday);
     }

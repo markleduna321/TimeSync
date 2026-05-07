@@ -1,26 +1,26 @@
-import React from 'react';
-import { Table, Tooltip } from 'antd';
-import { Pencil, Trash2, Users } from 'lucide-react';
+﻿import React from "react";
+import { Table, Tooltip } from "antd";
+import { Pencil, Trash2, Users, Eye } from "lucide-react";
 
 function getInitials(name) {
-    if (!name) return '?';
-    return name.split(' ').slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+    if (!name) return "?";
+    return name.split(" ").slice(0, 2).map((w) => w[0].toUpperCase()).join("");
 }
 
-export default function TeamTable({ teams, meta, isLoading, page, onPageChange, onEdit, onDelete }) {
+export default function TeamTable({ teams, meta, isLoading, page, onPageChange, onEdit, onDelete, onView, canManage }) {
     const columns = [
         {
-            title: 'Team',
-            dataIndex: 'name',
-            key: 'name',
+            title: "Team",
+            dataIndex: "name",
+            key: "name",
             render: (name) => (
                 <span className="font-medium text-slate-800">{name}</span>
             ),
         },
         {
-            title: 'Team Lead',
-            dataIndex: 'leader',
-            key: 'leader',
+            title: "Team Lead",
+            dataIndex: "leader",
+            key: "leader",
             render: (leader) =>
                 leader ? (
                     <div className="flex items-center gap-2">
@@ -34,9 +34,9 @@ export default function TeamTable({ teams, meta, isLoading, page, onPageChange, 
                 ),
         },
         {
-            title: 'Manager',
-            dataIndex: 'manager',
-            key: 'manager',
+            title: "Manager",
+            dataIndex: "manager",
+            key: "manager",
             render: (manager) =>
                 manager ? (
                     <div className="flex items-center gap-2">
@@ -50,9 +50,9 @@ export default function TeamTable({ teams, meta, isLoading, page, onPageChange, 
                 ),
         },
         {
-            title: 'Members',
-            dataIndex: 'members',
-            key: 'members',
+            title: "Members",
+            dataIndex: "members",
+            key: "members",
             render: (members) => (
                 <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
                     <Users size={11} />
@@ -61,35 +61,48 @@ export default function TeamTable({ teams, meta, isLoading, page, onPageChange, 
             ),
         },
         {
-            title: 'Description',
-            dataIndex: 'description',
-            key: 'description',
-            render: (v) => <span className="text-sm text-slate-400">{v || '—'}</span>,
+            title: "Description",
+            dataIndex: "description",
+            key: "description",
+            render: (v) => <span className="text-sm text-slate-400">{v || "\u2014"}</span>,
         },
         {
-            title: '',
-            key: 'actions',
-            width: 80,
+            title: "",
+            key: "actions",
+            width: canManage ? 100 : 52,
             render: (_, record) => (
                 <div className="flex items-center gap-1">
-                    <Tooltip title="Edit">
+                    <Tooltip title="View Members">
                         <button
-                            onClick={() => onEdit(record)}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            aria-label={`Edit ${record.name}`}
+                            onClick={() => onView(record)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-sky-600 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500"
+                            aria-label={`View members of ${record.name}`}
                         >
-                            <Pencil size={14} />
+                            <Eye size={14} />
                         </button>
                     </Tooltip>
-                    <Tooltip title="Delete">
-                        <button
-                            onClick={() => onDelete(record)}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-500"
-                            aria-label={`Delete ${record.name}`}
-                        >
-                            <Trash2 size={14} />
-                        </button>
-                    </Tooltip>
+                    {canManage && (
+                        <>
+                            <Tooltip title="Edit">
+                                <button
+                                    onClick={() => onEdit(record)}
+                                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    aria-label={`Edit ${record.name}`}
+                                >
+                                    <Pencil size={14} />
+                                </button>
+                            </Tooltip>
+                            <Tooltip title="Delete">
+                                <button
+                                    onClick={() => onDelete(record)}
+                                    className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                    aria-label={`Delete ${record.name}`}
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </Tooltip>
+                        </>
+                    )}
                 </div>
             ),
         },
@@ -121,7 +134,7 @@ export default function TeamTable({ teams, meta, isLoading, page, onPageChange, 
                 total: meta?.total ?? 0,
                 onChange: onPageChange,
                 showSizeChanger: false,
-                className: 'px-4 pb-2',
+                className: "px-4 pb-2",
             }}
             className="rounded-2xl"
             rowClassName="hover:bg-slate-50/60 transition-colors"
