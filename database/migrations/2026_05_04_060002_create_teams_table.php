@@ -12,7 +12,8 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('description')->nullable();
-            $table->foreignId('leader_id')->nullable()->constrained('users', 'id', 'teams_leader_fk')->nullOnDelete();
+            $table->unsignedBigInteger('leader_id')->nullable()->index();
+            $table->foreign('leader_id', 'teams_leader_fk')->references('id')->on('users')->nullOnDelete();
             $table->timestamps();
         });
     }

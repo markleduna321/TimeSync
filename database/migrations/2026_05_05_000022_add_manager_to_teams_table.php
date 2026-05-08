@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('teams', function (Blueprint $table) {
-            $table->foreignId('manager_id')->nullable()->after('leader_id')
-                ->constrained('users', 'id', 'teams_manager_fk')->nullOnDelete();
+            $table->unsignedBigInteger('manager_id')->nullable()->after('leader_id')->index();
+            $table->foreign('manager_id', 'teams_manager_fk')->references('id')->on('users')->nullOnDelete();
         });
     }
 

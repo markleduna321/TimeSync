@@ -9,10 +9,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->foreignId('department_id')->nullable()->after('monthly_salary')
-                ->constrained('departments', 'id', 'users_dept_fk')->nullOnDelete();
-            $table->foreignId('account_id')->nullable()->after('department_id')
-                ->constrained('accounts', 'id', 'users_acct_fk')->nullOnDelete();
+            $table->unsignedBigInteger('department_id')->nullable()->after('monthly_salary')->index();
+            $table->foreign('department_id', 'users_dept_fk')->references('id')->on('departments')->nullOnDelete();
+            $table->unsignedBigInteger('account_id')->nullable()->after('department_id')->index();
+            $table->foreign('account_id', 'users_acct_fk')->references('id')->on('accounts')->nullOnDelete();
         });
     }
 

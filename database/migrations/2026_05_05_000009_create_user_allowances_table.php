@@ -10,17 +10,16 @@ return new class extends Migration
     {
         Schema::create('user_allowances', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users', 'id', 'ua_uid_fk')->cascadeOnDelete();
-            $table->foreignId('allowance_type_id')->constrained('allowance_types', 'id', 'ua_atid_fk')->cascadeOnDelete();
+            $table->unsignedBigInteger('user_id')->index();
+            $table->foreign('user_id', 'ua_uid_fk')->references('id')->on('users')->cascadeOnDelete();
+            $table->unsignedBigInteger('allowance_type_id')->index();
+            $table->foreign('allowance_type_id', 'ua_atid_fk')->references('id')->on('allowance_types')->cascadeOnDelete();
             $table->decimal('amount', 12, 2)->comment('Monthly amount; service halves per cutoff');
             $table->date('effective_from');
             $table->date('effective_to')->nullable();
             $table->boolean('is_active')->default(true);
             $table->string('description')->nullable();
             $table->timestamps();
-
-            $table->index('user_id');
-            $table->index('allowance_type_id');
         });
     }
 

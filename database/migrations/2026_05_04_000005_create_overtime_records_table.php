@@ -10,13 +10,16 @@ return new class extends Migration
     {
         Schema::create('overtime_records', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users', 'id', 'ot_uid_fk')->cascadeOnDelete()->index();
+            $table->unsignedBigInteger('user_id')->index();
+            $table->foreign('user_id', 'ot_uid_fk')->references('id')->on('users')->cascadeOnDelete();
             $table->date('date')->index();
             $table->time('start_time');
             $table->time('end_time');
             $table->unsignedInteger('total_minutes');
-            $table->foreignId('correction_id')->unique()->constrained('attendance_corrections', 'id', 'ot_corr_fk')->cascadeOnDelete();
-            $table->foreignId('approved_by')->constrained('users', 'id', 'ot_appr_fk');
+            $table->unsignedBigInteger('correction_id')->unique()->index();
+            $table->foreign('correction_id', 'ot_corr_fk')->references('id')->on('attendance_corrections')->cascadeOnDelete();
+            $table->unsignedBigInteger('approved_by')->index();
+            $table->foreign('approved_by', 'ot_appr_fk')->references('id')->on('users');
             $table->timestamp('approved_at');
             $table->timestamps();
         });

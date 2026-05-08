@@ -10,7 +10,8 @@ return new class extends Migration
     {
         Schema::create('payslips', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users', 'id', 'ps_uid_fk')->cascadeOnDelete()->index();
+            $table->unsignedBigInteger('user_id')->index();
+            $table->foreign('user_id', 'ps_uid_fk')->references('id')->on('users')->cascadeOnDelete();
             $table->date('period_start');
             $table->date('period_end');
             $table->date('pay_date')->nullable();
@@ -26,7 +27,8 @@ return new class extends Migration
             $table->unsignedInteger('late_minutes')->default(0);
             $table->unsignedInteger('undertime_minutes')->default(0);
             $table->enum('status', ['draft', 'released'])->default('draft');
-            $table->foreignId('generated_by')->constrained('users', 'id', 'ps_genby_fk')->restrictOnDelete();
+            $table->unsignedBigInteger('generated_by')->index();
+            $table->foreign('generated_by', 'ps_genby_fk')->references('id')->on('users')->restrictOnDelete();
             $table->timestamp('released_at')->nullable();
             $table->timestamps();
 

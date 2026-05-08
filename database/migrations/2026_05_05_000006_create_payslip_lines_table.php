@@ -10,7 +10,8 @@ return new class extends Migration
     {
         Schema::create('payslip_lines', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('payslip_id')->constrained('payslips', 'id', 'psl_psid_fk')->cascadeOnDelete()->index();
+            $table->unsignedBigInteger('payslip_id')->index();
+            $table->foreign('payslip_id', 'psl_psid_fk')->references('id')->on('payslips')->cascadeOnDelete();
             $table->enum('category', ['earning', 'deduction']);
             $table->unsignedSmallInteger('sort_order')->default(0);
             $table->string('code', 30);

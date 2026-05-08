@@ -13,7 +13,8 @@ return new class extends Migration
     {
         Schema::create('schedules', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users', 'id', 'sched_uid_fk')->cascadeOnDelete()->index();
+            $table->unsignedBigInteger('user_id')->index();
+            $table->foreign('user_id', 'sched_uid_fk')->references('id')->on('users')->cascadeOnDelete();
             $table->json('work_days');                          // ["Mon","Tue","Wed","Thu","Fri"]
             $table->time('shift_start');                        // "08:00"
             $table->time('shift_end');                          // "17:00"
