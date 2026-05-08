@@ -33,28 +33,28 @@ class AttendanceSeeder extends Seeder
         // ── Users ─────────────────────────────────────────────────────────
         $manager = User::updateOrCreate(
             ['email' => 'manager@test.com'],
-            ['name' => 'Maria Manager', 'password' => Hash::make('password')]
+            ['first_name' => 'Maria', 'last_name' => 'Manager', 'password' => Hash::make('password')]
         );
 
         $teamLead = User::updateOrCreate(
             ['email' => 'teamlead@test.com'],
-            ['name' => 'Tom TeamLead', 'password' => Hash::make('password')]
+            ['first_name' => 'Tom', 'last_name' => 'TeamLead', 'password' => Hash::make('password')]
         );
 
         $emp1 = User::updateOrCreate(
             ['email' => 'alice@test.com'],
-            ['name' => 'Alice Employee', 'password' => Hash::make('password')]
+            ['first_name' => 'Alice', 'last_name' => 'Employee', 'password' => Hash::make('password')]
         );
 
         $emp2 = User::updateOrCreate(
             ['email' => 'bob@test.com'],
-            ['name' => 'Bob Employee', 'password' => Hash::make('password')]
+            ['first_name' => 'Bob', 'last_name' => 'Employee', 'password' => Hash::make('password')]
         );
 
         // Shift worker — Mon–Sat, late shift
         $emp3 = User::updateOrCreate(
             ['email' => 'charlie@test.com'],
-            ['name' => 'Charlie ShiftWorker', 'password' => Hash::make('password')]
+            ['first_name' => 'Charlie', 'last_name' => 'ShiftWorker', 'password' => Hash::make('password')]
         );
 
         // Assign roles

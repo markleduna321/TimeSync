@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('time_log_histories', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete()->index();
+            $table->foreignId('user_id')->index()->constrained('users')->cascadeOnDelete();
             $table->date('date')->index();
             $table->foreignId('time_log_id')->nullable()->constrained('time_logs')->nullOnDelete();
             $table->datetime('old_clock_in')->nullable();
@@ -18,7 +18,8 @@ return new class extends Migration
             $table->datetime('new_clock_in')->nullable();
             $table->datetime('new_clock_out')->nullable();
             $table->foreignId('correction_id')->constrained('attendance_corrections')->cascadeOnDelete();
-            $table->foreignId('changed_by')->constrained('users');
+            $table->unsignedBigInteger('changed_by')->index();
+            $table->foreign('changed_by', 'tlh_changed_by_foreign')->references('id')->on('users');
             $table->timestamps();
         });
     }

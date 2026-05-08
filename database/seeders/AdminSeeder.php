@@ -16,8 +16,9 @@ class AdminSeeder extends Seeder
         User::updateOrCreate(
             ['email' => 'admin@gmail.com'],
             [
-                'name'     => 'Super Admin',
-                'password' => Hash::make('AsuraAdmin123'),
+                'first_name' => 'Super',
+                'last_name'  => 'Admin',
+                'password'   => Hash::make('AsuraAdmin123'),
             ]
         );
     }
