@@ -10,17 +10,17 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             $table->foreignId('department_id')->nullable()->after('monthly_salary')
-                ->constrained()->nullOnDelete();
+                ->constrained('departments', 'id', 'users_dept_fk')->nullOnDelete();
             $table->foreignId('account_id')->nullable()->after('department_id')
-                ->constrained()->nullOnDelete();
+                ->constrained('accounts', 'id', 'users_acct_fk')->nullOnDelete();
         });
     }
 
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropForeignIdFor(\App\Models\Department::class);
-            $table->dropForeignIdFor(\App\Models\Account::class);
+            $table->dropForeign('users_dept_fk');
+            $table->dropForeign('users_acct_fk');
             $table->dropColumn(['department_id', 'account_id']);
         });
     }

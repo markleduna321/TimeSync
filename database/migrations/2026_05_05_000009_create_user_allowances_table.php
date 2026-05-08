@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::create('user_allowances', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('allowance_type_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users', 'id', 'ua_uid_fk')->cascadeOnDelete();
+            $table->foreignId('allowance_type_id')->constrained('allowance_types', 'id', 'ua_atid_fk')->cascadeOnDelete();
             $table->decimal('amount', 12, 2)->comment('Monthly amount; service halves per cutoff');
             $table->date('effective_from');
             $table->date('effective_to')->nullable();

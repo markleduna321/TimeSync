@@ -10,13 +10,13 @@ return new class extends Migration
     {
         Schema::create('user_deductions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('deduction_type_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users', 'id', 'ud_uid_fk')->cascadeOnDelete();
+            $table->foreignId('deduction_type_id')->constrained('deduction_types', 'id', 'ud_dtid_fk')->cascadeOnDelete();
             $table->string('description')->nullable();
             $table->decimal('amount', 12, 2);
             $table->date('effective_from');
             $table->date('effective_until')->nullable();
-            $table->foreignId('added_by')->constrained('users')->restrictOnDelete();
+            $table->foreignId('added_by')->constrained('users', 'id', 'ud_addedby_fk')->restrictOnDelete();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });

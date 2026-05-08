@@ -10,14 +10,14 @@ return new class extends Migration
     {
         Schema::table('teams', function (Blueprint $table) {
             $table->foreignId('manager_id')->nullable()->after('leader_id')
-                ->constrained('users')->nullOnDelete();
+                ->constrained('users', 'id', 'teams_manager_fk')->nullOnDelete();
         });
     }
 
     public function down(): void
     {
         Schema::table('teams', function (Blueprint $table) {
-            $table->dropForeign(['manager_id']);
+            $table->dropForeign('teams_manager_fk');
             $table->dropColumn('manager_id');
         });
     }

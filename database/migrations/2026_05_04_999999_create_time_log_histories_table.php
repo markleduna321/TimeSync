@@ -10,16 +10,16 @@ return new class extends Migration
     {
         Schema::create('time_log_histories', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->index()->constrained('users')->cascadeOnDelete();
+            $table->foreignId('user_id')->index()->constrained('users', 'id', 'tlh_uid_fk')->cascadeOnDelete();
             $table->date('date')->index();
-            $table->foreignId('time_log_id')->nullable()->constrained('time_logs')->nullOnDelete();
+            $table->foreignId('time_log_id')->nullable()->constrained('time_logs', 'id', 'tlh_tlog_fk')->nullOnDelete();
             $table->datetime('old_clock_in')->nullable();
             $table->datetime('old_clock_out')->nullable();
             $table->datetime('new_clock_in')->nullable();
             $table->datetime('new_clock_out')->nullable();
-            $table->foreignId('correction_id')->constrained('attendance_corrections')->cascadeOnDelete();
+            $table->foreignId('correction_id')->constrained('attendance_corrections', 'id', 'tlh_corr_fk')->cascadeOnDelete();
             $table->unsignedBigInteger('changed_by')->index();
-            $table->foreign('changed_by', 'tlh_changed_by_foreign')->references('id')->on('users');
+            $table->foreign('changed_by', 'tlh_chgby_fk')->references('id')->on('users');
             $table->timestamps();
         });
     }

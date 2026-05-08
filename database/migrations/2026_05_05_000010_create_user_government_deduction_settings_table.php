@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('user_government_deduction_settings', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete()->index();
+            $table->foreignId('user_id')->constrained('users', 'id', 'ugds_uid_fk')->cascadeOnDelete()->index();
             $table->string('code', 30); // SSS | PHILHEALTH | PAGIBIG | WITHHOLDING_TAX
             $table->boolean('is_enabled')->default(true);
             $table->timestamps();

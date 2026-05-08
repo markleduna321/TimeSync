@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('time_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete()->index();
+            $table->foreignId('user_id')->constrained('users', 'id', 'tlogs_uid_fk')->cascadeOnDelete()->index();
             $table->date('date')->index();
             $table->dateTime('clock_in')->nullable();
             $table->dateTime('clock_out')->nullable();
