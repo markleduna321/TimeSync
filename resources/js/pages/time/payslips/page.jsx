@@ -67,6 +67,11 @@ export default function MyPayslipsPage() {
                         >
                             <div className="flex items-center justify-between">
                                 <div>
+                                    {p.user?.name && (
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                                            {p.user.name}
+                                        </p>
+                                    )}
                                     <p className="font-semibold text-slate-800">
                                         {p.period_start} → {p.period_end}
                                     </p>
