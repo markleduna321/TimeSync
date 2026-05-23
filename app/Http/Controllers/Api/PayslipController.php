@@ -27,7 +27,7 @@ class PayslipController extends Controller
     {
         $this->authorize('viewAny', Payslip::class);
 
-        $isAdmin = $request->user()->hasAnyRole(['super_admin', 'admin', 'manager']);
+        $isAdmin = $request->user()->hasAnyRole(['super_admin', 'admin']);
         $userId  = $isAdmin
             ? $request->query('user_id')
             : $request->user()->id;

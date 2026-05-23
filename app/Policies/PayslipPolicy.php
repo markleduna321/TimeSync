@@ -14,11 +14,10 @@ class PayslipPolicy
 
     public function view(User $user, Payslip $payslip): bool
     {
-        // Employees can see their own payslips (draft or released) to check before final release
         if ($user->id === $payslip->user_id) {
             return true;
         }
-        return $user->hasAnyRole(['super_admin', 'admin', 'manager']);
+        return $user->hasAnyRole(['super_admin', 'admin']);
     }
 
     public function create(User $user): bool
