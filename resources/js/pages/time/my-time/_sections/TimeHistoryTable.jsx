@@ -44,11 +44,12 @@ function breakSummary(log) {
     const breaks = log.breaks ?? [];
     const completed = breaks.filter((b) => b.start && b.end);
     if (!completed.length) return '—';
-    const totalMins = completed.reduce(
-        (acc, b) => acc + Math.floor((new Date(b.end) - new Date(b.start)) / 60000),
-        0,
-    );
-    return `${completed.length} × ${Math.round(totalMins / completed.length)}m`;
+    return completed
+        .map((b, i) => {
+            const mins = Math.floor((new Date(b.end) - new Date(b.start)) / 60000);
+            return `Break ${i + 1}: ${mins}m`;
+        })
+        .join(' · ');
 }
 
 const COLUMNS = [

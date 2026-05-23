@@ -51,8 +51,19 @@ class TimeLogController extends Controller
     {
         $log = $this->todayLog();
 
-        if (! $log || $log->status !== 'active') {
+        if (! $log || ! in_array($log->status, ['active', 'on_break'])) {
             return response()->json(['message' => 'No active clock-in found for today.'], 422);
+        }
+
+        // Auto-close any open break before clocking out so worked minutes are accurate
+        if ($log->status === 'on_break') {
+            $breaks = $log->breaks ?? [];
+            $lastIndex = count($breaks) - 1;
+            if ($lastIndex >= 0 && empty($breaks[$lastIndex]['end'])) {
+                $breaks[$lastIndex]['end'] = now()->toISOString();
+                $log->update(['breaks' => $breaks, 'status' => 'active']);
+                $log->refresh();
+            }
         }
 
         $log->update(['clock_out' => now(), 'status' => 'clocked_out']);

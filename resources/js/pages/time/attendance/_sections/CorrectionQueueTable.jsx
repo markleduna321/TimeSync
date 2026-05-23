@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { Table, Tabs, Popconfirm, Skeleton } from 'antd';
+import { Table, Tabs, Popconfirm, Skeleton, message } from 'antd';
 import { CheckSquare, Download } from 'lucide-react';
 import { useGetCorrectionsQuery, useReviewCorrectionMutation } from '@/features/timekeeping/attendanceApi';
+
+const UI_LOCALE = 'en-PH';
+const UI_TIMEZONE = 'Asia/Manila';
 
 const STATUS_BADGE = {
     pending:  'bg-amber-100 text-amber-700',
@@ -18,19 +21,30 @@ const TAB_ITEMS = [
 
 function fmtDate(dateStr) {
     if (!dateStr) return '—';
-    return new Date(dateStr + 'T00:00:00').toLocaleDateString([], {
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString(UI_LOCALE, {
         weekday: 'short', month: 'short', day: 'numeric',
+        timeZone: UI_TIMEZONE,
     });
 }
 
 function fmtDateTime(iso) {
     if (!iso) return '—';
-    return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+    return new Date(iso).toLocaleDateString(UI_LOCALE, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        timeZone: UI_TIMEZONE,
+    });
 }
 
 function fmtTime(iso) {
     if (!iso) return '—';
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    return new Date(iso).toLocaleTimeString(UI_LOCALE, {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: UI_TIMEZONE,
+    });
 }
 function fmtTimeStr(timeStr) {
     if (!timeStr) return '—';
@@ -38,9 +52,10 @@ function fmtTimeStr(timeStr) {
 }
 function fmtFull(iso) {
     if (!iso) return '—';
-    return new Date(iso).toLocaleString([], {
+    return new Date(iso).toLocaleString(UI_LOCALE, {
         month: 'short', day: 'numeric', year: 'numeric',
         hour: '2-digit', minute: '2-digit',
+        timeZone: UI_TIMEZONE,
     });
 }
 
@@ -89,8 +104,16 @@ function ReviewActions({ record }) {
     const [reviewCorrection, { isLoading }] = useReviewCorrectionMutation();
 
     async function handleReview(action) {
-        await reviewCorrection({ id: record.id, action, admin_note: adminNote || undefined });
-        setAdminNote('');
+        try {
+            await reviewCorrection({ id: record.id, action, admin_note: adminNote || undefined }).unwrap();
+            const requestLabel = record.type === 'overtime' ? 'Overtime request' : 'Correction request';
+            const actionLabel = action === 'approved' ? 'approved' : 'rejected';
+            message.success(`${requestLabel} ${actionLabel}.`);
+            setAdminNote('');
+        } catch (err) {
+            const fallback = 'Unable to review request. Please try again.';
+            message.error(err?.data?.message || fallback);
+        }
     }
 
     if (record.status !== 'pending') return null;
@@ -105,6 +128,7 @@ function ReviewActions({ record }) {
                 maxLength={500}
                 className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
             />
+            {isLoading && <span className="text-xs text-slate-500">Saving...</span>}
             <div className="flex gap-1.5">
                 <Popconfirm
                     title="Approve this correction?"

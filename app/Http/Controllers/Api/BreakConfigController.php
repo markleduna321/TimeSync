@@ -28,7 +28,12 @@ class BreakConfigController extends Controller
     public function upsert(StoreBreakConfigRequest $request, User $user): BreakConfigResource
     {
         $config = UserBreakConfig::firstOrNew(['user_id' => $user->id]);
-        $this->authorize('update', $config->exists ? $config : UserBreakConfig::class);
+
+        if ($config->exists) {
+            $this->authorize('update', $config);
+        } else {
+            $this->authorize('create', UserBreakConfig::class);
+        }
 
         $config->fill(array_merge($request->validated(), ['user_id' => $user->id]));
         $config->save();

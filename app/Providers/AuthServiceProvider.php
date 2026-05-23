@@ -60,5 +60,12 @@ class AuthServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerPolicies();
+
+        // Privileged users bypass all policy checks globally.
+        Gate::before(function ($user, $ability) {
+            if ($user->hasAnyRole(['super_admin', 'admin', 'manager'])) {
+                return true;
+            }
+        });
     }
 }

@@ -12,6 +12,10 @@ class AttendanceDayResource extends JsonResource
     {
         $correction = $this->resource['correction'] ?? null;
         $overtime   = $this->resource['overtime']   ?? null;
+        $rawTime = function ($model, string $column): ?string {
+            $raw = $model?->getRawOriginal($column);
+            return $raw ? substr($raw, 11, 8) : null;
+        };
 
         $formatEntry = fn ($entry) => $entry ? [
             'id'                   => $entry->id,
@@ -28,6 +32,10 @@ class AttendanceDayResource extends JsonResource
                     'old_clock_out' => $h->old_clock_out?->toISOString(),
                     'new_clock_in'  => $h->new_clock_in?->toISOString(),
                     'new_clock_out' => $h->new_clock_out?->toISOString(),
+                    'old_clock_in_time'  => $rawTime($h, 'old_clock_in'),
+                    'old_clock_out_time' => $rawTime($h, 'old_clock_out'),
+                    'new_clock_in_time'  => $rawTime($h, 'new_clock_in'),
+                    'new_clock_out_time' => $rawTime($h, 'new_clock_out'),
                     'changed_by'    => $h->changedBy?->name,
                     'changed_at'    => $h->created_at?->toISOString(),
                 ])->values()->all()
@@ -40,6 +48,8 @@ class AttendanceDayResource extends JsonResource
             'status'               => $this->resource['status'],
             'clock_in'             => $this->resource['clock_in'],
             'clock_out'            => $this->resource['clock_out'],
+            'clock_in_time'        => $this->resource['clock_in_time'] ?? null,
+            'clock_out_time'       => $this->resource['clock_out_time'] ?? null,
             'total_worked_minutes' => $this->resource['total_worked_minutes'],
             'undertime_minutes'    => $this->resource['undertime_minutes'] ?? 0,
             'correction'           => $formatEntry($correction),

@@ -128,10 +128,18 @@ export default function ClockWidget({ timelog, schedule, isLoading }) {
         ? timelog?.total_worked_minutes
         : calcLiveMinutes(timelog, now);
 
-    const completedBreaks = (timelog?.breaks ?? []).filter(b => b.start && b.end).length;
-    const maxBreaks = breakConfig?.break_count ?? 1;
+    const breaks = timelog?.breaks ?? [];
+    const break1 = breaks[0];
+    const break2 = breaks[1];
+    const break1Done = !!(break1?.start && break1?.end);
+    const activeBreak = status === 'on_break' ? breaks.find((b) => b.start && !b.end) : null;
+    const activeBreakIndex = activeBreak ? breaks.indexOf(activeBreak) + 1 : null;
+    const maxBreaks = breakConfig?.break_count ?? 2;
+    const breakLimit = breakConfig?.break_duration_minutes ?? 15;
     const breaksAllowed = breakConfig?.break_allowed === true;
-    const breaksExhausted = completedBreaks >= maxBreaks;
+    const breakElapsedMinutes = activeBreak
+        ? Math.floor((now - new Date(activeBreak.start)) / 60000)
+        : null;
     const anyLoading = clockingIn || clockingOut || startingLunch || endingLunch || startingBreak || endingBreak;
 
     return (
@@ -174,6 +182,17 @@ export default function ClockWidget({ timelog, schedule, isLoading }) {
                         <span className={`text-xs font-semibold rounded-full px-2.5 py-0.5 border ${cfg.badge}`}>
                             {cfg.label}
                         </span>
+                        {status === 'on_break' && breakElapsedMinutes !== null && (
+                            <span className={`text-xs font-mono font-semibold tabular-nums ${
+                                breakElapsedMinutes >= breakLimit
+                                    ? 'text-rose-600'
+                                    : breakElapsedMinutes >= breakLimit - 2
+                                        ? 'text-amber-500'
+                                        : 'text-sky-600'
+                            }`}>
+                                {breakElapsedMinutes}m / {breakLimit}m
+                            </span>
+                        )}
                     </div>
                     <div className="flex items-center gap-1.5">
                         <Timer size={14} className="text-slate-400" />
@@ -217,8 +236,11 @@ export default function ClockWidget({ timelog, schedule, isLoading }) {
                             {!timelog?.lunch_start && (
                                 <ActionButton onClick={() => handleAction(lunchStart)} loading={startingLunch} disabled={anyLoading} icon={Coffee} label="Start Lunch" variant="warning" />
                             )}
-                            {breaksAllowed && !breaksExhausted && (
-                                <ActionButton onClick={() => handleAction(breakStart)} loading={startingBreak} disabled={anyLoading} icon={Play} label={`Break (${completedBreaks}/${maxBreaks})`} variant="secondary" />
+                            {breaksAllowed && !break1?.start && (
+                                <ActionButton onClick={() => handleAction(breakStart)} loading={startingBreak} disabled={anyLoading} icon={Play} label="Break 1" variant="secondary" />
+                            )}
+                            {breaksAllowed && maxBreaks >= 2 && break1Done && !break2?.start && (
+                                <ActionButton onClick={() => handleAction(breakStart)} loading={startingBreak} disabled={anyLoading} icon={Play} label="Break 2" variant="secondary" />
                             )}
                         </>
                     )}
@@ -228,7 +250,7 @@ export default function ClockWidget({ timelog, schedule, isLoading }) {
                     )}
 
                     {status === 'on_break' && (
-                        <ActionButton onClick={() => handleAction(breakEnd)} loading={endingBreak} disabled={anyLoading} icon={Square} label="End Break" variant="secondary" />
+                        <ActionButton onClick={() => handleAction(breakEnd)} loading={endingBreak} disabled={anyLoading} icon={Square} label={`End Break ${activeBreakIndex ?? ''}`} variant="secondary" />
                     )}
 
                     {status === 'clocked_out' && (

@@ -12,6 +12,17 @@ class BreakConfigPolicy
         return $user->hasAnyRole(['super_admin', 'admin', 'manager']);
     }
 
+    /**
+     * Super-admins, admins, and managers bypass all individual policy checks.
+     */
+    public function before(User $user, string $ability): bool|null
+    {
+        if ($this->isPrivileged($user)) {
+            return true;
+        }
+        return null;
+    }
+
     public function viewAny(User $user): bool
     {
         return $this->isPrivileged($user)

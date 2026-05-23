@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Tabs, Spin, Switch } from 'antd';
 import {
     User, Shield, CalendarClock, Tag, Gift, Building2, AtSign,
-    PlusCircle, Trash2, CheckCircle2, ShieldCheck,
+    PlusCircle, Trash2, CheckCircle2, ShieldCheck, Timer,
 } from 'lucide-react';
 import { useUpdateUserMutation } from '@/features/users/usersApi';
 import { useGetRolesQuery } from '@/features/roles/rolesApi';
@@ -23,6 +23,10 @@ import {
     useGetDepartmentsQuery,
     useGetAccountsQuery,
 } from '@/features/organization/organizationApi';
+import {
+    useGetBreakConfigQuery,
+    useUpsertBreakConfigMutation,
+} from '@/features/timekeeping/breakConfigApi';
 
 /* ─── Shared helpers ─────────────────────────────────────────────────────── */
 const ROLE_COLORS = {
@@ -782,6 +786,127 @@ function GovContributionsTab({ user }) {
     );
 }
 
+/* ─── Breaks Tab ────────────────────────────────────────────────────────── */
+function BreaksTab({ user }) {
+    const [form, setForm]     = useState({ break_allowed: false, break_count: 2, break_duration_minutes: 15, lunch_duration_minutes: 60 });
+    const [errors, setErrors] = useState({});
+    const [saved, setSaved]   = useState(false);
+
+    const { data: configData, isLoading } = useGetBreakConfigQuery(user?.id, { skip: !user?.id });
+    const [upsert, { isLoading: saving }] = useUpsertBreakConfigMutation();
+
+    useEffect(() => {
+        const cfg = configData?.data ?? configData;
+        if (cfg && cfg.break_allowed !== undefined) {
+            setForm({
+                break_allowed:          cfg.break_allowed ?? false,
+                break_count:            cfg.break_count ?? 2,
+                break_duration_minutes: cfg.break_duration_minutes ?? 15,
+                lunch_duration_minutes: cfg.lunch_duration_minutes ?? 60,
+            });
+        } else {
+            setForm({ break_allowed: false, break_count: 2, break_duration_minutes: 15, lunch_duration_minutes: 60 });
+        }
+        setErrors({});
+        setSaved(false);
+    }, [user?.id, configData]);
+
+    function set(field, value) {
+        setForm((f) => ({ ...f, [field]: value }));
+        setErrors((e) => ({ ...e, [field]: undefined }));
+    }
+
+    async function handleSave(e) {
+        e.preventDefault();
+        setErrors({});
+        setSaved(false);
+        try {
+            await upsert({
+                userId:                 user.id,
+                break_allowed:          form.break_allowed,
+                break_count:            Number(form.break_count),
+                break_duration_minutes: Number(form.break_duration_minutes),
+                lunch_duration_minutes: Number(form.lunch_duration_minutes),
+            }).unwrap();
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (err) {
+            if (err?.status === 422) setErrors(err.data?.errors ?? {});
+        }
+    }
+
+    if (isLoading) return <div className="flex justify-center py-10"><Spin /></div>;
+
+    return (
+        <form onSubmit={handleSave} className="space-y-5 pt-1">
+            {/* Master toggle */}
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 bg-slate-50">
+                <div>
+                    <p className="text-sm font-medium text-slate-700">Allow Breaks</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Enable daily break entitlement for this employee</p>
+                </div>
+                <Switch checked={form.break_allowed} onChange={(v) => set('break_allowed', v)} />
+            </div>
+
+            {/* Settings — only visible when breaks are enabled */}
+            {form.break_allowed && (
+                <div className="space-y-4">
+                    <Field label="Number of Breaks per Day" error={errors.break_count}>
+                        <div className="flex gap-2">
+                            {[1, 2].map((n) => (
+                                <button key={n} type="button"
+                                    onClick={() => set('break_count', n)}
+                                    className={`flex-1 rounded-lg border py-2 text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-sky-500 ${
+                                        form.break_count === n
+                                            ? 'border-sky-400 bg-sky-50 text-sky-700'
+                                            : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                                    }`}>
+                                    {n} break{n > 1 ? 's' : ''}
+                                </button>
+                            ))}
+                        </div>
+                    </Field>
+
+                    <Field label="Break Duration (minutes)" error={errors.break_duration_minutes}>
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="range"
+                                min="5" max="60" step="5"
+                                value={form.break_duration_minutes}
+                                onChange={(e) => set('break_duration_minutes', Number(e.target.value))}
+                                className="flex-1 accent-sky-600"
+                            />
+                            <span className="w-14 shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-center text-sm font-semibold text-slate-700">
+                                {form.break_duration_minutes}m
+                            </span>
+                        </div>
+                    </Field>
+
+                    {/* Preview */}
+                    <div className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-3">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-sky-500">Preview</p>
+                        <p className="mt-1 text-sm font-semibold text-sky-800">
+                            {form.break_count} × {form.break_duration_minutes} min break{form.break_count > 1 ? 's' : ''} per day
+                        </p>
+                        <p className="text-xs text-sky-600 mt-0.5">
+                            = {form.break_count * form.break_duration_minutes} min total break time deducted from worked hours
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+                {saved && <SavedBadge />}
+                <button type="submit" disabled={saving}
+                    className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 transition-colors disabled:opacity-60">
+                    {saving && <Spin size="small" />}
+                    Save Breaks
+                </button>
+            </div>
+        </form>
+    );
+}
+
 /* ─── Coming Soon placeholder ────────────────────────────────────────────── */
 function ComingSoon({ icon: Icon, label }) {
     return (
@@ -837,6 +962,11 @@ export default function UserEditModal({ open, onClose, user }) {
             key:      'gov-contributions',
             label:    <span className="flex items-center gap-1.5"><ShieldCheck size={13} /> Gov. Contributions</span>,
             children: <GovContributionsTab user={user} />,
+        },
+        {
+            key:      'breaks',
+            label:    <span className="flex items-center gap-1.5"><Timer size={13} /> Breaks</span>,
+            children: <BreaksTab user={user} />,
         },
         {
             key:      'account',

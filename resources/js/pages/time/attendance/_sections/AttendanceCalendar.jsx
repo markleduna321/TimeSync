@@ -17,6 +17,15 @@ function fmtTime(iso) {
     return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
+function fmtTimeStr(timeStr) {
+    if (!timeStr) return null;
+    return new Date('1970-01-01T' + timeStr).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+    });
+}
+
 /**
  * Returns an array of 42 cells (6 rows × 7 cols, Sun–Sat) for the calendar grid.
  * Cells outside the target month have `inMonth: false`.
@@ -67,7 +76,7 @@ function DayCell({ cell, onClick }) {
     const hasPendingCorrection =
         dayData?.correction?.status === 'pending' ||
         dayData?.overtime?.status === 'pending';
-    const clockIn       = fmtTime(dayData?.clock_in);
+    const clockIn       = dayData?.clock_in_time ? fmtTimeStr(dayData.clock_in_time) : fmtTime(dayData?.clock_in);
     const undertimeMins = dayData?.undertime_minutes ?? 0;
 
     return (

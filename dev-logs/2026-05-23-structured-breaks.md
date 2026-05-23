@@ -1,0 +1,21 @@
+### Phase 1: 2 × 15-Minute Structured Breaks
+
+- **Timestamp:** 2026-05-23
+- **Persona(s) Active:** Backend + Frontend + UI/UX
+- **Files Modified/Created:**
+  - `database/migrations/2026_05_23_000001_update_break_count_default_to_two.php` — Created; changes `break_count` column default from 1 → 2 in `user_break_configs`. Migration ran successfully.
+  - `app/Http/Controllers/Api/TimeLogController.php` — `clockOut` now accepts `on_break` status and auto-closes the open break entry before recording `clock_out`, preventing dangling open breaks from corrupting `total_worked_minutes`.
+  - `resources/js/pages/home-page/_sections/ClockWidget.jsx` — Replaced single generic `Break (X/Y)` button with named **Break 1** and **Break 2** buttons. Break 2 only appears after Break 1 is fully completed. Added live break elapsed timer inline with the status badge (e.g. `4m / 15m`) that turns amber at 13 min and red at 15 min+. `End Break` button now reads `End Break 1` / `End Break 2`.
+  - `resources/js/pages/home-page/_sections/TodayTimeline.jsx` — Break events now render as `Break 1 Started`, `Break 1 Ended`, `Break 2 Started`, etc. instead of the previous `Break Started #1` format.
+  - `resources/js/pages/time/my-time/_sections/TimeHistoryTable.jsx` — `breakSummary()` now renders per-slot durations (`Break 1: 15m · Break 2: 14m`) instead of a generic average (`2 × 15m`).
+- **Issues Encountered:** None.
+- **Resolution:** N/A
+- **QA Checklist Result:** Pass
+  - No TypeScript syntax introduced
+  - No new routes — all existing `breakStart`/`breakEnd` endpoints reused
+  - `invalidatesTags` already set on all break mutations in `timelogApi.js`
+  - Server-side `break_count` guard unchanged — UI is display convenience only
+  - `credentials: 'include'` unaffected
+  - `npm run build` exit 0, zero errors
+  - Migration ran: 17ms DONE
+- **Next Steps:** Awaiting user direction — biometric Direct-Write API and `user_information` table plans are documented and ready to implement when approved.

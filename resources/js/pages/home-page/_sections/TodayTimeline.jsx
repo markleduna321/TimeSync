@@ -90,7 +90,7 @@ export default function TodayTimeline({ timelog, isLoading }) {
                                 const cfg = EVENT_CONFIG[event.type];
                                 const Icon = cfg.icon;
                                 const label = event.index !== undefined
-                                    ? `${cfg.label} #${event.index}`
+                                    ? `Break ${event.index} ${cfg.label.replace('Break ', '')}`
                                     : cfg.label;
 
                                 return (

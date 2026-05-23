@@ -65,6 +65,8 @@ class AttendanceController extends Controller
                        || in_array(strtolower($cursor->englishDayOfWeek), $workDays);
             $isFuture   = $dateStr > $today;
             $log              = $logs[$dateStr] ?? null;
+            $clockInRaw       = $log?->getRawOriginal('clock_in');
+            $clockOutRaw      = $log?->getRawOriginal('clock_out');
             $correction       = $corrections["{$dateStr}_correction"] ?? null;
             $overtime         = $corrections["{$dateStr}_overtime"]   ?? null;
             $undertimeMinutes = 0;
@@ -102,6 +104,8 @@ class AttendanceController extends Controller
                 'status'               => $status,
                 'clock_in'             => $log?->clock_in?->toISOString(),
                 'clock_out'            => $log?->clock_out?->toISOString(),
+                'clock_in_time'        => $clockInRaw ? substr($clockInRaw, 11, 8) : null,
+                'clock_out_time'       => $clockOutRaw ? substr($clockOutRaw, 11, 8) : null,
                 'total_worked_minutes' => $log?->total_worked_minutes,
                 'undertime_minutes'    => $undertimeMinutes,
                 'correction'           => $correction,

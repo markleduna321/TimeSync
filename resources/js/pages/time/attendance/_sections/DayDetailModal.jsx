@@ -1,7 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { Modal } from 'antd';
+import { Modal, message } from 'antd';
 import { Upload, X, FileText, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { useFileCorrectionMutation } from '@/features/timekeeping/attendanceApi';
+
+const UI_LOCALE = 'en-PH';
+const UI_TIMEZONE = 'Asia/Manila';
 
 /* ── Status config ────────────────────────────────────────────────────── */
 const STATUS_CONFIG = {
@@ -19,7 +22,12 @@ const CORRECTION_STATUS = {
 
 function fmtTime(iso) {
     if (!iso) return '—';
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    return new Date(iso).toLocaleTimeString(UI_LOCALE, {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: UI_TIMEZONE,
+    });
 }
 function fmtTimeStr(timeStr) {
     if (!timeStr) return '—';
@@ -27,8 +35,9 @@ function fmtTimeStr(timeStr) {
 }
 function fmtDate(dateStr) {
     if (!dateStr) return '';
-    return new Date(dateStr + 'T00:00:00').toLocaleDateString([], {
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString(UI_LOCALE, {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+        timeZone: UI_TIMEZONE,
     });
 }
 
@@ -152,15 +161,22 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
         try {
             await fileCorrection(fd).unwrap();
             setSuccess(true);
+            message.success(
+                formType === 'overtime'
+                    ? 'Overtime request filed successfully.'
+                    : 'Correction request filed successfully.'
+            );
         } catch (err) {
             const errs = err?.data?.errors ?? {};
+            const hasFieldErrors = Object.keys(errs).length > 0;
             setErrors({
                 reason:       errs.reason?.[0],
                 proof:        errs.proof?.[0],
                 requestedIn:  errs.requested_clock_in?.[0],
                 requestedOut: errs.requested_clock_out?.[0],
-                general:      !Object.keys(errs).length ? (err?.data?.message ?? 'Something went wrong.') : null,
+                general:      !hasFieldErrors ? (err?.data?.message ?? 'Something went wrong.') : null,
             });
+            message.error(err?.data?.message ?? 'Unable to file request. Please check your input.');
         }
     }
 
@@ -201,8 +217,8 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                 </span>
                             )}
                             <div className="flex gap-4 text-xs text-slate-500">
-                                <span>In: <strong className="text-slate-700">{fmtTime(day.clock_in)}</strong></span>
-                                <span>Out: <strong className="text-slate-700">{fmtTime(day.clock_out)}</strong></span>
+                                <span>In: <strong className="text-slate-700">{day.clock_in_time ? fmtTimeStr(day.clock_in_time) : fmtTime(day.clock_in)}</strong></span>
+                                <span>Out: <strong className="text-slate-700">{day.clock_out_time ? fmtTimeStr(day.clock_out_time) : fmtTime(day.clock_out)}</strong></span>
                             </div>
                         </div>
                         {day.total_worked_minutes != null && (
@@ -245,15 +261,15 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                     <div key={i} className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
                                         <div className="flex items-center gap-1.5">
                                             <span className="text-slate-400">Clock In</span>
-                                            <span className="tabular-nums text-rose-500 line-through">{fmtTime(h.old_clock_in)}</span>
+                                            <span className="tabular-nums text-rose-500 line-through">{h.old_clock_in_time ? fmtTimeStr(h.old_clock_in_time) : fmtTime(h.old_clock_in)}</span>
                                             <span className="text-slate-400">→</span>
-                                            <span className="tabular-nums font-semibold text-emerald-600">{fmtTime(h.new_clock_in)}</span>
+                                            <span className="tabular-nums font-semibold text-emerald-600">{h.new_clock_in_time ? fmtTimeStr(h.new_clock_in_time) : fmtTime(h.new_clock_in)}</span>
                                         </div>
                                         <div className="flex items-center gap-1.5">
                                             <span className="text-slate-400">Clock Out</span>
-                                            <span className="tabular-nums text-rose-500 line-through">{fmtTime(h.old_clock_out)}</span>
+                                            <span className="tabular-nums text-rose-500 line-through">{h.old_clock_out_time ? fmtTimeStr(h.old_clock_out_time) : fmtTime(h.old_clock_out)}</span>
                                             <span className="text-slate-400">→</span>
-                                            <span className="tabular-nums font-semibold text-emerald-600">{fmtTime(h.new_clock_out)}</span>
+                                            <span className="tabular-nums font-semibold text-emerald-600">{h.new_clock_out_time ? fmtTimeStr(h.new_clock_out_time) : fmtTime(h.new_clock_out)}</span>
                                         </div>
                                         {h.changed_by && (
                                             <span className="ml-auto text-[10px] text-slate-400">
