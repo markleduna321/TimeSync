@@ -76,8 +76,19 @@ function DayCell({ cell, onClick }) {
     const hasPendingCorrection =
         dayData?.correction?.status === 'pending' ||
         dayData?.overtime?.status === 'pending';
-    const clockIn       = dayData?.clock_in_time ? fmtTimeStr(dayData.clock_in_time) : fmtTime(dayData?.clock_in);
-    const undertimeMins = dayData?.undertime_minutes ?? 0;
+    const correctionApproved = dayData?.correction?.status === 'approved';
+    const clockIn       = dayData?.clock_in_time  ? fmtTimeStr(dayData.clock_in_time)  : fmtTime(dayData?.clock_in);
+    const clockOut      = dayData?.clock_out_time ? fmtTimeStr(dayData.clock_out_time) : fmtTime(dayData?.clock_out);
+    const undertimeMins  = dayData?.undertime_minutes  ?? 0;
+    const overBreakMins  = dayData?.over_break_minutes ?? 0;
+
+    // Build stacked issue list — suppressed when correction is approved
+    const issues = [];
+    if (!correctionApproved) {
+        if (status === 'late')    issues.push({ key: 'late', label: 'Late',              cls: 'text-amber-600' });
+        if (undertimeMins > 0)   issues.push({ key: 'ut',   label: `-${undertimeMins}m UT`, cls: 'text-orange-500' });
+        if (overBreakMins > 0)   issues.push({ key: 'ob',   label: `+${overBreakMins}m OB`, cls: 'text-rose-600' });
+    }
 
     return (
         <button
@@ -106,7 +117,7 @@ function DayCell({ cell, onClick }) {
                 </span>
             )}
 
-            {/* Status dot + clock-in time */}
+            {/* Status dot + label */}
             <div className="mt-1.5 flex flex-col gap-0.5">
                 <div className="flex items-center gap-1">
                     <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${cfg.dot}`} />
@@ -117,11 +128,15 @@ function DayCell({ cell, onClick }) {
                 {clockIn && (
                     <span className="text-[10px] text-slate-400 tabular-nums">{clockIn}</span>
                 )}
-                {undertimeMins > 0 && (
-                    <span className="text-[10px] font-semibold text-orange-500 tabular-nums">
-                        -{undertimeMins}m UT
-                    </span>
+                {clockOut && (
+                    <span className="text-[10px] text-slate-400 tabular-nums">{clockOut}</span>
                 )}
+                {/* Stacked issue chips */}
+                {issues.map(({ key, label, cls }) => (
+                    <span key={key} className={`text-[10px] font-semibold tabular-nums ${cls}`}>
+                        {label}
+                    </span>
+                ))}
             </div>
         </button>
     );
@@ -143,15 +158,15 @@ function CalendarSkeleton() {
 
 /* ── Legend ───────────────────────────────────────────────────────────── */
 function Legend() {
-    const items = [
+    const statusItems = [
         { label: 'Present',  dot: 'bg-emerald-500' },
         { label: 'Late',     dot: 'bg-amber-500'   },
         { label: 'Absent',   dot: 'bg-rose-500'    },
         { label: 'Rest Day', dot: 'bg-slate-300'   },
     ];
     return (
-        <div className="flex flex-wrap items-center gap-3">
-            {items.map(({ label, dot }) => (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            {statusItems.map(({ label, dot }) => (
                 <div key={label} className="flex items-center gap-1.5">
                     <span className={`h-2 w-2 rounded-full ${dot}`} />
                     <span className="text-xs text-slate-500">{label}</span>
@@ -160,6 +175,15 @@ function Legend() {
             <div className="flex items-center gap-1.5">
                 <AlertTriangle size={11} className="text-amber-500" />
                 <span className="text-xs text-slate-500">Correction Pending</span>
+            </div>
+            <div className="w-px h-3 bg-slate-200" />
+            <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-semibold text-orange-500">UT</span>
+                <span className="text-xs text-slate-500">Undertime</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-semibold text-rose-600">OB</span>
+                <span className="text-xs text-slate-500">Over Break</span>
             </div>
         </div>
     );

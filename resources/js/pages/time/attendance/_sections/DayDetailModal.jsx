@@ -185,6 +185,7 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
     const statusCfg  = STATUS_CONFIG[status];
     const correction = day.correction;
     const overtime   = day.overtime;
+    const correctionApproved = correction?.status === 'approved';
     const corrCfg    = correction ? CORRECTION_STATUS[correction.status] : null;
     const otCfg      = overtime   ? CORRECTION_STATUS[overtime.status]   : null;
     const CorrIcon   = corrCfg?.icon ?? null;
@@ -220,17 +221,41 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                 <span>In: <strong className="text-slate-700">{day.clock_in_time ? fmtTimeStr(day.clock_in_time) : fmtTime(day.clock_in)}</strong></span>
                                 <span>Out: <strong className="text-slate-700">{day.clock_out_time ? fmtTimeStr(day.clock_out_time) : fmtTime(day.clock_out)}</strong></span>
                             </div>
+                            {(day.lunch_start || day.lunch_start_time) && (
+                                <div className="flex gap-4 text-xs text-slate-500">
+                                    <span>Lunch: <strong className="text-slate-700">
+                                        {day.lunch_start_time ? fmtTimeStr(day.lunch_start_time) : fmtTime(day.lunch_start)}
+                                        {' – '}
+                                        {day.lunch_end_time ? fmtTimeStr(day.lunch_end_time) : day.lunch_end ? fmtTime(day.lunch_end) : '—'}
+                                    </strong></span>
+                                </div>
+                            )}
+                            {day.breaks?.filter((b) => b.start).map((b, i) => (
+                                <div key={i} className="flex gap-4 text-xs text-slate-500">
+                                    <span>Break {i + 1}: <strong className="text-slate-700">
+                                        {fmtTime(b.start)}
+                                        {b.end ? ` – ${fmtTime(b.end)}` : ' (ongoing)'}
+                                    </strong></span>
+                                </div>
+                            ))}
                         </div>
-                        {day.total_worked_minutes != null && (
-                            <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-bold text-indigo-700 tabular-nums">
-                                {fmtMinutes(day.total_worked_minutes)}
-                            </span>
-                        )}
-                        {day.undertime_minutes > 0 && (
-                            <span className="rounded-full bg-orange-50 px-3 py-1 text-sm font-bold text-orange-600 tabular-nums">
-                                -{fmtMinutes(day.undertime_minutes)} UT
-                            </span>
-                        )}
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                            {day.total_worked_minutes != null && (
+                                <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-bold text-indigo-700 tabular-nums">
+                                    {fmtMinutes(day.total_worked_minutes)}
+                                </span>
+                            )}
+                            {!correctionApproved && day.undertime_minutes > 0 && (
+                                <span className="rounded-full bg-orange-50 px-3 py-1 text-sm font-bold text-orange-600 tabular-nums">
+                                    -{fmtMinutes(day.undertime_minutes)} UT
+                                </span>
+                            )}
+                            {!correctionApproved && (day.over_break_minutes ?? 0) > 0 && (
+                                <span className="rounded-full bg-rose-50 px-3 py-1 text-sm font-bold text-rose-600 tabular-nums">
+                                    +{fmtMinutes(day.over_break_minutes)} OB
+                                </span>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -244,9 +269,22 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                 <p className="mt-0.5 text-xs leading-relaxed opacity-90 line-clamp-3">
                                     {correction.reason}
                                 </p>
+                                {(correction.requested_clock_in || correction.requested_clock_out) && (
+                                    <p className="mt-0.5 text-xs opacity-80">
+                                        Requested:{' '}
+                                        {correction.requested_clock_in ? fmtTimeStr(correction.requested_clock_in) : '—'}
+                                        {' – '}
+                                        {correction.requested_clock_out ? fmtTimeStr(correction.requested_clock_out) : '—'}
+                                    </p>
+                                )}
                                 {correction.admin_note && (
                                     <p className="mt-1.5 text-xs opacity-75">
                                         <strong>Admin note:</strong> {correction.admin_note}
+                                    </p>
+                                )}
+                                {correction.created_at && (
+                                    <p className="mt-1.5 text-[10px] opacity-60">
+                                        Filed {new Date(correction.created_at).toLocaleString(UI_LOCALE, { timeZone: UI_TIMEZONE, dateStyle: 'medium', timeStyle: 'short' })}
                                     </p>
                                 )}
                             </div>
@@ -274,6 +312,7 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                         {h.changed_by && (
                                             <span className="ml-auto text-[10px] text-slate-400">
                                                 by <strong className="text-slate-500">{h.changed_by}</strong>
+                                                {h.changed_at && <> · {new Date(h.changed_at).toLocaleString(UI_LOCALE, { timeZone: UI_TIMEZONE, dateStyle: 'medium', timeStyle: 'short' })}</>}
                                             </span>
                                         )}
                                     </div>
@@ -300,6 +339,11 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                             {overtime.admin_note && (
                                 <p className="mt-1.5 text-xs opacity-75">
                                     <strong>Admin note:</strong> {overtime.admin_note}
+                                </p>
+                            )}
+                            {overtime.created_at && (
+                                <p className="mt-1.5 text-[10px] opacity-60">
+                                    Filed {new Date(overtime.created_at).toLocaleString(UI_LOCALE, { timeZone: UI_TIMEZONE, dateStyle: 'medium', timeStyle: 'short' })}
                                 </p>
                             )}
                         </div>

@@ -66,6 +66,11 @@ class User extends Authenticatable
         return $this->hasOne(Schedule::class);
     }
 
+    public function breakConfig(): HasOne
+    {
+        return $this->hasOne(UserBreakConfig::class);
+    }
+
     public function payslips(): HasMany
     {
         return $this->hasMany(Payslip::class);

@@ -124,6 +124,12 @@ class PayslipComputationService
         return round(($dailyRate / (8 * 60)) * $undertimeMinutes, 2);
     }
 
+    public function computeOverBreakDeduction(float $dailyRate, int $overBreakMinutes): float
+    {
+        if ($overBreakMinutes <= 0) return 0.0;
+        return round(($dailyRate / (8 * 60)) * $overBreakMinutes, 2);
+    }
+
     public function computeOvertimePay(float $dailyRate, int $overtimeMinutes, bool $isHoliday = false): float
     {
         if ($overtimeMinutes <= 0) return 0.0;
@@ -183,6 +189,14 @@ class PayslipComputationService
         $daysPerWeek = count($workDays);
         $dailyRate   = $this->computeDailyRate($monthlySalary, $daysPerWeek);
 
+        // Break config for over-break deduction
+        $employee->loadMissing('breakConfig');
+        $breakConfig      = $employee->breakConfig;
+        $allowedBreakMins = $breakConfig
+            ? ($breakConfig->break_count * $breakConfig->break_duration_minutes)
+            : 0;
+        $allowedLunchMins = $breakConfig ? $breakConfig->lunch_duration_minutes : 60;
+
         $logs = TimeLog::where('user_id', $employee->id)
             ->whereBetween('date', [$periodStart->toDateString(), $periodEnd->toDateString()])
             ->get()->keyBy(fn($l) => $l->date->format('Y-m-d'));
@@ -190,7 +204,7 @@ class PayslipComputationService
         $holidays = Holiday::whereBetween('date', [$periodStart->toDateString(), $periodEnd->toDateString()])
             ->get()->keyBy(fn($h) => $h->date->format('Y-m-d'));
 
-        $daysScheduled = $daysWorked = $daysAbsent = $lateMinutes = $undertimeMins = 0;
+        $daysScheduled = $daysWorked = $daysAbsent = $lateMinutes = $undertimeMins = $overBreakMins = 0;
         $holidayPayExtra = $overtimePay = 0.0;
         $otMinutes = $restDayMinutes = $restDayOtMinutes = 0;
         $restDayPay = $restDayOtPay = 0.0;
@@ -262,11 +276,29 @@ class PayslipComputationService
                 $otMinutes += $otMins;
                 $overtimePay += $this->computeOvertimePay($dailyRate, $otMins, (bool)$holiday);
             }
-        }
+
+            // Over break — regular breaks (if enabled) + lunch overrun
+            if ($breakConfig) {
+                if ($breakConfig->break_allowed) {
+                    $actualBreakMins = 0;
+                    foreach ($log->breaks ?? [] as $break) {
+                        if (! empty($break['start']) && ! empty($break['end'])) {
+                            $actualBreakMins += (int) Carbon::parse($break['start'])->diffInMinutes(Carbon::parse($break['end']));
+                        }
+                    }
+                    $overBreakMins += max(0, $actualBreakMins - $allowedBreakMins);
+                }
+                if ($log->lunch_start && $log->lunch_end) {
+                    $actualLunchMins = (int) Carbon::parse($log->lunch_start)->diffInMinutes(Carbon::parse($log->lunch_end));
+                    $overBreakMins  += max(0, $actualLunchMins - $allowedLunchMins);
+                }
+            }
+        } // end foreach CarbonPeriod
 
         $basicPay      = round($daysWorked * $dailyRate, 2);
         $lateDeduction = $this->computeLateDeduction($dailyRate, $lateMinutes);
         $utDeduction   = $this->computeUndertimeDeduction($dailyRate, $undertimeMins);
+        $obDeduction   = $this->computeOverBreakDeduction($dailyRate, $overBreakMins);
 
         $allowances = UserAllowance::with('allowanceType')
             ->where('user_id', $employee->id)
@@ -339,7 +371,7 @@ class PayslipComputationService
         }
 
         $grossTaxableEarnings = collect($earnings)->where('is_taxable', true)->sum('amount');
-        $grossTaxable         = max(0.0, $grossTaxableEarnings - $lateDeduction - $utDeduction);
+        $grossTaxable         = max(0.0, $grossTaxableEarnings - $lateDeduction - $utDeduction - $obDeduction);
         $grossPay             = collect($earnings)->sum('amount');
         $semiMonthlyTaxable   = max(0.0, $grossTaxable - $govtHalf);
 
@@ -392,10 +424,13 @@ class PayslipComputationService
         }
 
         if ($lateDeduction > 0) {
-            $deductions[] = ['code' => 'LATE',      'description' => 'Late Deduction',      'sort_order' => $dsort++, 'amount' => $lateDeduction, 'is_taxable' => false];
+            $deductions[] = ['code' => 'LATE',       'description' => 'Late Deduction',       'sort_order' => $dsort++, 'amount' => $lateDeduction, 'is_taxable' => false];
         }
         if ($utDeduction > 0) {
-            $deductions[] = ['code' => 'UNDERTIME',  'description' => 'Undertime Deduction', 'sort_order' => $dsort++, 'amount' => $utDeduction,   'is_taxable' => false];
+            $deductions[] = ['code' => 'UNDERTIME',  'description' => 'Undertime Deduction',  'sort_order' => $dsort++, 'amount' => $utDeduction,   'is_taxable' => false];
+        }
+        if ($obDeduction > 0) {
+            $deductions[] = ['code' => 'OVER_BREAK', 'description' => 'Over Break Deduction', 'sort_order' => $dsort++, 'amount' => $obDeduction,   'is_taxable' => false];
         }
 
         foreach ($customDeductions as $ud) {
@@ -409,7 +444,7 @@ class PayslipComputationService
         }
 
         $totalDeductions = round(collect($deductions)->sum('amount'), 2);
-        $netPay          = round($grossPay - $lateDeduction - $utDeduction - $totalDeductions, 2);
+        $netPay          = round($grossPay - $lateDeduction - $utDeduction - $obDeduction - $totalDeductions, 2);
 
         return [
             'earnings'   => $earnings,
@@ -426,8 +461,9 @@ class PayslipComputationService
                 'days_scheduled'    => $daysScheduled,
                 'days_worked'       => $daysWorked,
                 'days_absent'       => $daysAbsent,
-                'late_minutes'      => $lateMinutes,
-                'undertime_minutes' => $undertimeMins,
+                'late_minutes'        => $lateMinutes,
+                'undertime_minutes'   => $undertimeMins,
+                'over_break_minutes'  => $overBreakMins,
                 'ot_minutes'          => $otMinutes,
                 'rest_day_minutes'    => $restDayMinutes,
                 'rest_day_ot_minutes' => $restDayOtMinutes,

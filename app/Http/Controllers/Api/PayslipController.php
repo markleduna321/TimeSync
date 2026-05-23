@@ -106,6 +106,7 @@ class PayslipController extends Controller
             'days_absent'      => $s['days_absent'],
             'late_minutes'        => $s['late_minutes'],
             'undertime_minutes'   => $s['undertime_minutes'],
+            'over_break_minutes'  => $s['over_break_minutes'],
             'ot_minutes'          => $s['ot_minutes'],
             'rest_day_minutes'    => $s['rest_day_minutes'],
             'rest_day_ot_minutes' => $s['rest_day_ot_minutes'],

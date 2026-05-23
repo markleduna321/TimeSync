@@ -23,7 +23,7 @@ class AttendanceController extends Controller
     public function calendar(Request $request): AnonymousResourceCollection
     {
         $targetId = (int) $request->query('user_id', auth()->id());
-        $target   = User::with('schedule')->findOrFail($targetId);
+        $target   = User::with(['schedule', 'breakConfig'])->findOrFail($targetId);
 
         $this->authorize('viewTimesheet', $target); // reuse same cross-user policy
 
@@ -54,6 +54,13 @@ class AttendanceController extends Controller
         $shiftStart = $schedule?->shift_start;     // "08:00"
         $shiftEnd   = $schedule?->shift_end;       // "17:00"
         $today      = now()->toDateString();
+
+        // Break config for over-break computation
+        $breakConfig      = $target->breakConfig;
+        $allowedBreakMins = $breakConfig
+            ? ($breakConfig->break_count * $breakConfig->break_duration_minutes)
+            : 0;
+        $allowedLunchMins = $breakConfig ? $breakConfig->lunch_duration_minutes : 60;
 
         $days = [];
         $cursor = $start->copy();
@@ -98,6 +105,27 @@ class AttendanceController extends Controller
                 }
             }
 
+            // Over break — actual break/lunch vs configured allowances
+            $overBreakMinutes = 0;
+            if ($log && $breakConfig) {
+                // Regular breaks — only tracked when breaks are enabled
+                if ($breakConfig->break_allowed) {
+                    $actualBreakMins = 0;
+                    foreach ($log->breaks ?? [] as $break) {
+                        if (! empty($break['start']) && ! empty($break['end'])) {
+                            $actualBreakMins += (int) Carbon::parse($break['start'])->diffInMinutes(Carbon::parse($break['end']));
+                        }
+                    }
+                    $overBreakMinutes += max(0, $actualBreakMins - $allowedBreakMins);
+                }
+
+                // Lunch — always tracked regardless of break_allowed
+                if ($log->lunch_start && $log->lunch_end) {
+                    $actualLunchMins = (int) $log->lunch_start->diffInMinutes($log->lunch_end);
+                    $overBreakMinutes += max(0, $actualLunchMins - $allowedLunchMins);
+                }
+            }
+
             $days[] = [
                 'date'                 => $dateStr,
                 'day_of_week'          => $cursor->englishDayOfWeek,
@@ -106,8 +134,14 @@ class AttendanceController extends Controller
                 'clock_out'            => $log?->clock_out?->toISOString(),
                 'clock_in_time'        => $clockInRaw ? substr($clockInRaw, 11, 8) : null,
                 'clock_out_time'       => $clockOutRaw ? substr($clockOutRaw, 11, 8) : null,
+                'lunch_start'          => $log?->lunch_start?->toISOString(),
+                'lunch_end'            => $log?->lunch_end?->toISOString(),
+                'lunch_start_time'     => $log?->getRawOriginal('lunch_start') ? substr($log->getRawOriginal('lunch_start'), 11, 8) : null,
+                'lunch_end_time'       => $log?->getRawOriginal('lunch_end')   ? substr($log->getRawOriginal('lunch_end'),   11, 8) : null,
+                'breaks'               => $log?->breaks ?? [],
                 'total_worked_minutes' => $log?->total_worked_minutes,
                 'undertime_minutes'    => $undertimeMinutes,
+                'over_break_minutes'   => $overBreakMinutes,
                 'correction'           => $correction,
                 'overtime'             => $overtime,
             ];

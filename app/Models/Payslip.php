@@ -25,6 +25,7 @@ class Payslip extends Model
         'days_absent',
         'late_minutes',
         'undertime_minutes',
+        'over_break_minutes',
         'ot_minutes',
         'rest_day_minutes',
         'rest_day_ot_minutes',
