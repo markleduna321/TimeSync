@@ -50,12 +50,20 @@ class AdminUserController extends Controller
     {
         $this->authorize('create', User::class);
 
+        // Determine if the new user is a super_admin (skip forced password change)
+        $roleIds      = $request->input('roles', []);
+        $isSuperAdmin = \App\Models\Role::whereIn('id', $roleIds)
+            ->where('slug', 'super_admin')
+            ->exists();
+
         $user = User::create([
-            'first_name'  => $request->first_name,
-            'middle_name' => $request->middle_name,
-            'last_name'   => $request->last_name,
-            'email'       => $request->email,
-            'password'    => Hash::make($request->password),
+            'first_name'           => $request->first_name,
+            'middle_name'          => $request->middle_name,
+            'last_name'            => $request->last_name,
+            'email'                => $request->email,
+            'password'             => Hash::make($request->filled('password') ? $request->password : config('app.default_user_password')),
+            'monthly_salary'       => $request->monthly_salary,
+            'must_change_password' => ! $isSuperAdmin,
         ]);
 
         if ($request->filled('roles')) {

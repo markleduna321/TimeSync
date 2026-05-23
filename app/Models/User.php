@@ -21,6 +21,7 @@ class User extends Authenticatable
         'last_name',
         'email',
         'password',
+        'must_change_password',
         'monthly_salary',
         'department_id',
         'account_id',
@@ -118,9 +119,10 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password'          => 'hashed',
-            'monthly_salary'    => 'decimal:2',
+            'email_verified_at'    => 'datetime',
+            'password'             => 'hashed',
+            'monthly_salary'       => 'decimal:2',
+            'must_change_password' => 'boolean',
         ];
     }
 }

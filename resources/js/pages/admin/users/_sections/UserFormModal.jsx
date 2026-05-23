@@ -3,7 +3,7 @@ import { Modal } from 'antd';
 import { useCreateUserMutation } from '@/features/users/usersApi';
 import { useGetRolesQuery } from '@/features/roles/rolesApi';
 
-const DEFAULT_FORM = { first_name: '', middle_name: '', last_name: '', email: '', password: '', monthly_salary: '', roles: [] };
+const DEFAULT_FORM = { first_name: '', middle_name: '', last_name: '', email: '', useCustomPassword: false, password: '', monthly_salary: '', roles: [] };
 
 const ROLE_COLORS = {
     super_admin: 'text-purple-700',
@@ -46,15 +46,18 @@ export default function UserFormModal({ open, onClose }) {
     async function handleSubmit() {
         setErrors({});
         try {
-            await createUser({
+            const payload = {
                 first_name:     form.first_name,
                 middle_name:    form.middle_name || null,
                 last_name:      form.last_name,
                 email:          form.email,
-                password:       form.password,
                 monthly_salary: form.monthly_salary || null,
                 roles:          form.roles,
-            }).unwrap();
+            };
+            if (form.useCustomPassword) {
+                payload.password = form.password;
+            }
+            await createUser(payload).unwrap();
             onClose();
         } catch (err) {
             if (err?.status === 422) setErrors(err.data?.errors ?? {});
@@ -151,21 +154,36 @@ export default function UserFormModal({ open, onClose }) {
 
                 {/* Password */}
                 <div>
-                    <label className="block text-sm font-medium text-slate-700" htmlFor="u-pass">
-                        Password <span className="text-rose-500">*</span>
+                    <p className="text-sm font-medium text-slate-700">Password</p>
+                    <div className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                        Default: <span className="font-mono font-medium text-slate-700">TimeSyncUser!@#</span> — user will be prompted to change on first login.
+                    </div>
+                    <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+                        <input
+                            type="checkbox"
+                            checked={form.useCustomPassword}
+                            onChange={(e) => set('useCustomPassword', e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            disabled={isLoading}
+                        />
+                        Set a custom password
                     </label>
-                    <input
-                        id="u-pass"
-                        type="password"
-                        value={form.password}
-                        onChange={(e) => set('password', e.target.value)}
-                        className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                            errors.password ? 'border-rose-400 bg-rose-50' : 'border-slate-200'
-                        }`}
-                        placeholder="Min. 8 characters"
-                        disabled={isLoading}
-                    />
-                    {errors.password && <p className="mt-1 text-xs text-rose-600">{errors.password[0]}</p>}
+                    {form.useCustomPassword && (
+                        <div className="mt-2">
+                            <input
+                                id="u-pass"
+                                type="password"
+                                value={form.password}
+                                onChange={(e) => set('password', e.target.value)}
+                                className={`block w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                                    errors.password ? 'border-rose-400 bg-rose-50' : 'border-slate-200'
+                                }`}
+                                placeholder="Min. 8 characters"
+                                disabled={isLoading}
+                            />
+                            {errors.password && <p className="mt-1 text-xs text-rose-600">{errors.password[0]}</p>}
+                        </div>
+                    )}
                 </div>
 
                 {/* Monthly Salary */}

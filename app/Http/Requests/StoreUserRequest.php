@@ -18,7 +18,8 @@ class StoreUserRequest extends FormRequest
             'middle_name'    => 'nullable|string|max:191',
             'last_name'      => 'required|string|max:191',
             'email'          => 'required|email|max:191|unique:users,email',
-            'password'       => 'required|string|min:8',
+            'password'       => 'nullable|string|min:8',
+            'monthly_salary' => 'nullable|numeric|min:0',
             'roles'          => 'nullable|array',
             'roles.*'        => 'integer|exists:roles,id',
         ];

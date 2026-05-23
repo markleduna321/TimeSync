@@ -123,4 +123,13 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Default User Password
+    |--------------------------------------------------------------------------
+    | Password assigned to newly created users. They are required to change
+    | it on first login.
+    */
+    'default_user_password' => env('DEFAULT_USER_PASSWORD', 'TimeSyncUser!@#'),
+
 ];

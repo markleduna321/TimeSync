@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ChangePasswordController;
 use App\Http\Controllers\Api\AttendanceCorrectionController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -9,9 +10,9 @@ Route::redirect('/', '/login');
 
 Route::get('/dashboard', function () {
     return Inertia::render('home-page/page');
-})->middleware(['auth'])->name('dashboard');
+})->middleware(['auth', 'password.changed'])->name('dashboard');
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'password.changed'])->group(function () {
     Route::get('/admin/users',         fn () => Inertia::render('admin/users/page'))->name('admin.users');
     Route::get('/admin/compensation',  fn () => Inertia::render('admin/compensation/page'))->name('admin.compensation');
     Route::get('/admin/organization',  fn () => Inertia::render('admin/organization/page'))->name('admin.organization');
@@ -32,6 +33,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::get('/password/change',  [ChangePasswordController::class, 'show'])->name('password.change');
+    Route::post('/password/change', [ChangePasswordController::class, 'update'])->name('password.change.update');
 });
 
 require __DIR__.'/auth.php';

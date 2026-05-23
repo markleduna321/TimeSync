@@ -170,6 +170,19 @@ export default function Topbar({ title }) {
                                 </p>
                             </div>
 
+                            <div className="py-1">
+                                <Link
+                                    href={route('profile.edit')}
+                                    onClick={() => setDropdownOpen(false)}
+                                    role="menuitem"
+                                    className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:bg-slate-50"
+                                >
+                                    <User size={15} className="text-slate-400 shrink-0" />
+                                    My Profile
+                                </Link>
+
+                            </div>
+
                             <div className="border-t border-slate-100 py-1">
                                 <button
                                     onClick={handleLogout}
