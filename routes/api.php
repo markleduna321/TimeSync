@@ -35,8 +35,10 @@ use App\Http\Controllers\Api\UserGovernmentDeductionController;
 
 Route::middleware('auth:sanctum')->group(function () {
     // User profile
-    Route::get('/user', [UserController::class, 'me']);
-    Route::put('/user', [UserController::class, 'update']);
+    Route::get('/user',             [UserController::class, 'me']);
+    Route::post('/user/avatar',     [UserController::class, 'updateAvatar']);
+    Route::patch('/user/email',     [UserController::class, 'updateEmail']);
+    Route::patch('/user/password',  [UserController::class, 'updatePassword']);
 
     // --- Notifications ---
     Route::get('/notifications',              [NotificationController::class, 'index']);

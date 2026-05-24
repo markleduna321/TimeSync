@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 // ScheduleResource is in the same namespace — no separate import needed.
 
@@ -20,6 +21,7 @@ class UserResource extends JsonResource
             'last_name'         => $this->last_name,
             'name'              => $this->name, // computed accessor: first + middle + last
             'email'             => $this->email,
+            'avatar_url'        => $this->avatar ? Storage::disk('public')->url($this->avatar) : null,
             'monthly_salary'    => $this->monthly_salary,
             'roles'             => $this->whenLoaded('roles', fn () =>
                 $this->roles->map(fn ($r) => [
