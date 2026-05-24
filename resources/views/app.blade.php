@@ -7,7 +7,7 @@
         <title inertia>TymeSync</title>
 
         <!-- Favicon -->
-        <link rel="icon" href="/favicon.ico" type="image/x-icon">
+        <link rel="icon" href="{{ asset('favicon.ico') }}" type="image/x-icon">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
