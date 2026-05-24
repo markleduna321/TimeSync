@@ -42,12 +42,15 @@ export default function UserTable({ users, meta, isLoading, page, onPageChange, 
                 const colorClass = AVATAR_COLORS[(record.id ?? 0) % AVATAR_COLORS.length];
                 return (
                     <div className="flex items-center gap-3">
-                        <span
-                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${colorClass}`}
+                        <div
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full overflow-hidden text-xs font-semibold text-white ${record.avatar_url ? '' : colorClass}`}
                             aria-hidden="true"
                         >
-                            {getInitials(name)}
-                        </span>
+                            {record.avatar_url
+                                ? <img src={record.avatar_url} alt={name} className="h-full w-full object-cover" />
+                                : getInitials(name)
+                            }
+                        </div>
                         <div>
                             <p className="font-medium text-slate-800">{name}</p>
                             <p className="text-xs text-slate-400">{record.email}</p>

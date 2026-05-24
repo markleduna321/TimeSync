@@ -11,6 +11,7 @@ import {
     Settings,
 } from 'lucide-react';
 import { useGetUnreadCountQuery } from '@/features/notifications/notificationsApi';
+import { useGetUserQuery } from '@/store';
 import NotificationPanel from './NotificationPanel';
 
 function getInitials(name) {
@@ -34,6 +35,9 @@ export default function Topbar({ title }) {
 
     const { data: countData } = useGetUnreadCountQuery(undefined, { pollingInterval: 30000 });
     const unreadCount = countData?.unread ?? 0;
+
+    const { data: rtqUser } = useGetUserQuery();
+    const avatarUrl = rtqUser?.avatar_url ?? null;
 
     /* Close dropdown on outside click */
     useEffect(() => {
@@ -133,8 +137,11 @@ export default function Topbar({ title }) {
                         className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 transition-colors hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                         {/* Avatar */}
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-xs font-bold text-white">
-                            {getInitials(user?.name)}
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600 text-xs font-bold text-white">
+                            {avatarUrl
+                                ? <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                                : getInitials(user?.name)
+                            }
                         </div>
 
                         {/* Name — hidden on very small screens */}
