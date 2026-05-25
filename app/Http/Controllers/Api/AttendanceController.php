@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AttendanceDayResource;
 use App\Models\AttendanceCorrection;
+use App\Models\LeaveApplication;
 use App\Models\Schedule;
 use App\Models\TimeLog;
 use App\Models\User;
@@ -49,6 +50,16 @@ class AttendanceController extends Controller
             ->get()
             ->keyBy(fn ($c) => $c->date->format('Y-m-d') . '_' . $c->type);
 
+        // Load leave applications covering any day in this month.
+        $leaveApplications = LeaveApplication::with('leaveType')
+            ->where('user_id', $target->id)
+            ->whereIn('status', ['pending', 'approved'])
+            ->where(function ($q) use ($start, $end) {
+                $q->whereBetween('start_date', [$start->toDateString(), $end->toDateString()])
+                  ->orWhereBetween('end_date', [$start->toDateString(), $end->toDateString()]);
+            })
+            ->get();
+
         $schedule   = $target->schedule;
         $workDays   = $schedule?->work_days ?? []; // ['Mon', 'Tue', ...] or ['monday', ...]
         $shiftStart = $schedule?->shift_start;     // "08:00"
@@ -78,10 +89,18 @@ class AttendanceController extends Controller
             $overtime         = $corrections["{$dateStr}_overtime"]   ?? null;
             $undertimeMinutes = 0;
 
+            // Find a leave application that covers this specific date.
+            $leave = $leaveApplications->first(function ($app) use ($dateStr) {
+                return $app->start_date->format('Y-m-d') <= $dateStr
+                    && $app->end_date->format('Y-m-d')   >= $dateStr;
+            });
+
             if ($isFuture) {
                 $status = 'upcoming';
             } elseif (! $isWorkDay) {
                 $status = 'rest_day';
+            } elseif ($leave && $leave->status === 'approved') {
+                $status = 'on_leave';
             } elseif (! $log || ! $log->clock_in) {
                 $status = 'absent';
             } else {
@@ -144,6 +163,7 @@ class AttendanceController extends Controller
                 'over_break_minutes'   => $overBreakMinutes,
                 'correction'           => $correction,
                 'overtime'             => $overtime,
+                'leave'                => $leave,
             ];
 
             $cursor->addDay();

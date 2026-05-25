@@ -98,6 +98,16 @@ class User extends Authenticatable
         return $this->belongsTo(Account::class);
     }
 
+    public function leaveApplications(): HasMany
+    {
+        return $this->hasMany(LeaveApplication::class);
+    }
+
+    public function leaveCredits(): HasMany
+    {
+        return $this->hasMany(LeaveCredit::class);
+    }
+
     /* ── Role helpers ──────────────────────────────────── */
 
     public function hasRole(string $slug): bool

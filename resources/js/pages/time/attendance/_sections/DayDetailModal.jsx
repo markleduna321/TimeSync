@@ -1,7 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { Modal, message } from 'antd';
-import { Upload, X, FileText, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Upload, X, FileText, CheckCircle, XCircle, Clock, CalendarDays } from 'lucide-react';
 import { useFileCorrectionMutation } from '@/features/timekeeping/attendanceApi';
+import { useCancelLeaveApplicationMutation } from '@/features/leave/leaveApi';
+import LeaveApplicationModal from './LeaveApplicationModal';
 
 const UI_LOCALE = 'en-PH';
 const UI_TIMEZONE = 'Asia/Manila';
@@ -111,6 +113,8 @@ function FileUploadArea({ file, onFileChange, error }) {
 /* ── Main modal ───────────────────────────────────────────────────────── */
 export default function DayDetailModal({ day, open, onClose, canFile = true }) {
     const [fileCorrection, { isLoading: submitting }] = useFileCorrectionMutation();
+    const [cancelLeave, { isLoading: cancelling }]    = useCancelLeaveApplicationMutation();
+    const [leaveModalOpen, setLeaveModalOpen]         = useState(false);
 
     const today          = new Date().toISOString().slice(0, 10);
     const status         = day?.status ?? 'upcoming';
@@ -185,11 +189,23 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
     const statusCfg  = STATUS_CONFIG[status];
     const correction = day.correction;
     const overtime   = day.overtime;
+    const leave      = day.leave;
     const correctionApproved = correction?.status === 'approved';
     const corrCfg    = correction ? CORRECTION_STATUS[correction.status] : null;
     const otCfg      = overtime   ? CORRECTION_STATUS[overtime.status]   : null;
     const CorrIcon   = corrCfg?.icon ?? null;
     const OtIcon     = otCfg?.icon   ?? null;
+
+    // Leave helpers
+    const LEAVE_STATUS = {
+        pending:  { label: 'Pending Review', cls: 'bg-violet-50 text-violet-700 border-violet-200',   icon: Clock       },
+        approved: { label: 'Approved',       cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle },
+        rejected: { label: 'Rejected',       cls: 'bg-rose-50 text-rose-700 border-rose-200',         icon: XCircle     },
+    };
+    const leaveCfg   = leave ? LEAVE_STATUS[leave.status] : null;
+    const LeaveIcon  = leaveCfg?.icon ?? null;
+
+    const canFilLeave = canFile && !leave && !isRestDay && day?.date >= today;
 
     // Can user file anything at all?
     const canFileAny = canFileCorrection || canFileOvertime;
@@ -349,6 +365,71 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                         </div>
                     </div>
                 )}
+
+                {/* ── Leave Application section ─────────────────────────────── */}
+                {leave && leaveCfg && LeaveIcon && (
+                    <div className={`flex items-start gap-3 rounded-xl border p-4 ${leaveCfg.cls}`}>
+                        <LeaveIcon size={16} className="mt-0.5 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold">
+                                {leave.leave_type?.name ?? 'Leave'} — {leaveCfg.label}
+                            </p>
+                            <p className="mt-0.5 text-xs opacity-80">
+                                {new Date(leave.start_date + 'T00:00:00').toLocaleDateString(UI_LOCALE, { month: 'short', day: 'numeric', timeZone: UI_TIMEZONE })}
+                                {leave.start_date !== leave.end_date && (
+                                    <> – {new Date(leave.end_date + 'T00:00:00').toLocaleDateString(UI_LOCALE, { month: 'short', day: 'numeric', year: 'numeric', timeZone: UI_TIMEZONE })}</>
+                                )}
+                                {' · '}{leave.half_day ? `Half Day (${leave.half_day_period})` : `${leave.days_requested} day(s)`}
+                            </p>
+                            {leave.reason && (
+                                <p className="mt-0.5 text-xs opacity-75 line-clamp-2">{leave.reason}</p>
+                            )}
+                            {/* Cancel button — only for pending */}
+                            {leave.status === 'pending' && canFile && (
+                                <button
+                                    type="button"
+                                    disabled={cancelling}
+                                    onClick={async () => {
+                                        try {
+                                            await cancelLeave(leave.id).unwrap();
+                                            message.success('Leave application cancelled.');
+                                            handleClose();
+                                        } catch {
+                                            message.error('Failed to cancel leave application.');
+                                        }
+                                    }}
+                                    className="mt-2 rounded-md border border-current/30 px-3 py-1 text-xs font-semibold opacity-80 hover:opacity-100 transition-opacity"
+                                >
+                                    {cancelling ? 'Cancelling...' : 'Cancel Leave'}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Apply for Leave button — shown when no leave exists for this day */}
+                {canFilLeave && !leave && (
+                    <div className="border-t border-slate-100 pt-3">
+                        <button
+                            type="button"
+                            onClick={() => setLeaveModalOpen(true)}
+                            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-200 bg-violet-50 px-4 py-3 text-sm font-semibold text-violet-700 hover:bg-violet-100 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-400"
+                        >
+                            <CalendarDays size={16} />
+                            Apply for Leave
+                        </button>
+                    </div>
+                )}
+
+                {/* Leave Application sub-modal */}
+                <LeaveApplicationModal
+                    open={leaveModalOpen}
+                    initialDate={day.date}
+                    onClose={() => {
+                        setLeaveModalOpen(false);
+                        handleClose();
+                    }}
+                />
 
                 {/* Success message after filing */}
                 {success && (

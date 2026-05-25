@@ -11,6 +11,9 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DeductionTypeController;
 use App\Http\Controllers\Api\HolidayController;
+use App\Http\Controllers\Api\LeaveApplicationController;
+use App\Http\Controllers\Api\LeaveCreditController;
+use App\Http\Controllers\Api\LeaveTypeController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PayslipController;
 use App\Http\Controllers\Api\ReportController;
@@ -157,5 +160,26 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/department-payroll', [ReportController::class, 'departmentPayroll']);
         Route::post('/ai-insights',       [ReportController::class, 'aiInsights']);
     });
+
+    // --- Leave Types (admin) ---
+    Route::get('/leave/types',            [LeaveTypeController::class, 'index']);
+    Route::post('/leave/types',           [LeaveTypeController::class, 'store']);
+    Route::put('/leave/types/{type}',     [LeaveTypeController::class, 'update']);
+    Route::delete('/leave/types/{type}',  [LeaveTypeController::class, 'destroy']);
+
+    // --- Leave Applications ---
+    Route::get('/leave/applications',                   [LeaveApplicationController::class, 'index']);
+    Route::post('/leave/applications',                  [LeaveApplicationController::class, 'store']);
+    Route::get('/leave/applications/{application}',     [LeaveApplicationController::class, 'show']);
+    Route::patch('/leave/applications/{application}/review', [LeaveApplicationController::class, 'review']);
+    Route::delete('/leave/applications/{application}',  [LeaveApplicationController::class, 'cancel']);
+
+    // --- Leave Credits ---
+    Route::get('/leave/credits/me',                                          [LeaveCreditController::class, 'myCredits']);
+    Route::get('/admin/users/{user}/leave-credits',                          [LeaveCreditController::class, 'userCredits']);
+    Route::post('/admin/users/{user}/leave-credits/assign',                  [LeaveCreditController::class, 'assign']);
+    Route::delete('/admin/users/{user}/leave-credits/{leaveType}',           [LeaveCreditController::class, 'removeAssignment']);
+    Route::post('/admin/users/{user}/leave-credits',                         [LeaveCreditController::class, 'upsert']);
+    Route::post('/admin/leave-credits/bulk-allocate',                        [LeaveCreditController::class, 'bulkAllocate']);
 });
 

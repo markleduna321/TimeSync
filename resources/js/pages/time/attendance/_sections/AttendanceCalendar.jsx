@@ -8,6 +8,7 @@ const STATUS_CONFIG = {
     absent:   { bg: 'bg-rose-50',     border: 'border-rose-200',    dot: 'bg-rose-500',    label: 'Absent'   },
     rest_day: { bg: 'bg-slate-50',    border: 'border-slate-100',   dot: 'bg-slate-300',   label: 'Rest Day' },
     upcoming: { bg: 'bg-white',       border: 'border-slate-100',   dot: 'bg-slate-200',   label: 'Upcoming' },
+    on_leave: { bg: 'bg-violet-50',   border: 'border-violet-200',  dot: 'bg-violet-500',  label: 'On Leave' },
 };
 
 const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -71,12 +72,15 @@ function DayCell({ cell, onClick }) {
 
     const status = dayData?.status ?? 'upcoming';
     const cfg    = STATUS_CONFIG[status] ?? STATUS_CONFIG.upcoming;
-    const isClickable = status !== 'upcoming';
+    const isClickable = status !== 'upcoming' || !!dayData?.leave || (dayData?.date >= new Date().toISOString().slice(0, 10));
 
     const hasPendingCorrection =
         dayData?.correction?.status === 'pending' ||
         dayData?.overtime?.status === 'pending';
     const correctionApproved = dayData?.correction?.status === 'approved';
+    const hasPendingLeave    = dayData?.leave?.status === 'pending';
+    const leaveApproved      = dayData?.leave?.status === 'approved';
+    const leaveColor         = dayData?.leave?.leave_type?.color ?? '#8b5cf6';
     const clockIn       = dayData?.clock_in_time  ? fmtTimeStr(dayData.clock_in_time)  : fmtTime(dayData?.clock_in);
     const clockOut      = dayData?.clock_out_time ? fmtTimeStr(dayData.clock_out_time) : fmtTime(dayData?.clock_out);
     const undertimeMins  = dayData?.undertime_minutes  ?? 0;
@@ -103,6 +107,14 @@ function DayCell({ cell, onClick }) {
                 isClickable ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-indigo-400' : 'cursor-default',
             ].join(' ')}
         >
+            {/* Approved leave — left accent bar using the leave type color */}
+            {leaveApproved && (
+                <span
+                    className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+                    style={{ backgroundColor: leaveColor }}
+                />
+            )}
+
             {/* Day number */}
             <span className="text-xs font-bold text-slate-700">{dayNum}</span>
 
@@ -115,6 +127,15 @@ function DayCell({ cell, onClick }) {
                 >
                     <AlertTriangle size={11} className="text-amber-500" />
                 </span>
+            )}
+
+            {/* Pending leave badge (clock icon) */}
+            {hasPendingLeave && !hasPendingCorrection && (
+                <span
+                    className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-violet-400"
+                    title="Leave pending review"
+                    aria-label="Leave pending review"
+                />
             )}
 
             {/* Status dot + label */}
@@ -163,6 +184,7 @@ function Legend() {
         { label: 'Late',     dot: 'bg-amber-500'   },
         { label: 'Absent',   dot: 'bg-rose-500'    },
         { label: 'Rest Day', dot: 'bg-slate-300'   },
+        { label: 'On Leave', dot: 'bg-violet-500'  },
     ];
     return (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
@@ -175,6 +197,10 @@ function Legend() {
             <div className="flex items-center gap-1.5">
                 <AlertTriangle size={11} className="text-amber-500" />
                 <span className="text-xs text-slate-500">Correction Pending</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-violet-400" />
+                <span className="text-xs text-slate-500">Leave Pending</span>
             </div>
             <div className="w-px h-3 bg-slate-200" />
             <div className="flex items-center gap-1.5">

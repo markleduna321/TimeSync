@@ -56,15 +56,12 @@ export default function AttendancePage() {
         return list;
     }, [subjects, authUser]);
 
-    const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
-
     function prevMonth() {
         if (month === 1) { setYear((y) => y - 1); setMonth(12); }
         else             { setMonth((m) => m - 1); }
     }
 
     function nextMonth() {
-        if (isCurrentMonth) return;
         if (month === 12) { setYear((y) => y + 1); setMonth(1); }
         else              { setMonth((m) => m + 1); }
     }
@@ -100,8 +97,7 @@ export default function AttendancePage() {
                     </span>
                     <button
                         onClick={nextMonth}
-                        disabled={isCurrentMonth}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
                         aria-label="Next month"
                     >
                         <ChevronRight size={15} />

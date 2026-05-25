@@ -15,6 +15,7 @@ import { organizationApi } from '@/features/organization/organizationApi';
 import { reportsApi } from '@/features/reports/reportsApi';
 import { dashboardApi } from '@/features/dashboard/dashboardApi';
 import { notificationsApi } from '@/features/notifications/notificationsApi';
+import { leaveApi } from '@/features/leave/leaveApi';
 import { baseQueryWithCsrf } from '@/features/csrfBaseQuery';
 
 // Base RTK Query API - extend this from `features/*` later.
@@ -49,6 +50,7 @@ const store = configureStore({
 		[reportsApi.reducerPath]: reportsApi.reducer,
 		[dashboardApi.reducerPath]: dashboardApi.reducer,
 		[notificationsApi.reducerPath]: notificationsApi.reducer,
+		[leaveApi.reducerPath]: leaveApi.reducer,
 	},
 	middleware: (getDefaultMiddleware) =>
 		getDefaultMiddleware().concat(
@@ -66,6 +68,7 @@ const store = configureStore({
 			reportsApi.middleware,
 			dashboardApi.middleware,
 			notificationsApi.middleware,
+			leaveApi.middleware,
 		),
 });
 

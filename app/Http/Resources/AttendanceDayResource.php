@@ -12,6 +12,7 @@ class AttendanceDayResource extends JsonResource
     {
         $correction = $this->resource['correction'] ?? null;
         $overtime   = $this->resource['overtime']   ?? null;
+        $leave      = $this->resource['leave']      ?? null;
         $rawTime = function ($model, string $column): ?string {
             $raw = $model?->getRawOriginal($column);
             return $raw ? substr($raw, 11, 8) : null;
@@ -60,6 +61,22 @@ class AttendanceDayResource extends JsonResource
             'over_break_minutes'   => $this->resource['over_break_minutes'] ?? 0,
             'correction'           => $formatEntry($correction),
             'overtime'             => $formatEntry($overtime),
+            'leave'                => $leave ? [
+                'id'              => $leave->id,
+                'status'          => $leave->status,
+                'days_requested'  => $leave->days_requested,
+                'half_day'        => $leave->half_day,
+                'half_day_period' => $leave->half_day_period,
+                'start_date'      => $leave->start_date?->format('Y-m-d'),
+                'end_date'        => $leave->end_date?->format('Y-m-d'),
+                'reason'          => $leave->reason,
+                'leave_type'      => $leave->leaveType ? [
+                    'id'    => $leave->leaveType->id,
+                    'name'  => $leave->leaveType->name,
+                    'code'  => $leave->leaveType->code,
+                    'color' => $leave->leaveType->color,
+                ] : null,
+            ] : null,
         ];
     }
 }

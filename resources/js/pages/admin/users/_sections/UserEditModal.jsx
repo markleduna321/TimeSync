@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Tabs, Spin, Switch } from 'antd';
+import { Modal, Tabs, Spin, Switch, Skeleton } from 'antd';
 import {
     User, Shield, CalendarClock, Tag, Gift, Building2, AtSign,
-    PlusCircle, Trash2, CheckCircle2, ShieldCheck, Timer,
+    PlusCircle, Trash2, CheckCircle2, ShieldCheck, Timer, Wallet, History, Plus,
+    Pencil, X,
 } from 'lucide-react';
 import { useUpdateUserMutation } from '@/features/users/usersApi';
 import { useGetRolesQuery } from '@/features/roles/rolesApi';
@@ -27,6 +28,15 @@ import {
     useGetBreakConfigQuery,
     useUpsertBreakConfigMutation,
 } from '@/features/timekeeping/breakConfigApi';
+import {
+    useGetUserLeaveCreditsQuery,
+    useUpsertLeaveCreditMutation,
+    useGetLeaveTypesQuery,
+    useCreateLeaveTypeMutation,
+    useUpdateLeaveTypeMutation,
+    useAssignLeaveTypeMutation,
+    useRemoveLeaveAssignmentMutation,
+} from '@/features/leave/leaveApi';
 
 /* ─── Shared helpers ─────────────────────────────────────────────────────── */
 const ROLE_COLORS = {
@@ -55,6 +65,479 @@ const DEFAULT_ALL   = { allowance_type_id: '', amount: '', effective_from: '', e
 function fmtCurrency(val) {
     if (val == null) return '—';
     return '₱' + Number(val).toLocaleString('en-PH', { minimumFractionDigits: 2 });
+}
+
+/* ─── Leave Credits Tab ─────────────────────────────────────────────────── */
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: 4 }, (_, i) => CURRENT_YEAR - 1 + i);
+
+function fmtTxDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString('en-PH', {
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Manila',
+    });
+}
+
+/* ─── Leave Type Form modal (create + edit) ──────────────────────────────── */
+const DEFAULT_COLORS = ['#6d28d9', '#059669', '#dc2626', '#d97706', '#0284c7', '#db2777'];
+
+function LeaveTypeFormModal({ open, onClose, editingType = null }) {
+    const isEdit = !!editingType;
+
+    const BLANK = {
+        name: '', code: '', color: DEFAULT_COLORS[0],
+        min_advance_days: 0, max_consecutive_days: '', requires_proof_above_days: '',
+        is_paid: true, is_active: true,
+        policy_type: '', monthly_rate: '', annual_amount: '',
+    };
+
+    const [form, setForm] = useState(BLANK);
+    const [errors, setErrors] = useState({});
+    const [createLeaveType, { isLoading: creating }] = useCreateLeaveTypeMutation();
+    const [updateLeaveType, { isLoading: updating }] = useUpdateLeaveTypeMutation();
+    const isLoading = creating || updating;
+
+    useEffect(() => {
+        if (open) {
+            if (isEdit) {
+                const p = editingType.credit_policy;
+                setForm({
+                    name:                      editingType.name ?? '',
+                    code:                      editingType.code ?? '',
+                    color:                     editingType.color ?? DEFAULT_COLORS[0],
+                    min_advance_days:          editingType.min_advance_days ?? 0,
+                    max_consecutive_days:      editingType.max_consecutive_days ?? '',
+                    requires_proof_above_days: editingType.requires_proof_above_days ?? '',
+                    is_paid:                   editingType.is_paid ?? true,
+                    is_active:                 editingType.is_active ?? true,
+                    policy_type:               p?.allocation_type ?? '',
+                    monthly_rate:              p?.monthly_rate ?? '',
+                    annual_amount:             p?.annual_amount ?? '',
+                });
+            } else {
+                setForm(BLANK);
+            }
+            setErrors({});
+        }
+    }, [open, editingType?.id]);
+
+    function set(field, value) {
+        setForm((f) => ({ ...f, [field]: value }));
+        setErrors((e) => ({ ...e, [field]: undefined, general: undefined }));
+    }
+
+    async function handleSubmit() {
+        setErrors({});
+        const payload = {
+            name:                      form.name,
+            code:                      form.code.toUpperCase(),
+            color:                     form.color,
+            min_advance_days:          Number(form.min_advance_days) || 0,
+            max_consecutive_days:      form.max_consecutive_days !== '' ? Number(form.max_consecutive_days) : null,
+            requires_proof_above_days: form.requires_proof_above_days !== '' ? Number(form.requires_proof_above_days) : null,
+            is_paid:                   form.is_paid,
+            is_active:                 form.is_active,
+        };
+        if (form.policy_type) {
+            payload.policy = {
+                allocation_type: form.policy_type,
+                monthly_rate:    form.policy_type === 'monthly_accrual' ? Number(form.monthly_rate) : null,
+                annual_amount:   form.policy_type === 'annual_lump'     ? Number(form.annual_amount) : null,
+                is_active:       true,
+            };
+        }
+        try {
+            if (isEdit) {
+                await updateLeaveType({ id: editingType.id, ...payload }).unwrap();
+            } else {
+                await createLeaveType(payload).unwrap();
+            }
+            onClose();
+        } catch (err) {
+            const errs = err?.data?.errors ?? {};
+            setErrors({
+                name:    errs.name?.[0],
+                code:    errs.code?.[0],
+                color:   errs.color?.[0],
+                general: Object.keys(errs).length === 0 ? (err?.data?.message ?? 'Something went wrong.') : null,
+            });
+        }
+    }
+
+    return (
+        <Modal open={open} onCancel={onClose} title={isEdit ? 'Edit Leave Type' : 'New Leave Type'} footer={null} width={440} destroyOnClose>
+            <div className="space-y-3 py-2">
+                {errors.general && <p className="text-xs text-rose-600">{errors.general}</p>}
+
+                <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-2">
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Name <span className="text-rose-500">*</span></label>
+                        <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Vacation Leave"
+                            className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-400 ${errors.name ? 'border-rose-300' : 'border-slate-200'}`} />
+                        {errors.name && <p className="mt-1 text-xs text-rose-600">{errors.name}</p>}
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Code <span className="text-rose-500">*</span></label>
+                        <input value={form.code} onChange={(e) => set('code', e.target.value.toUpperCase())} placeholder="VL" maxLength={10}
+                            className={`w-full rounded-lg border px-3 py-2 text-sm font-mono uppercase text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-400 ${errors.code ? 'border-rose-300' : 'border-slate-200'}`} />
+                        {errors.code && <p className="mt-1 text-xs text-rose-600">{errors.code}</p>}
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Color</label>
+                    <div className="flex items-center gap-2">
+                        {DEFAULT_COLORS.map((c) => (
+                            <button key={c} type="button" onClick={() => set('color', c)}
+                                style={{ backgroundColor: c }}
+                                className={`h-6 w-6 rounded-full transition-transform ${form.color === c ? 'scale-125 ring-2 ring-offset-1 ring-slate-400' : 'hover:scale-110'}`}
+                                aria-label={c} />
+                        ))}
+                        <input type="color" value={form.color} onChange={(e) => set('color', e.target.value)}
+                            className="h-6 w-8 cursor-pointer rounded border border-slate-200 p-0.5" title="Custom color" />
+                    </div>
+                    {errors.color && <p className="mt-1 text-xs text-rose-600">{errors.color}</p>}
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                    <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Min Advance Days</label>
+                        <input type="number" min="0" value={form.min_advance_days} onChange={(e) => set('min_advance_days', e.target.value)}
+                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Max Consecutive</label>
+                        <input type="number" min="1" value={form.max_consecutive_days} onChange={(e) => set('max_consecutive_days', e.target.value)} placeholder="∞"
+                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Proof Above (days)</label>
+                        <input type="number" min="1" value={form.requires_proof_above_days} onChange={(e) => set('requires_proof_above_days', e.target.value)} placeholder="—"
+                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-6">
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-slate-700">
+                        <input type="checkbox" checked={form.is_paid} onChange={(e) => set('is_paid', e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-400" />
+                        Paid Leave
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-slate-700">
+                        <input type="checkbox" checked={form.is_active} onChange={(e) => set('is_active', e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-400" />
+                        Active
+                    </label>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Credit Policy</label>
+                    <select value={form.policy_type} onChange={(e) => set('policy_type', e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-400">
+                        <option value="">None</option>
+                        <option value="monthly_accrual">Monthly Accrual</option>
+                        <option value="annual_lump">Annual Lump Sum</option>
+                        <option value="manual">Manual</option>
+                    </select>
+                </div>
+                {form.policy_type === 'monthly_accrual' && (
+                    <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Monthly Rate (days)</label>
+                        <input type="number" min="0" step="0.1" value={form.monthly_rate} onChange={(e) => set('monthly_rate', e.target.value)} placeholder="e.g. 0.5"
+                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                    </div>
+                )}
+                {form.policy_type === 'annual_lump' && (
+                    <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Annual Amount (days)</label>
+                        <input type="number" min="0" step="0.5" value={form.annual_amount} onChange={(e) => set('annual_amount', e.target.value)} placeholder="e.g. 6"
+                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                    </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-1">
+                    <button type="button" onClick={onClose}
+                        className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="button" onClick={handleSubmit} disabled={isLoading}
+                        className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60 transition-colors">
+                        {isLoading ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save Changes' : 'Create Type')}
+                    </button>
+                </div>
+            </div>
+        </Modal>
+    );
+}
+
+function LeaveCreditsTab({ user }) {
+    const [year, setYear]             = useState(CURRENT_YEAR);
+    const [assignTypeId, setAssignTypeId] = useState('');
+    const [assignError, setAssignError]   = useState('');
+    const [expandedId, setExpandedId] = useState(null);
+    const [adjustForm, setAdjustForm] = useState({ action: 'add', amount: '', note: '' });
+    const [adjustErrors, setAdjustErrors] = useState({});
+    const [typeFormOpen, setTypeFormOpen] = useState(false);
+    const [editingType, setEditingType]   = useState(null);
+
+    const { data, isLoading } = useGetUserLeaveCreditsQuery(
+        { userId: user?.id, year },
+        { skip: !user?.id },
+    );
+    const { data: typesData } = useGetLeaveTypesQuery();
+    const [upsert,  { isLoading: saving }]    = useUpsertLeaveCreditMutation();
+    const [assign,  { isLoading: assigning }] = useAssignLeaveTypeMutation();
+    const [remove,  { isLoading: removing }]  = useRemoveLeaveAssignmentMutation();
+
+    const credits      = data?.data         ?? [];
+    const transactions = data?.transactions ?? [];
+    const leaveTypes   = typesData?.data    ?? [];
+
+    // Separate assigned vs unassigned active types for the assign dropdown
+    const assignedTypeIds  = new Set(credits.map((c) => String(c.leave_type?.id)));
+    const unassignedTypes  = leaveTypes.filter((t) => t.is_active && !assignedTypeIds.has(String(t.id)));
+
+    function openEditType(typeId) {
+        const found = leaveTypes.find((t) => String(t.id) === String(typeId));
+        if (found) { setEditingType(found); setTypeFormOpen(true); }
+    }
+
+    async function handleAssign() {
+        setAssignError('');
+        if (!assignTypeId) { setAssignError('Select a leave type to assign.'); return; }
+        try {
+            await assign({ userId: user.id, leave_type_id: assignTypeId, year }).unwrap();
+            setAssignTypeId('');
+        } catch (err) {
+            setAssignError(err?.data?.message ?? 'Failed to assign leave type.');
+        }
+    }
+
+    async function handleRemove(credit) {
+        try {
+            await remove({ userId: user.id, leaveTypeId: credit.leave_type?.id, year }).unwrap();
+            if (expandedId === credit.id) setExpandedId(null);
+        } catch {}
+    }
+
+    function toggleExpand(credit) {
+        if (expandedId === credit.id) {
+            setExpandedId(null);
+        } else {
+            setExpandedId(credit.id);
+            setAdjustForm({ action: 'add', amount: '', note: '' });
+            setAdjustErrors({});
+        }
+    }
+
+    async function handleAdjust(credit) {
+        setAdjustErrors({});
+        if (!adjustForm.amount || isNaN(adjustForm.amount) || Number(adjustForm.amount) <= 0) {
+            setAdjustErrors({ amount: 'Must be a positive number' }); return;
+        }
+        try {
+            await upsert({
+                userId: user.id,
+                leave_type_id: credit.leave_type?.id,
+                year,
+                action: adjustForm.action,
+                amount: Number(adjustForm.amount),
+                note:   adjustForm.note,
+            }).unwrap();
+            setExpandedId(null);
+            setAdjustForm({ action: 'add', amount: '', note: '' });
+        } catch (err) {
+            const errs = err?.data?.errors ?? {};
+            setAdjustErrors({
+                amount:  errs.amount?.[0],
+                general: Object.keys(errs).length === 0 ? (err?.data?.message ?? 'Something went wrong.') : null,
+            });
+        }
+    }
+
+    return (
+        <div className="space-y-4 py-2">
+            {/* Year selector */}
+            <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-500">Year:</span>
+                <div className="flex gap-1">
+                    {YEAR_OPTIONS.map((y) => (
+                        <button key={y} type="button" onClick={() => setYear(y)}
+                            className={['rounded-lg border px-3 py-1 text-xs font-semibold transition-colors', year === y ? 'bg-violet-600 border-violet-600 text-white' : 'border-slate-200 text-slate-600 hover:bg-slate-100'].join(' ')}>
+                            {y}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* ── Assign section ── */}
+            <div className="rounded-xl border border-slate-200 px-4 py-3 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Assign Leave Type</p>
+                {assignError && <p className="text-xs text-rose-600">{assignError}</p>}
+                <div className="flex gap-2">
+                    <select
+                        value={assignTypeId}
+                        onChange={(e) => { setAssignTypeId(e.target.value); setAssignError(''); }}
+                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-400"
+                    >
+                        <option value="">Select leave type...</option>
+                        {unassignedTypes.map((t) => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                    </select>
+
+                    {/* Edit selected unassigned type */}
+                    {assignTypeId && (
+                        <button type="button" onClick={() => openEditType(assignTypeId)}
+                            title="Edit this leave type"
+                            className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-400">
+                            <Pencil size={14} />
+                        </button>
+                    )}
+
+                    {/* Create new leave type */}
+                    <button type="button" onClick={() => { setEditingType(null); setTypeFormOpen(true); }}
+                        title="Create new leave type"
+                        className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 text-violet-600 hover:bg-violet-100 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-400">
+                        <Plus size={15} />
+                    </button>
+
+                    <button type="button" onClick={handleAssign} disabled={!assignTypeId || assigning}
+                        className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50 transition-colors">
+                        {assigning ? '...' : 'Assign'}
+                    </button>
+                </div>
+            </div>
+
+            {/* ── Assigned types list ── */}
+            {isLoading ? (
+                <div className="space-y-2">{[1,2].map((i) => <Skeleton key={i} active paragraph={{ rows: 1 }} />)}</div>
+            ) : credits.length === 0 ? (
+                <p className="text-center text-sm text-slate-400 py-3">No leave types assigned for {year}.</p>
+            ) : (
+                <div className="space-y-2">
+                    {credits.map((credit) => {
+                        const balance = parseFloat(credit.balance ?? 0);
+                        const used    = parseFloat(credit.used_credits ?? 0);
+                        const total   = parseFloat(credit.total_credits ?? 0) + parseFloat(credit.carried_over ?? 0);
+                        const pct     = total > 0 ? Math.max(0, Math.min(100, (balance / total) * 100)) : 0;
+                        const color   = credit.leave_type?.color ?? '#6d28d9';
+                        const isExpanded = expandedId === credit.id;
+
+                        return (
+                            <div key={credit.id} className="rounded-xl border border-slate-100 bg-slate-50 overflow-hidden">
+                                {/* Balance row */}
+                                <div className="flex items-center gap-3 px-4 pt-3 pb-2">
+                                    <div className="flex-1 space-y-1.5 min-w-0">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                                <span className="text-sm font-semibold text-slate-700">{credit.leave_type?.name ?? '—'}</span>
+                                            </div>
+                                            <div className="flex items-center gap-3 text-xs tabular-nums text-slate-500">
+                                                <span>Used: <strong className="text-rose-600">{used}</strong></span>
+                                                <span>Balance: <strong className={balance > 0 ? 'text-emerald-600' : 'text-slate-400'}>{balance}</strong></span>
+                                            </div>
+                                        </div>
+                                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
+                                        </div>
+                                    </div>
+                                    {/* Action buttons */}
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        <button type="button" onClick={() => toggleExpand(credit)}
+                                            title="Adjust credits"
+                                            className={['flex h-7 w-7 items-center justify-center rounded-lg border transition-colors focus:outline-none', isExpanded ? 'border-violet-300 bg-violet-100 text-violet-600' : 'border-slate-200 bg-white text-slate-400 hover:bg-slate-100 hover:text-slate-600'].join(' ')}>
+                                            <Pencil size={12} />
+                                        </button>
+                                        <button type="button" onClick={() => handleRemove(credit)} disabled={removing}
+                                            title="Remove assignment"
+                                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500 transition-colors focus:outline-none disabled:opacity-50">
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Inline adjust panel */}
+                                {isExpanded && (
+                                    <div className="border-t border-slate-200 bg-white px-4 py-3 space-y-2">
+                                        {adjustErrors.general && <p className="text-xs text-rose-600">{adjustErrors.general}</p>}
+                                        <div className="flex gap-2">
+                                            <div className="flex rounded-lg border border-slate-200 p-0.5 shrink-0">
+                                                {['add', 'set'].map((v) => (
+                                                    <button key={v} type="button" onClick={() => setAdjustForm((f) => ({ ...f, action: v }))}
+                                                        className={['rounded-md px-3 py-1 text-xs font-semibold transition-colors', adjustForm.action === v ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'].join(' ')}>
+                                                        {v.charAt(0).toUpperCase() + v.slice(1)}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <div className="flex-1">
+                                                <input type="number" min="0" step="0.5"
+                                                    value={adjustForm.amount}
+                                                    onChange={(e) => setAdjustForm((f) => ({ ...f, amount: e.target.value }))}
+                                                    placeholder="Amount (days)"
+                                                    className={`w-full rounded-lg border px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-400 ${adjustErrors.amount ? 'border-rose-300' : 'border-slate-200'}`} />
+                                                {adjustErrors.amount && <p className="mt-0.5 text-xs text-rose-600">{adjustErrors.amount}</p>}
+                                            </div>
+                                        </div>
+                                        <input type="text"
+                                            value={adjustForm.note}
+                                            onChange={(e) => setAdjustForm((f) => ({ ...f, note: e.target.value }))}
+                                            placeholder="Reason (optional)" maxLength={255}
+                                            className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                                        <div className="flex justify-end gap-2">
+                                            <button type="button" onClick={() => setExpandedId(null)}
+                                                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors">
+                                                Cancel
+                                            </button>
+                                            <button type="button" onClick={() => handleAdjust(credit)} disabled={saving}
+                                                className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-60 transition-colors">
+                                                {saving ? 'Saving...' : 'Apply'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* ── Transaction history ── */}
+            <div>
+                <div className="flex items-center gap-2 mb-2">
+                    <History size={14} className="text-slate-400" />
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Recent Transactions</p>
+                </div>
+                {transactions.length === 0 ? (
+                    <p className="text-center text-xs text-slate-400 py-3">No transactions yet.</p>
+                ) : (
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                        {transactions.map((tx) => (
+                            <div key={tx.id} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs">
+                                <div className="flex items-center gap-2">
+                                    <span className={`h-2 w-2 rounded-full ${tx.type === 'credit' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                                    <span className="font-medium text-slate-700">{tx.leave_type?.name ?? '—'}</span>
+                                    {tx.note && <span className="text-slate-400 truncate max-w-[140px]" title={tx.note}>{tx.note}</span>}
+                                </div>
+                                <div className="flex items-center gap-3 tabular-nums shrink-0">
+                                    <span className={`font-semibold ${tx.type === 'credit' ? 'text-emerald-600' : 'text-rose-600'}`}>{tx.type === 'credit' ? '+' : '-'}{tx.amount}</span>
+                                    <span className="text-slate-400">{fmtTxDate(tx.created_at)}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <LeaveTypeFormModal
+                open={typeFormOpen}
+                editingType={editingType}
+                onClose={() => { setTypeFormOpen(false); setEditingType(null); }}
+            />
+        </div>
+    );
 }
 
 function SavedBadge() {
@@ -967,6 +1450,11 @@ export default function UserEditModal({ open, onClose, user }) {
             key:      'breaks',
             label:    <span className="flex items-center gap-1.5"><Timer size={13} /> Breaks</span>,
             children: <BreaksTab user={user} />,
+        },
+        {
+            key:      'leave-credits',
+            label:    <span className="flex items-center gap-1.5"><Wallet size={13} /> Leave Credits</span>,
+            children: <LeaveCreditsTab user={user} />,
         },
         {
             key:      'account',
