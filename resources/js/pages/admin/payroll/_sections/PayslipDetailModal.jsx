@@ -77,7 +77,19 @@ export default function PayslipDetailModal({ open, onClose, payslipId }) {
                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Earnings</p>
                         <div className="divide-y divide-slate-50">
                             {earnings.map((l) => (
-                                <Row key={l.id} label={l.description} value={fmtCurrency(l.amount)} />
+                                <div key={l.id} className="flex items-center justify-between py-1.5">
+                                    <span className="flex items-center gap-1.5 text-sm text-slate-500">
+                                        {l.description}
+                                        {l.code === 'LEAVE_MON' && (
+                                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                                                Leave Conversion
+                                            </span>
+                                        )}
+                                    </span>
+                                    <span className={`text-sm tabular-nums ${l.code === 'LEAVE_MON' ? 'font-semibold text-amber-700' : 'text-slate-700'}`}>
+                                        {fmtCurrency(l.amount)}
+                                    </span>
+                                </div>
                             ))}
                         </div>
                         <div className="mt-1 flex justify-between border-t border-slate-200 pt-2">

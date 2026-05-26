@@ -7,6 +7,7 @@ use App\Http\Requests\BulkDraftPayslipRequest;
 use App\Http\Requests\BulkReleasePayslipRequest;
 use App\Http\Requests\GeneratePayslipRequest;
 use App\Http\Resources\PayslipResource;
+use App\Models\LeaveMonetization;
 use App\Models\Payslip;
 use App\Models\PayslipLine;
 use App\Models\User;
@@ -123,6 +124,9 @@ class PayslipController extends Controller
         foreach ($result['deductions'] as $line) {
             PayslipLine::create(array_merge($line, ['payslip_id' => $payslip->id, 'category' => 'deduction']));
         }
+
+        // Inject pending leave monetization payouts for this employee
+        $this->injectLeaveMonetizations($payslip, $employee, $request->user()->id);
 
         // Prior period adjustment — added as a separate earning line, not re-taxed here
         if ($request->filled('prior_period_amount') && (float)$request->prior_period_amount > 0) {
@@ -273,6 +277,9 @@ class PayslipController extends Controller
                 PayslipLine::create(array_merge($line, ['payslip_id' => $payslip->id, 'category' => 'deduction']));
             }
 
+            // Inject pending leave monetization payouts for this employee
+            $this->injectLeaveMonetizations($payslip, $employee, $request->user()->id);
+
             $generated++;
         }
 
@@ -293,6 +300,50 @@ class PayslipController extends Controller
             'skipped'   => $skipped,
             'message'   => "Generated {$generated} draft payslip(s). {$skipped} skipped (already exist).",
         ]);
+    }
+
+    /**
+     * Inject any pending leave monetization records for an employee as
+     * non-taxable earning lines on the given payslip, then mark them processed.
+     */
+    private function injectLeaveMonetizations(Payslip $payslip, User $employee, int $operatorId): void
+    {
+        $pending = LeaveMonetization::where('user_id', $employee->id)
+            ->where('status', 'pending')
+            ->with('leaveType')
+            ->get();
+
+        if ($pending->isEmpty()) {
+            return;
+        }
+
+        $maxSort = PayslipLine::where('payslip_id', $payslip->id)
+            ->where('category', 'earning')
+            ->max('sort_order') ?? 0;
+
+        foreach ($pending as $mon) {
+            $maxSort++;
+            $label = 'Leave Conversion: ' . ($mon->leaveType?->name ?? 'Leave') . ' (' . $mon->year . ')';
+
+            PayslipLine::create([
+                'payslip_id'  => $payslip->id,
+                'category'    => 'earning',
+                'code'        => 'LEAVE_MON',
+                'description' => $label,
+                'sort_order'  => $maxSort,
+                'amount'      => $mon->amount,
+                'is_taxable'  => false,
+            ]);
+
+            $payslip->increment('gross_pay', $mon->amount);
+            $payslip->increment('net_pay',   $mon->amount);
+
+            $mon->update([
+                'status'       => 'processed',
+                'processed_at' => now(),
+                'processed_by' => $operatorId,
+            ]);
+        }
     }
 
     public function thirteenthMonth(Request $request): JsonResponse

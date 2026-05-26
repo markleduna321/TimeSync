@@ -41,11 +41,18 @@ function AttRow({ label, value, cls = "text-slate-800" }) {
         </div>
     );
 }
-function LineRow({ description, amount, isDeduction }) {
+function LineRow({ description, amount, isDeduction, code }) {
     return (
         <div className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
-            <span className="text-xs text-slate-600 leading-snug">{description}</span>
-            <span className={`text-xs tabular-nums font-medium shrink-0 ml-3 ${isDeduction ? "text-rose-600" : "text-slate-800"}`}>
+            <span className="flex items-center gap-1.5 text-xs text-slate-600 leading-snug">
+                {description}
+                {code === 'LEAVE_MON' && (
+                    <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                        Leave Conversion
+                    </span>
+                )}
+            </span>
+            <span className={`text-xs tabular-nums font-medium shrink-0 ml-3 ${isDeduction ? "text-rose-600" : code === 'LEAVE_MON' ? "text-amber-700" : "text-slate-800"}`}>
                 {isDeduction ? `(${fmtCurrency(amount)})` : fmtCurrency(amount)}
             </span>
         </div>
@@ -238,7 +245,7 @@ export default function PayslipDetailModal({ open, onClose, payslipId }) {
                                 <div className="rounded-xl border border-slate-100 overflow-hidden">
                                     <div className="divide-y divide-slate-50 px-3">
                                         {earnings.map((l) => (
-                                            <LineRow key={l.id} description={l.description} amount={l.amount} />
+                                            <LineRow key={l.id} description={l.description} amount={l.amount} code={l.code} />
                                         ))}
                                     </div>
                                 </div>
