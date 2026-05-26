@@ -6,12 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Http\Resources\UserResource;
+use App\Mail\WelcomeEmail;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 
 class AdminUserController extends Controller
 {
@@ -56,12 +58,17 @@ class AdminUserController extends Controller
             ->where('slug', 'super_admin')
             ->exists();
 
+        // Capture plain password before hashing — needed for the welcome email
+        $plainPassword = $request->filled('password')
+            ? $request->password
+            : config('app.default_user_password');
+
         $user = User::create([
             'first_name'           => $request->first_name,
             'middle_name'          => $request->middle_name,
             'last_name'            => $request->last_name,
             'email'                => $request->email,
-            'password'             => Hash::make($request->filled('password') ? $request->password : config('app.default_user_password')),
+            'password'             => Hash::make($plainPassword),
             'monthly_salary'       => $request->monthly_salary,
             'must_change_password' => ! $isSuperAdmin,
         ]);
@@ -71,6 +78,8 @@ class AdminUserController extends Controller
         }
 
         $user->load(['roles', 'schedule', 'department', 'account']);
+
+        Mail::to($user->email)->send(new WelcomeEmail($user, $plainPassword));
 
         return new UserResource($user);
     }
