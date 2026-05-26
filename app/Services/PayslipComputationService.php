@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Holiday;
+use App\Models\LeaveApplication;
 use App\Models\Payslip;
 use App\Models\PayslipLine;
 use App\Models\TimeLog;
@@ -204,7 +205,30 @@ class PayslipComputationService
         $holidays = Holiday::whereBetween('date', [$periodStart->toDateString(), $periodEnd->toDateString()])
             ->get()->keyBy(fn($h) => $h->date->format('Y-m-d'));
 
-        $daysScheduled = $daysWorked = $daysAbsent = $lateMinutes = $undertimeMins = $overBreakMins = 0;
+        // Build a map of date => days_value for approved paid-leave days in this period.
+        // A full-day leave counts as 1.0; a half-day leave counts as 0.5.
+        $paidLeaveDates = [];
+        $approvedPaidLeaves = LeaveApplication::where('user_id', $employee->id)
+            ->where('status', 'approved')
+            ->whereHas('leaveType', fn ($q) => $q->where('is_paid', true))
+            ->where('start_date', '<=', $periodEnd->toDateString())
+            ->where('end_date',   '>=', $periodStart->toDateString())
+            ->get();
+        foreach ($approvedPaidLeaves as $leave) {
+            $leaveStart = max($leave->start_date->toDateString(), $periodStart->toDateString());
+            $leaveEnd   = min($leave->end_date->toDateString(),   $periodEnd->toDateString());
+            foreach (CarbonPeriod::create($leaveStart, $leaveEnd) as $day) {
+                $ds = $day->toDateString();
+                // Half-day only applies when the application covers exactly one day
+                $value = ($leave->half_day && $leave->start_date->eq($leave->end_date)) ? 0.5 : 1.0;
+                $paidLeaveDates[$ds] = ($paidLeaveDates[$ds] ?? 0.0) + $value;
+            }
+        }
+
+        $daysScheduled = 0;
+        $daysWorked    = 0.0;
+        $daysAbsent    = 0.0;
+        $lateMinutes = $undertimeMins = $overBreakMins = 0;
         $holidayPayExtra = $overtimePay = 0.0;
         $otMinutes = $restDayMinutes = $restDayOtMinutes = 0;
         $restDayPay = $restDayOtPay = 0.0;
@@ -245,15 +269,18 @@ class PayslipComputationService
 
             $daysScheduled++;
             if (!$worked) {
-                if ($holiday && $holiday->type === 'regular') {
+                if (isset($paidLeaveDates[$dateStr])) {
+                    // Approved paid leave — treat as worked, no wage deduction
+                    $daysWorked += $paidLeaveDates[$dateStr];
+                } elseif ($holiday && $holiday->type === 'regular') {
                     $holidayPayExtra += $this->computeHolidayExtra($dailyRate, 'regular', false);
                 } else {
-                    $daysAbsent++;
+                    $daysAbsent += 1.0;
                 }
                 continue;
             }
 
-            $daysWorked++;
+            $daysWorked += 1.0;
             if ($holiday) {
                 $holidayPayExtra += $this->computeHolidayExtra($dailyRate, $holiday->type, true);
             }

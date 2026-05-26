@@ -10,6 +10,7 @@ import {
     ChevronRight,
     ClipboardList,
     Calendar,
+    Leaf,
 } from 'lucide-react';
 import { useGetAdminKpisQuery, useGetAdminActivityQuery } from '@/features/dashboard/dashboardApi';
 
@@ -149,6 +150,7 @@ export default function AdminDashboard() {
         { label: 'Manage Users',      href: '/admin/users',          icon: Users,         light: 'bg-violet-50',   color: 'text-violet-600'  },
         { label: 'Attendance',        href: '/time/attendance',      icon: ClipboardList, light: 'bg-amber-50',    color: 'text-amber-600'   },
         { label: 'Holidays',          href: '/admin/holidays',       icon: Calendar,      light: 'bg-sky-50',      color: 'text-sky-600'     },
+        { label: 'Leave Types',       href: '/admin/compensation',   icon: Leaf,          light: 'bg-green-50',    color: 'text-green-600'   },
     ];
 
     const recentPayslips     = activity?.recent_payslips ?? [];

@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\DeductionTypeController;
 use App\Http\Controllers\Api\HolidayController;
 use App\Http\Controllers\Api\LeaveApplicationController;
 use App\Http\Controllers\Api\LeaveCreditController;
+use App\Http\Controllers\Api\LeaveMonetizationController;
 use App\Http\Controllers\Api\LeaveTypeController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PayslipController;
@@ -158,6 +159,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/attendance',         [ReportController::class, 'attendanceSummary']);
         Route::get('/contributions',      [ReportController::class, 'contributionsSummary']);
         Route::get('/department-payroll', [ReportController::class, 'departmentPayroll']);
+        Route::get('/leave-utilization',  [ReportController::class, 'leaveUtilization']);
         Route::post('/ai-insights',       [ReportController::class, 'aiInsights']);
     });
 
@@ -181,5 +183,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/admin/users/{user}/leave-credits/{leaveType}',           [LeaveCreditController::class, 'removeAssignment']);
     Route::post('/admin/users/{user}/leave-credits',                         [LeaveCreditController::class, 'upsert']);
     Route::post('/admin/leave-credits/bulk-allocate',                        [LeaveCreditController::class, 'bulkAllocate']);
+
+    // --- Leave Monetization ---
+    // bulk-process must come before {monetization} to avoid route conflict
+    Route::patch('/admin/leave-monetizations/bulk-process', [LeaveMonetizationController::class, 'bulkProcess']);
+    Route::get('/admin/leave-monetizations',                [LeaveMonetizationController::class, 'index']);
+    Route::post('/admin/leave-monetizations/run',           [LeaveMonetizationController::class, 'run']);
+    Route::patch('/admin/leave-monetizations/{monetization}', [LeaveMonetizationController::class, 'process']);
 });
 

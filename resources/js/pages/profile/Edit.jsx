@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import MainLayout from '@/Layouts/MainLayout';
 import { useGetUserQuery } from '@/store';
 import { useUploadAvatarMutation, useUpdateEmailMutation, useUpdatePasswordMutation } from '@/features/user/userApi';
-import { Camera, Check, Eye, EyeOff, KeyRound, Loader2, Mail, User } from 'lucide-react';
+import { useGetMyLeaveProfileQuery } from '@/features/leave/leaveApi';
+import { Camera, Check, Eye, EyeOff, KeyRound, Loader2, Mail, User, CalendarCheck, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 
 /* ── Shared field styles ─────────────────────────────────────────── */
 const fieldCls = (err) =>
@@ -318,6 +319,7 @@ export default function Edit() {
             </div>
 
             <AvatarSection user={user} />
+            <LeaveCreditsCard />
             <EmailSection currentEmail={user?.email} />
             <PasswordSection />
         </div>
@@ -325,4 +327,88 @@ export default function Edit() {
 }
 
 Edit.layout = (page) => <MainLayout>{page}</MainLayout>;
+
+/* ════════════════════════════════════════════════════════════════════
+   Leave Credits Card
+   ════════════════════════════════════════════════════════════════════ */
+function LeaveCreditsCard() {
+    const { data, isLoading } = useGetMyLeaveProfileQuery();
+
+    const credits      = data?.data         ?? [];
+    const transactions = data?.transactions  ?? [];
+    const year         = new Date().getFullYear();
+
+    const TX_ICON = {
+        credit: <ArrowDownCircle size={14} className="text-green-500 shrink-0" />,
+        debit:  <ArrowUpCircle   size={14} className="text-red-400  shrink-0" />,
+    };
+
+    return (
+        <Card title={`Leave Credits — ${year}`} icon={CalendarCheck}>
+            {isLoading ? (
+                <div className="space-y-3">
+                    {[...Array(3)].map((_, i) => (
+                        <div key={i} className="h-8 rounded-lg bg-slate-100 animate-pulse" />
+                    ))}
+                </div>
+            ) : credits.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-4">No leave credits assigned for {year}.</p>
+            ) : (
+                <div className="space-y-2">
+                    {credits.map((c) => {
+                        const total   = Number(c.total_credits)   || 0;
+                        const used    = Number(c.used_credits)    || 0;
+                        const balance = Number(c.balance ?? (total - used)) || 0;
+                        const pct     = total > 0 ? Math.min(Math.round((used / total) * 100), 100) : 0;
+                        return (
+                            <div key={c.id} className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                                        <span
+                                            className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+                                            style={{ backgroundColor: c.leave_type?.color }}
+                                        />
+                                        {c.leave_type?.name}
+                                    </span>
+                                    <span className="text-xs text-slate-500">
+                                        <span className="font-semibold text-slate-800">{balance}</span> / {total} days left
+                                    </span>
+                                </div>
+                                <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                                    <div
+                                        className="h-1.5 rounded-full"
+                                        style={{ width: `${pct}%`, backgroundColor: c.leave_type?.color }}
+                                    />
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {transactions.length > 0 && (
+                <>
+                    <p className="mt-5 mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Recent Transactions</p>
+                    <ul className="space-y-2">
+                        {transactions.map((tx) => (
+                            <li key={tx.id} className="flex items-start gap-2 text-sm">
+                                {TX_ICON[tx.type] ?? TX_ICON.credit}
+                                <div className="flex-1 min-w-0">
+                                    <span className="font-medium text-slate-700">{tx.leave_type?.name ?? '—'}</span>
+                                    <span className="mx-1 text-slate-300">·</span>
+                                    <span className="text-slate-500 text-xs">{tx.note}</span>
+                                </div>
+                                <span className={`shrink-0 font-semibold tabular-nums ${
+                                    tx.type === 'credit' ? 'text-green-600' : 'text-red-500'
+                                }`}>
+                                    {tx.type === 'credit' ? '+' : '-'}{Number(tx.amount).toFixed(1)}d
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                </>
+            )}
+        </Card>
+    );
+}
 

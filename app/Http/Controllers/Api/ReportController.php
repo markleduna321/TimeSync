@@ -74,12 +74,22 @@ class ReportController extends Controller
         return response()->json($this->reports->departmentPayroll($year, $month));
     }
 
+    public function leaveUtilization(Request $request): JsonResponse
+    {
+        $this->authorizeAdmin($request);
+
+        $year  = (int) $request->query('year', now()->year);
+        $month = $request->filled('month') ? (int) $request->query('month') : null;
+
+        return response()->json($this->reports->leaveUtilization($year, $month));
+    }
+
     public function aiInsights(Request $request): JsonResponse
     {
         $this->authorizeAdmin($request);
 
         $request->validate([
-            'report_type' => 'required|string|in:payroll_summary,payroll_trend,attendance,contributions,department_payroll',
+            'report_type' => 'required|string|in:payroll_summary,payroll_trend,attendance,contributions,department_payroll,leave_utilization',
             'data'        => 'required|array',
         ]);
 

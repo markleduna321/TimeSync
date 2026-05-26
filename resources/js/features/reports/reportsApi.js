@@ -32,6 +32,11 @@ export const reportsApi = createApi({
             providesTags: [{ type: 'Report', id: 'DEPT_PAYROLL' }],
         }),
 
+        getLeaveUtilization: builder.query({
+            query: (params = {}) => ({ url: '/reports/leave-utilization', params }),
+            providesTags: [{ type: 'Report', id: 'LEAVE_UTILIZATION' }],
+        }),
+
         getAiInsights: builder.mutation({
             query: (body) => ({ url: '/reports/ai-insights', method: 'POST', body }),
         }),
@@ -45,5 +50,6 @@ export const {
     useGetAttendanceSummaryQuery,
     useGetContributionsSummaryQuery,
     useGetDepartmentPayrollQuery,
+    useGetLeaveUtilizationQuery,
     useGetAiInsightsMutation,
 } = reportsApi;

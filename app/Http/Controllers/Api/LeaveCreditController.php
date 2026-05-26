@@ -21,14 +21,30 @@ class LeaveCreditController extends Controller
     /**
      * GET /api/leave/credits/me
      * Returns only the leave types explicitly assigned to the authenticated user for the current year.
+     * Pass ?include_transactions=1 to also receive the last 5 credit transactions.
      */
-    public function myCredits(): AnonymousResourceCollection
+    public function myCredits(Request $request): AnonymousResourceCollection|JsonResponse
     {
         $year    = now()->year;
+        $userId  = auth()->id();
+
         $credits = LeaveCredit::with('leaveType')
-            ->where('user_id', auth()->id())
+            ->where('user_id', $userId)
             ->where('year', $year)
             ->get();
+
+        if ($request->boolean('include_transactions')) {
+            $transactions = LeaveCreditTransaction::with('leaveType')
+                ->where('user_id', $userId)
+                ->orderByDesc('created_at')
+                ->take(5)
+                ->get();
+
+            return response()->json([
+                'data'         => LeaveCreditResource::collection($credits),
+                'transactions' => LeaveCreditTransactionResource::collection($transactions),
+            ]);
+        }
 
         return LeaveCreditResource::collection($credits);
     }

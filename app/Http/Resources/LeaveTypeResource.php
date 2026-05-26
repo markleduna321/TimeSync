@@ -19,6 +19,7 @@ class LeaveTypeResource extends JsonResource
             'requires_proof_above_days' => $this->requires_proof_above_days,
             'is_paid'                   => $this->is_paid,
             'is_active'                 => $this->is_active,
+            'is_monetizable'            => $this->is_monetizable,
             'policy'                    => $this->whenLoaded('creditPolicy', fn () => [
                 'allocation_type' => $this->creditPolicy->allocation_type,
                 'monthly_rate'    => $this->creditPolicy->monthly_rate,

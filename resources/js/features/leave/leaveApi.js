@@ -4,7 +4,7 @@ import { baseQueryWithCsrf } from '@/features/csrfBaseQuery';
 export const leaveApi = createApi({
     reducerPath: 'leaveApi',
     baseQuery: baseQueryWithCsrf('/api'),
-    tagTypes: ['LeaveApplication', 'LeaveCredit', 'LeaveType'],
+    tagTypes: ['LeaveApplication', 'LeaveCredit', 'LeaveType', 'LeaveMonetization'],
     endpoints: (builder) => ({
 
         /* ── Leave Types ───────────────────────────────── */
@@ -69,6 +69,12 @@ export const leaveApi = createApi({
             providesTags: ['LeaveCredit'],
         }),
 
+        // Profile variant — returns { data: credits[], transactions: tx[] }
+        getMyLeaveProfile: builder.query({
+            query: () => ({ url: '/leave/credits/me', params: { include_transactions: 1 } }),
+            providesTags: ['LeaveCredit'],
+        }),
+
         getUserLeaveCredits: builder.query({
             query: ({ userId, year }) => ({
                 url: `/admin/users/${userId}/leave-credits`,
@@ -121,6 +127,40 @@ export const leaveApi = createApi({
             }),
             invalidatesTags: ['LeaveCredit'],
         }),
+
+        /* ── Leave Monetization ────────────────────────── */
+
+        getLeaveMonetizations: builder.query({
+            query: (params = {}) => ({ url: '/admin/leave-monetizations', params }),
+            providesTags: ['LeaveMonetization'],
+        }),
+
+        runLeaveMonetization: builder.mutation({
+            query: (body) => ({
+                url: '/admin/leave-monetizations/run',
+                method: 'POST',
+                body,
+            }),
+            invalidatesTags: ['LeaveMonetization'],
+        }),
+
+        processLeaveMonetization: builder.mutation({
+            query: ({ id, ...body }) => ({
+                url: `/admin/leave-monetizations/${id}`,
+                method: 'PATCH',
+                body,
+            }),
+            invalidatesTags: ['LeaveMonetization'],
+        }),
+
+        bulkProcessLeaveMonetizations: builder.mutation({
+            query: (body) => ({
+                url: '/admin/leave-monetizations/bulk-process',
+                method: 'PATCH',
+                body,
+            }),
+            invalidatesTags: ['LeaveMonetization'],
+        }),
     }),
 });
 
@@ -134,9 +174,14 @@ export const {
     useReviewLeaveApplicationMutation,
     useCancelLeaveApplicationMutation,
     useGetMyLeaveCreditsQuery,
+    useGetMyLeaveProfileQuery,
     useGetUserLeaveCreditsQuery,
     useUpsertLeaveCreditMutation,
     useAssignLeaveTypeMutation,
     useRemoveLeaveAssignmentMutation,
     useBulkAllocateCreditsMutation,
+    useGetLeaveMonetizationsQuery,
+    useRunLeaveMonetizationMutation,
+    useProcessLeaveMonetizationMutation,
+    useBulkProcessLeaveMonetizationsMutation,
 } = leaveApi;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Tabs, Select } from 'antd';
-import { BarChart3, TrendingUp, Clock, Building2, BrainCircuit } from 'lucide-react';
+import { BarChart3, TrendingUp, Clock, Building2, BrainCircuit, FileBarChart2 } from 'lucide-react';
 import MainLayout from '@/Layouts/MainLayout';
 import {
     useGetPayrollSummaryQuery,
@@ -8,12 +8,14 @@ import {
     useGetAttendanceSummaryQuery,
     useGetContributionsSummaryQuery,
     useGetDepartmentPayrollQuery,
+    useGetLeaveUtilizationQuery,
 } from '@/features/reports/reportsApi';
 import PayrollSummaryReport    from './_sections/PayrollSummaryReport';
 import PayrollTrendReport      from './_sections/PayrollTrendReport';
 import AttendanceReport        from './_sections/AttendanceReport';
 import ContributionsReport     from './_sections/ContributionsReport';
 import DepartmentPayrollReport from './_sections/DepartmentPayrollReport';
+import LeaveUtilizationReport  from './_sections/LeaveUtilizationReport';
 import AiInsightsPanel         from './_sections/AiInsightsPanel';
 
 const YEAR = new Date().getFullYear();
@@ -45,6 +47,7 @@ export default function AdminReportsPage() {
     const { data: attendanceData }      = useGetAttendanceSummaryQuery(filters);
     const { data: contributionsData }   = useGetContributionsSummaryQuery(filters);
     const { data: departmentData }      = useGetDepartmentPayrollQuery(filters);
+    const { data: leaveUtilData }       = useGetLeaveUtilizationQuery(filters);
 
     const reportDataMap = {
         ...(payrollSummaryData  ? { payroll_summary:    payrollSummaryData }  : {}),
@@ -52,6 +55,7 @@ export default function AdminReportsPage() {
         ...(attendanceData      ? { attendance:         attendanceData }      : {}),
         ...(contributionsData   ? { contributions:      contributionsData }   : {}),
         ...(departmentData      ? { department_payroll: departmentData }      : {}),
+        ...(leaveUtilData       ? { leave_utilization:  leaveUtilData }       : {}),
     };
 
     const TABS = [
@@ -104,6 +108,16 @@ export default function AdminReportsPage() {
                 </span>
             ),
             children: <DepartmentPayrollReport filters={filters} />,
+        },
+        {
+            key: 'leave_utilization',
+            label: (
+                <span className="flex items-center gap-2">
+                    <FileBarChart2 size={14} />
+                    Leave Utilization
+                </span>
+            ),
+            children: <LeaveUtilizationReport filters={filters} />,
         },
         {
             key: 'ai_insights',

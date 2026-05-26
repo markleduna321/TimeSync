@@ -31,7 +31,7 @@ class LeaveTypeController extends Controller
         $leaveType = LeaveType::create($request->only([
             'name', 'code', 'color', 'min_advance_days',
             'max_consecutive_days', 'requires_proof_above_days',
-            'is_paid', 'is_active',
+            'is_paid', 'is_active', 'is_monetizable',
         ]));
 
         $this->upsertPolicy($leaveType, $request->input('policy'));
@@ -47,7 +47,7 @@ class LeaveTypeController extends Controller
         $type->update($request->only([
             'name', 'code', 'color', 'min_advance_days',
             'max_consecutive_days', 'requires_proof_above_days',
-            'is_paid', 'is_active',
+            'is_paid', 'is_active', 'is_monetizable',
         ]));
 
         $this->upsertPolicy($type, $request->input('policy'));

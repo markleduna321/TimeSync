@@ -24,6 +24,7 @@ class StoreLeaveTypeRequest extends FormRequest
             'requires_proof_above_days' => 'nullable|integer|min:1',
             'is_paid'                   => 'required|boolean',
             'is_active'                 => 'required|boolean',
+            'is_monetizable'            => 'boolean',
             // Credit policy (optional, upserted together)
             'policy.allocation_type'    => 'nullable|in:monthly_accrual,annual_lump,manual',
             'policy.monthly_rate'       => 'nullable|numeric|min:0|max:31',

@@ -88,7 +88,7 @@ function LeaveTypeFormModal({ open, onClose, editingType = null }) {
     const BLANK = {
         name: '', code: '', color: DEFAULT_COLORS[0],
         min_advance_days: 0, max_consecutive_days: '', requires_proof_above_days: '',
-        is_paid: true, is_active: true,
+        is_paid: true, is_active: true, is_monetizable: false,
         policy_type: '', monthly_rate: '', annual_amount: '',
     };
 
@@ -101,7 +101,7 @@ function LeaveTypeFormModal({ open, onClose, editingType = null }) {
     useEffect(() => {
         if (open) {
             if (isEdit) {
-                const p = editingType.credit_policy;
+                const p = editingType.policy;
                 setForm({
                     name:                      editingType.name ?? '',
                     code:                      editingType.code ?? '',
@@ -111,6 +111,7 @@ function LeaveTypeFormModal({ open, onClose, editingType = null }) {
                     requires_proof_above_days: editingType.requires_proof_above_days ?? '',
                     is_paid:                   editingType.is_paid ?? true,
                     is_active:                 editingType.is_active ?? true,
+                    is_monetizable:            editingType.is_monetizable ?? false,
                     policy_type:               p?.allocation_type ?? '',
                     monthly_rate:              p?.monthly_rate ?? '',
                     annual_amount:             p?.annual_amount ?? '',
@@ -138,6 +139,7 @@ function LeaveTypeFormModal({ open, onClose, editingType = null }) {
             requires_proof_above_days: form.requires_proof_above_days !== '' ? Number(form.requires_proof_above_days) : null,
             is_paid:                   form.is_paid,
             is_active:                 form.is_active,
+            is_monetizable:            form.is_monetizable,
         };
         if (form.policy_type) {
             payload.policy = {
@@ -218,7 +220,7 @@ function LeaveTypeFormModal({ open, onClose, editingType = null }) {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-6">
+                <div className="flex flex-wrap items-center gap-6">
                     <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-slate-700">
                         <input type="checkbox" checked={form.is_paid} onChange={(e) => set('is_paid', e.target.checked)}
                             className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-400" />
@@ -228,6 +230,11 @@ function LeaveTypeFormModal({ open, onClose, editingType = null }) {
                         <input type="checkbox" checked={form.is_active} onChange={(e) => set('is_active', e.target.checked)}
                             className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-400" />
                         Active
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-slate-700">
+                        <input type="checkbox" checked={form.is_monetizable} onChange={(e) => set('is_monetizable', e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-400" />
+                        Monetizable
                     </label>
                 </div>
 

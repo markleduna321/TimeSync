@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\LeaveApplication;
+use App\Models\LeaveCredit;
 use App\Models\Payslip;
 use App\Models\PayslipLine;
 use App\Models\TimeLog;
@@ -228,6 +230,91 @@ class ReportService
             'rows'        => $byDept,
             'total_gross' => round(array_sum(array_column($byDept, 'total_gross')), 2),
             'total_net'   => round(array_sum(array_column($byDept, 'total_net')), 2),
+        ];
+    }
+
+    /**
+     * Leave utilization report — credits vs. usage per employee per leave type.
+     */
+    public function leaveUtilization(int $year, ?int $month = null): array
+    {
+        // All assigned credits for the year
+        $credits = LeaveCredit::with(['user', 'leaveType'])
+            ->where('year', $year)
+            ->get();
+
+        // All applications within the year (optionally filtered by month of start_date)
+        $appQuery = LeaveApplication::whereYear('start_date', $year);
+        if ($month) {
+            $appQuery->whereMonth('start_date', $month);
+        }
+        $applications = $appQuery->get();
+
+        // Group applications by user_id + leave_type_id for fast lookup
+        $appsByKey = $applications->groupBy(fn ($a) => "{$a->user_id}_{$a->leave_type_id}");
+
+        $rows = $credits->map(function ($credit) use ($appsByKey) {
+            $key  = "{$credit->user_id}_{$credit->leave_type_id}";
+            $apps = $appsByKey[$key] ?? collect();
+
+            $totalAllocated = (float) $credit->total_credits + (float) $credit->carried_over;
+            $used           = (float) $credit->used_credits;
+            $balance        = $totalAllocated - $used;
+            $utilizationPct = $totalAllocated > 0
+                ? round($used / $totalAllocated * 100, 1)
+                : 0.0;
+
+            return [
+                'user_id'          => $credit->user_id,
+                'user_name'        => $credit->user?->name ?? '—',
+                'leave_type_id'    => $credit->leave_type_id,
+                'leave_type_name'  => $credit->leaveType?->name ?? '—',
+                'leave_type_color' => $credit->leaveType?->color ?? '#6B7280',
+                'is_paid'          => (bool) ($credit->leaveType?->is_paid ?? false),
+                'total_credits'    => (float) $credit->total_credits,
+                'carried_over'     => (float) $credit->carried_over,
+                'used_credits'     => round($used, 2),
+                'balance'          => round($balance, 2),
+                'utilization_pct'  => $utilizationPct,
+                'filed'            => $apps->count(),
+                'approved'         => $apps->where('status', 'approved')->count(),
+                'rejected'         => $apps->where('status', 'rejected')->count(),
+                'cancelled'        => $apps->where('status', 'cancelled')->count(),
+                'pending'          => $apps->where('status', 'pending')->count(),
+            ];
+        })->values()->all();
+
+        // Aggregate per leave type
+        $byType = $credits->groupBy('leave_type_id')->map(function ($typeCredits, $leaveTypeId) use ($applications) {
+            $typeApps  = $applications->where('leave_type_id', $leaveTypeId);
+            $leaveType = $typeCredits->first()->leaveType;
+
+            return [
+                'leave_type_id'   => $leaveTypeId,
+                'leave_type_name' => $leaveType?->name ?? '—',
+                'color'           => $leaveType?->color ?? '#6B7280',
+                'is_paid'         => (bool) ($leaveType?->is_paid ?? false),
+                'total_filed'     => $typeApps->count(),
+                'approved'        => $typeApps->where('status', 'approved')->count(),
+                'rejected'        => $typeApps->where('status', 'rejected')->count(),
+                'cancelled'       => $typeApps->where('status', 'cancelled')->count(),
+                'pending'         => $typeApps->where('status', 'pending')->count(),
+                'total_days_used' => round($typeApps->where('status', 'approved')->sum('days_requested'), 2),
+            ];
+        })->values()->all();
+
+        return [
+            'rows'    => $rows,
+            'by_type' => $byType,
+            'summary' => [
+                'total_employees'    => collect($rows)->pluck('user_id')->unique()->count(),
+                'total_applications' => $applications->count(),
+                'approved'           => $applications->where('status', 'approved')->count(),
+                'rejected'           => $applications->where('status', 'rejected')->count(),
+                'cancelled'          => $applications->where('status', 'cancelled')->count(),
+                'pending'            => $applications->where('status', 'pending')->count(),
+                'total_days_used'    => round($applications->where('status', 'approved')->sum('days_requested'), 2),
+            ],
         ];
     }
 }

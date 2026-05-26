@@ -17,11 +17,13 @@ class LeaveType extends Model
         'requires_proof_above_days',
         'is_paid',
         'is_active',
+        'is_monetizable',
     ];
 
     protected $casts = [
-        'is_paid'   => 'boolean',
-        'is_active' => 'boolean',
+        'is_paid'         => 'boolean',
+        'is_active'       => 'boolean',
+        'is_monetizable'  => 'boolean',
     ];
 
     public function creditPolicy(): HasOne
