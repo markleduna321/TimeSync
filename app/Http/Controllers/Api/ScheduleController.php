@@ -33,6 +33,11 @@ class ScheduleController extends Controller
 
         $query = User::with(['schedule', 'roles'])->orderBy('first_name')->orderBy('last_name');
 
+        // Admins must not see super_admin users
+        if (! $caller->hasRole('super_admin')) {
+            $query->whereDoesntHave('roles', fn ($q) => $q->where('slug', 'super_admin'));
+        }
+
         // Team leads are scoped to members of their led teams
         if (
             ! $caller->hasAnyRole(['super_admin', 'admin', 'manager']) &&

@@ -22,8 +22,15 @@ class TimesheetController extends Controller
         $caller = $request->user();
 
         if ($caller->hasAnyRole(['super_admin', 'admin', 'manager'])) {
-            $users = User::select('id', 'first_name', 'middle_name', 'last_name', 'email')
-                ->orderBy('first_name')->orderBy('last_name')->get();
+            $query = User::select('id', 'first_name', 'middle_name', 'last_name', 'email')
+                ->orderBy('first_name')->orderBy('last_name');
+
+            // Admins must not see super_admin users
+            if (! $caller->hasRole('super_admin')) {
+                $query->whereDoesntHave('roles', fn ($q) => $q->where('slug', 'super_admin'));
+            }
+
+            $users = $query->get();
         } elseif ($caller->hasRole('team_lead')) {
             $memberIds = $caller->ledTeams()
                 ->with('members:id')

@@ -23,7 +23,21 @@ class UpdateUserRequest extends FormRequest
             'password'       => 'sometimes|nullable|string|min:8',
             'monthly_salary' => 'sometimes|nullable|numeric|min:0',
             'roles'          => 'sometimes|array',
-            'roles.*'        => 'integer|exists:roles,id',
+            'roles.*'        => [
+                'integer',
+                'exists:roles,id',
+                function ($attribute, $value, $fail) {
+                    if ($this->user()?->hasRole('super_admin')) {
+                        return; // super_admin can assign any role
+                    }
+                    $isSuperAdminRole = \App\Models\Role::where('id', $value)
+                        ->where('slug', 'super_admin')
+                        ->exists();
+                    if ($isSuperAdminRole) {
+                        $fail('You are not authorised to assign the super_admin role.');
+                    }
+                },
+            ],
             'department_id'  => 'nullable|integer|exists:departments,id',
             'account_id'     => 'nullable|integer|exists:accounts,id',
         ];

@@ -11,7 +11,13 @@ class RoleController extends Controller
 {
     public function index(): AnonymousResourceCollection
     {
-        $roles = Role::orderByDesc('level')->get();
-        return RoleResource::collection($roles);
+        $query = Role::orderByDesc('level');
+
+        // Non-super_admin users must never see or assign the super_admin role
+        if (! request()->user()?->hasRole('super_admin')) {
+            $query->where('slug', '!=', 'super_admin');
+        }
+
+        return RoleResource::collection($query->get());
     }
 }

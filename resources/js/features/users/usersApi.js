@@ -5,6 +5,10 @@ export const usersApi = createApi({
     reducerPath: 'usersApi',
     baseQuery: baseQueryWithCsrf('/api'),
     tagTypes: ['User'],
+    // Do not retain the cache after components unmount (e.g. on logout/login
+    // the Redux store persists across Inertia SPA navigations, so stale
+    // cross-session data would be served to the next logged-in user).
+    keepUnusedDataFor: 0,
     endpoints: (builder) => ({
         getUsers: builder.query({
             query: (params = {}) => ({ url: '/admin/users', params }),

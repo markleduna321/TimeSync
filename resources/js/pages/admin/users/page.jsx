@@ -2,13 +2,14 @@ import React, { useRef, useState } from 'react';
 import MainLayout from '@/Layouts/MainLayout';
 import { Search, UserPlus, X } from 'lucide-react';
 import { Modal, Select } from 'antd';
+import { usePage } from '@inertiajs/react';
 import { useGetUsersQuery, useDeleteUserMutation } from '@/features/users/usersApi';
 import { useGetDepartmentsQuery } from '@/features/organization/organizationApi';
 import UserTable from './_sections/UserTable';
 import UserFormModal from './_sections/UserFormModal';
 import UserEditModal from './_sections/UserEditModal';
 
-const ROLE_OPTIONS = [
+const ALL_ROLE_OPTIONS = [
     { value: 'super_admin', label: 'Super Admin' },
     { value: 'admin',       label: 'Admin' },
     { value: 'manager',     label: 'Manager' },
@@ -17,6 +18,13 @@ const ROLE_OPTIONS = [
 ];
 
 export default function AdminUsersPage() {
+    const { props } = usePage();
+    const isSuperAdmin = (props.auth?.user?.roles ?? []).includes('super_admin');
+
+    const ROLE_OPTIONS = isSuperAdmin
+        ? ALL_ROLE_OPTIONS
+        : ALL_ROLE_OPTIONS.filter((r) => r.value !== 'super_admin');
+
     const [page, setPage]               = useState(1);
     const [createOpen, setCreateOpen]   = useState(false);
     const [editingUser, setEditingUser] = useState(null);

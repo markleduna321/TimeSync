@@ -25,6 +25,11 @@ class AdminUserController extends Controller
             ->orderBy('last_name')
             ->orderBy('first_name');
 
+        // Admins must never see super_admin accounts (Gate::before bypasses policies)
+        if (! $request->user()->hasRole('super_admin')) {
+            $query->whereDoesntHave('roles', fn ($q) => $q->where('slug', 'super_admin'));
+        }
+
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
@@ -86,6 +91,11 @@ class AdminUserController extends Controller
 
     public function show(User $user): UserResource
     {
+        // Gate::before grants admin full policy bypass — enforce at controller level
+        if (! request()->user()->hasRole('super_admin') && $user->hasRole('super_admin')) {
+            abort(403, 'You are not authorized to view this user.');
+        }
+
         $this->authorize('view', $user);
 
         $user->load(['roles', 'schedule', 'department', 'account']);
@@ -95,6 +105,11 @@ class AdminUserController extends Controller
 
     public function update(UpdateUserRequest $request, User $user): UserResource
     {
+        // Gate::before grants admin full policy bypass — enforce at controller level
+        if (! $request->user()->hasRole('super_admin') && $user->hasRole('super_admin')) {
+            abort(403, 'You are not authorized to update this user.');
+        }
+
         $this->authorize('update', $user);
 
         $data = $request->validated();
@@ -126,6 +141,11 @@ class AdminUserController extends Controller
 
     public function destroy(User $user): JsonResponse
     {
+        // Gate::before grants admin full policy bypass — enforce at controller level
+        if (! request()->user()->hasRole('super_admin') && $user->hasRole('super_admin')) {
+            abort(403, 'You are not authorized to delete this user.');
+        }
+
         $this->authorize('delete', $user);
 
         $user->delete();
