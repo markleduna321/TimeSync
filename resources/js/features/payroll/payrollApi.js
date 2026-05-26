@@ -105,6 +105,16 @@ export const payrollApi = createApi({
             query: (params = {}) => ({ url: '/payslips/13th-month', params }),
         }),
 
+        /* ── 13th Month Pay (admin manage) ─────────────────────────── */
+        getThirteenthMonths: builder.query({
+            query: (params = {}) => ({ url: '/13th-month', params }),
+            providesTags: [{ type: 'Payslip', id: 'LIST' }],
+        }),
+        generateThirteenthMonths: builder.mutation({
+            query: (body) => ({ url: '/13th-month/generate', method: 'POST', body }),
+            invalidatesTags: [{ type: 'Payslip', id: 'LIST' }],
+        }),
+
         /* ── Allowance Types ───────────────────────────────────────── */
         getAllowanceTypes: builder.query({
             query: (params = {}) => ({ url: '/allowance-types', params }),
@@ -172,6 +182,8 @@ export const {
     useBulkDraftPayslipsMutation,
     useBulkReleasePayslipsMutation,
     useGetThirteenthMonthQuery,
+    useGetThirteenthMonthsQuery,
+    useGenerateThirteenthMonthsMutation,
     useGetAllowanceTypesQuery,
     useCreateAllowanceTypeMutation,
     useUpdateAllowanceTypeMutation,

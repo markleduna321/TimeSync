@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import MainLayout from '@/Layouts/MainLayout';
-import { FileText } from 'lucide-react';
+import { FileText, Gift } from 'lucide-react';
 import { useGetPayslipsQuery } from '@/features/payroll/payrollApi';
 import PayslipDetailModal from '@/components/payroll/PayslipDetailModal';
 
@@ -72,11 +72,20 @@ export default function MyPayslipsPage() {
                                             {p.user.name}
                                         </p>
                                     )}
-                                    <p className="font-semibold text-slate-800">
-                                        {p.period_start} → {p.period_end}
-                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="font-semibold text-slate-800">
+                                            {p.cutoff_type === '13th_month'
+                                                ? `Annual — Jan 1, ${p.period_start?.slice(0, 4)} – Dec 31, ${p.period_start?.slice(0, 4)}`
+                                                : `${p.period_start} → ${p.period_end}`}
+                                        </p>
+                                        {p.cutoff_type === '13th_month' && (
+                                            <span className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                                                <Gift size={10} /> 13th Month
+                                            </span>
+                                        )}
+                                    </div>
                                     <p className="text-xs text-slate-400 mt-0.5">
-                                        Pay date: {p.pay_date ?? 'TBD'} &middot; {p.days_worked} days worked
+                                        Pay date: {p.pay_date ?? 'TBD'}{p.cutoff_type !== '13th_month' ? ` · ${p.days_worked} days worked` : ''}
                                     </p>
                                 </div>
                                 <div className="flex flex-col items-end gap-1.5">

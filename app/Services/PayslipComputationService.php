@@ -402,6 +402,22 @@ class PayslipComputationService
         $grossPay             = collect($earnings)->sum('amount');
         $semiMonthlyTaxable   = max(0.0, $grossTaxable - $govtHalf);
 
+        // --- 13th Month taxable excess (TRAIN Law) ---
+        // If this is a December 2nd-cutoff payslip, add the taxable 13th month
+        // excess (amount above ₱90,000) to the monthly taxable base so the
+        // cumulative WHT computation catches it in this cutoff's adjustment.
+        $thirteenthTaxable    = 0.0;
+        $thirteenthIncluded   = false;
+        if ($cutoffType === 'second' && $periodEnd->month === 12) {
+            $thirteenthPayslip = Payslip::where('user_id', $employee->id)
+                ->where('cutoff_type', '13th_month')
+                ->where('status', 'released')
+                ->whereYear('period_start', $periodEnd->year)
+                ->first();
+            $thirteenthTaxable  = (float)($thirteenthPayslip?->taxable_income ?? 0.0);
+            $thirteenthIncluded = $thirteenthTaxable > 0.0;
+        }
+
         if ($cutoffType === 'first') {
             $wht = $this->computeWithholdingTaxSemiMonthly($semiMonthlyTaxable);
         } else {
@@ -416,7 +432,8 @@ class PayslipComputationService
                 ? (float)(PayslipLine::where('payslip_id', $firstPayslip->id)->where('code', 'WITHHOLDING_TAX')->value('amount') ?? 0.0)
                 : 0.0;
 
-            $monthlyTaxable  = $firstTaxable + $semiMonthlyTaxable;
+            // Include 13th month taxable excess in December cumulative base
+            $monthlyTaxable  = $firstTaxable + $semiMonthlyTaxable + $thirteenthTaxable;
             $totalMonthlyWht = $this->computeWithholdingTaxMonthly($monthlyTaxable);
             $wht             = max(0.0, round($totalMonthlyWht - $firstWht, 2));
         }
@@ -439,11 +456,14 @@ class PayslipComputationService
             $deductions[] = ['code' => 'PAGIBIG', 'description' => 'Pag-IBIG Contribution', 'sort_order' => $dsort++, 'amount' => $pagibigHalf, 'is_taxable' => false];
         }
         if ($whtEnabled) {
+            $whtDesc = match(true) {
+                $cutoffType === 'first'    => 'Withholding Tax — Semi-Monthly (TRAIN)',
+                $thirteenthIncluded        => 'Withholding Tax — Dec Cumulative + 13th Month Excess (TRAIN)',
+                default                    => 'Withholding Tax — Cumulative Adjustment (TRAIN)',
+            };
             $deductions[] = [
                 'code'        => 'WITHHOLDING_TAX',
-                'description' => $cutoffType === 'first'
-                    ? 'Withholding Tax — Semi-Monthly (TRAIN)'
-                    : 'Withholding Tax — Cumulative Adjustment (TRAIN)',
+                'description' => $whtDesc,
                 'sort_order'  => $dsort++,
                 'amount'      => $wht,
                 'is_taxable'  => false,

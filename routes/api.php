@@ -21,7 +21,7 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\TeamController;
-use App\Http\Controllers\Api\TimeLogController;
+use App\Http\Controllers\Api\ThirteenthMonthController;
 use App\Http\Controllers\Api\TimesheetController;
 use App\Http\Controllers\Api\UserAllowanceController;
 use App\Http\Controllers\Api\UserController;
@@ -134,6 +134,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/accounts',             [AccountController::class, 'store']);
     Route::patch('/accounts/{account}',  [AccountController::class, 'update']);
     Route::delete('/accounts/{account}', [AccountController::class, 'destroy']);
+
+    // --- 13th Month Pay ---
+    Route::get('/13th-month',          [ThirteenthMonthController::class, 'index']);
+    Route::post('/13th-month/generate',[ThirteenthMonthController::class, 'generate']);
 
     // --- Payslips ---
     Route::get('/payslips',                      [PayslipController::class, 'index']);
