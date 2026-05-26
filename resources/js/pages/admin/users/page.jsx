@@ -181,6 +181,13 @@ export default function AdminUsersPage() {
             <UserFormModal
                 open={createOpen}
                 onClose={() => setCreateOpen(false)}
+                onSuccess={() => {
+                    // Close the modal and clear any active filters so the
+                    // invalidated list refetches without search/role/dept
+                    // params — ensuring the new user is always visible.
+                    setCreateOpen(false);
+                    clearFilters();
+                }}
             />
 
             {/* Edit modal (full tabbed profile hub) */}

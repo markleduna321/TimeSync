@@ -13,7 +13,7 @@ const ROLE_COLORS = {
     employee:    'text-slate-600',
 };
 
-export default function UserFormModal({ open, onClose }) {
+export default function UserFormModal({ open, onClose, onSuccess }) {
     const [form, setForm]     = useState(DEFAULT_FORM);
     const [errors, setErrors] = useState({});
 
@@ -58,7 +58,9 @@ export default function UserFormModal({ open, onClose }) {
                 payload.password = form.password;
             }
             await createUser(payload).unwrap();
-            onClose();
+            // Call onSuccess if provided (it clears filters so the new user
+            // is always visible); fall back to plain onClose.
+            (onSuccess ?? onClose)();
         } catch (err) {
             if (err?.status === 422) setErrors(err.data?.errors ?? {});
         }

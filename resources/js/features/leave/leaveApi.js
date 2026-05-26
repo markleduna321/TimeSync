@@ -1,5 +1,18 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
 import { baseQueryWithCsrf } from '@/features/csrfBaseQuery';
+import { attendanceApi } from '@/features/timekeeping/attendanceApi';
+
+// Helper — after any leave mutation resolves, invalidate the attendance calendar
+// cache across the separate attendanceApi slice so the calendar refreshes
+// immediately without a manual page reload.
+async function invalidateAttendanceCalendar(_args, { dispatch, queryFulfilled }) {
+    try {
+        await queryFulfilled;
+        dispatch(attendanceApi.util.invalidateTags(['Attendance']));
+    } catch {
+        // mutation failed — no need to invalidate
+    }
+}
 
 export const leaveApi = createApi({
     reducerPath: 'leaveApi',
@@ -46,6 +59,7 @@ export const leaveApi = createApi({
                 body: formData,
             }),
             invalidatesTags: ['LeaveApplication', 'LeaveCredit'],
+            onQueryStarted: invalidateAttendanceCalendar,
         }),
 
         reviewLeaveApplication: builder.mutation({
@@ -55,11 +69,13 @@ export const leaveApi = createApi({
                 body,
             }),
             invalidatesTags: ['LeaveApplication', 'LeaveCredit'],
+            onQueryStarted: invalidateAttendanceCalendar,
         }),
 
         cancelLeaveApplication: builder.mutation({
             query: (id) => ({ url: `/leave/applications/${id}`, method: 'DELETE' }),
             invalidatesTags: ['LeaveApplication', 'LeaveCredit'],
+            onQueryStarted: invalidateAttendanceCalendar,
         }),
 
         /* ── Leave Credits ─────────────────────────────── */

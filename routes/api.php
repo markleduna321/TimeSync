@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\ThirteenthMonthController;
 use App\Http\Controllers\Api\TimesheetController;
+use App\Http\Controllers\Api\TimeLogController;
 use App\Http\Controllers\Api\UserAllowanceController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserDeductionController;
