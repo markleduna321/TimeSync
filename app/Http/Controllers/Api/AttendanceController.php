@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AttendanceDayResource;
 use App\Models\AttendanceCorrection;
+use App\Models\Holiday;
 use App\Models\LeaveApplication;
 use App\Models\Schedule;
 use App\Models\TimeLog;
@@ -50,6 +51,11 @@ class AttendanceController extends Controller
             ->get()
             ->keyBy(fn ($c) => $c->date->format('Y-m-d') . '_' . $c->type);
 
+        // Holidays declared for this month
+        $holidayMap = Holiday::whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            ->get()
+            ->keyBy(fn ($h) => $h->date->format('Y-m-d'));
+
         // Load leave applications covering any day in this month.
         $leaveApplications = LeaveApplication::with('leaveType')
             ->where('user_id', $target->id)
@@ -88,6 +94,7 @@ class AttendanceController extends Controller
             $correction       = $corrections["{$dateStr}_correction"] ?? null;
             $overtime         = $corrections["{$dateStr}_overtime"]   ?? null;
             $undertimeMinutes = 0;
+            $holiday          = $holidayMap[$dateStr] ?? null;
 
             // Find a leave application that covers this specific date.
             $leave = $leaveApplications->first(function ($app) use ($dateStr) {
@@ -97,6 +104,9 @@ class AttendanceController extends Controller
 
             if ($isFuture) {
                 $status = 'upcoming';
+            } elseif ($holiday && (!$log || !$log->clock_in)) {
+                // Declared holiday and employee did not work — never show as absent
+                $status = 'holiday';
             } elseif (! $isWorkDay) {
                 $status = 'rest_day';
             } elseif ($leave && $leave->status === 'approved') {
@@ -164,6 +174,11 @@ class AttendanceController extends Controller
                 'correction'           => $correction,
                 'overtime'             => $overtime,
                 'leave'                => $leave,
+                'holiday'              => $holiday ? [
+                    'id'   => $holiday->id,
+                    'name' => $holiday->name,
+                    'type' => $holiday->type,
+                ] : null,
             ];
 
             $cursor->addDay();

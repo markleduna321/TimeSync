@@ -77,6 +77,7 @@ class AttendanceDayResource extends JsonResource
                     'color' => $leave->leaveType->color,
                 ] : null,
             ] : null,
+            'holiday'              => $this->resource['holiday'] ?? null,
         ];
     }
 }

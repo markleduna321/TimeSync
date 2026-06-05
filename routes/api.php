@@ -28,6 +28,10 @@ use App\Http\Controllers\Api\UserAllowanceController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserDeductionController;
 use App\Http\Controllers\Api\UserGovernmentDeductionController;
+use App\Http\Controllers\Api\UserProfileController;
+use App\Http\Controllers\Api\UserExperienceController;
+use App\Http\Controllers\Api\UserDocumentController;
+use App\Http\Controllers\Api\AdminUserDocumentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -44,6 +48,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/user/avatar',     [UserController::class, 'updateAvatar']);
     Route::patch('/user/email',     [UserController::class, 'updateEmail']);
     Route::patch('/user/password',  [UserController::class, 'updatePassword']);
+
+    // Extended profile (user_profiles / experiences / documents)
+    Route::get('/profile',    [UserProfileController::class, 'show']);
+    Route::put('/profile',    [UserProfileController::class, 'update']);
+    Route::get('/profile/experiences',               [UserExperienceController::class, 'index']);
+    Route::post('/profile/experiences',              [UserExperienceController::class, 'store']);
+    Route::patch('/profile/experiences/{experience}',[UserExperienceController::class, 'update']);
+    Route::delete('/profile/experiences/{experience}',[UserExperienceController::class, 'destroy']);
+    Route::get('/profile/documents',                 [UserDocumentController::class, 'index']);
+    Route::post('/profile/documents',                [UserDocumentController::class, 'store']);
+    Route::delete('/profile/documents/{document}',   [UserDocumentController::class, 'destroy']);
+
+    // --- Admin: 201 File / Document management ---
+    Route::get('/admin/users/{user}/documents',               [AdminUserDocumentController::class, 'index']);
+    Route::post('/admin/users/{user}/documents',              [AdminUserDocumentController::class, 'store']);
+    Route::delete('/admin/users/{user}/documents/{document}', [AdminUserDocumentController::class, 'destroy']);
 
     // --- Notifications ---
     Route::get('/notifications',              [NotificationController::class, 'index']);

@@ -159,7 +159,9 @@ export default function PayslipDetailModal({ open, onClose, payslipId }) {
     const earnings   = p?.lines?.filter((l) => l.category === "earning")   ?? [];
     const deductions = p?.lines?.filter((l) => l.category === "deduction") ?? [];
     const isReleased = p?.status === "released";
-    const cutoffLabel = p?.cutoff_type === "second" ? "2nd Cutoff" : "1st Cutoff";
+    const cutoffLabel = p?.cutoff_type === "second" ? "2nd Cutoff"
+        : p?.cutoff_type === "13th_month" ? "13th Month"
+        : "1st Cutoff";
 
     return (
         <Modal
@@ -209,19 +211,67 @@ export default function PayslipDetailModal({ open, onClose, payslipId }) {
                         <div className="border-b sm:border-b-0 sm:border-r border-slate-100 px-4 sm:px-6 py-5 space-y-5">
 
                             <div>
-                                <SectionHead>Attendance Summary</SectionHead>
+                                <SectionHead>{p.cutoff_type === '13th_month' ? 'Monthly Basic Pay Breakdown' : 'Attendance Summary'}</SectionHead>
+                                {p.cutoff_type === '13th_month' ? (
+                                    <div className="rounded-xl border border-slate-100 overflow-hidden">
+                                        <div className="divide-y divide-slate-50 px-3">
+                                            {(p.monthly_breakdown ?? []).map((row) => (
+                                                <AttRow key={row.month} label={row.month} value={fmtCurrency(row.basic_pay)} />
+                                            ))}
+                                            {(p.monthly_breakdown ?? []).length === 0 && (
+                                                <p className="py-3 text-xs text-slate-400 text-center">No released payslips found for this year.</p>
+                                            )}
+                                        </div>
+                                        <div className="border-t border-slate-100 px-3 py-2 flex items-center justify-between">
+                                            <span className="text-xs font-semibold text-slate-600">Total Basic Pay</span>
+                                            <span className="text-xs font-bold tabular-nums text-slate-800">{fmtCurrency((p.monthly_breakdown ?? []).reduce((s, r) => s + r.basic_pay, 0))}</span>
+                                        </div>
+                                        <div className="bg-indigo-50 px-3 py-2 flex items-center justify-between">
+                                            <span className="text-xs font-semibold text-indigo-700">&divide; 12 = 13th Month Pay</span>
+                                            <span className="text-xs font-bold tabular-nums text-indigo-700">{fmtCurrency(p.basic_pay)}</span>
+                                        </div>
+                                    </div>
+                                ) : (
                                 <div className="rounded-xl border border-slate-100 overflow-hidden">
                                     <div className="divide-y divide-slate-50 px-3">
                                         <AttRow label="Days Scheduled" value={`${p.days_scheduled} days`} />
                                         <AttRow label="Days Worked"    value={`${p.days_worked} days`}    cls="text-green-600" />
+                                        {p.paid_leave_days > 0 && (
+                                            <AttRow
+                                                label="Paid Leave"
+                                                value={`${p.paid_leave_days} day${p.paid_leave_days !== 1 ? 's' : ''}`}
+                                                cls="text-violet-600"
+                                            />
+                                        )}
+                                        {p.unpaid_leave_days > 0 && (
+                                            <AttRow
+                                                label="Unpaid Leave"
+                                                value={`${p.unpaid_leave_days} day${p.unpaid_leave_days !== 1 ? 's' : ''}`}
+                                                cls="text-rose-500"
+                                            />
+                                        )}
+                                        {(p.holiday_days > 0 || p.holiday_days_worked > 0) && (
+                                            <AttRow
+                                                label="Holiday Days"
+                                                value={
+                                                    p.holiday_days_worked > 0
+                                                        ? `${p.holiday_days_worked} on-duty · ${p.holiday_days} off`
+                                                        : `${p.holiday_days} day${p.holiday_days !== 1 ? 's' : ''}`
+                                                }
+                                                cls="text-sky-700"
+                                            />
+                                        )}
                                         <AttRow label="Absences"       value={p.days_absent > 0 ? `${p.days_absent} day${p.days_absent !== 1 ? "s" : ""}` : null} cls="text-rose-600" />
-                                        <AttRow label="Late"           value={fmtMinutes(p.late_minutes)}       cls="text-amber-600" />
-                                        <AttRow label="Undertime"      value={fmtMinutes(p.undertime_minutes)}  cls="text-orange-600" />
-                                        <AttRow label="Overtime"       value={fmtMinutes(p.ot_minutes)}         cls="text-indigo-600" />
-                                        <AttRow label="Rest Day Work"  value={fmtMinutes(p.rest_day_minutes)}   cls="text-violet-600" />
-                                        <AttRow label="Rest Day OT"    value={fmtMinutes(p.rest_day_ot_minutes)}cls="text-violet-600" />
+                                        <AttRow label="Late"           value={fmtMinutes(p.late_minutes)}        cls="text-amber-600" />
+                                        <AttRow label="Undertime"      value={fmtMinutes(p.undertime_minutes)}   cls="text-orange-600" />
+                                        <AttRow label="Over Break"     value={fmtMinutes(p.over_break_minutes)}  cls="text-orange-600" />
+                                        <AttRow label="Overtime"       value={fmtMinutes(p.ot_minutes)}          cls="text-indigo-600" />
+                                        <AttRow label="Rest Day Work"  value={fmtMinutes(p.rest_day_minutes)}    cls="text-violet-600" />
+                                        <AttRow label="Rest Day OT"    value={fmtMinutes(p.rest_day_ot_minutes)} cls="text-violet-600" />
                                     </div>
                                 </div>
+                                )}
+                                {p.cutoff_type !== '13th_month' && (
                                 <div className="mt-2 grid grid-cols-2 gap-1">
                                     <div className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 flex items-center justify-between">
                                         <span className="text-[10px] text-slate-500">Daily Rate</span>
@@ -238,6 +288,7 @@ export default function PayslipDetailModal({ open, onClose, payslipId }) {
                                         </div>
                                     )}
                                 </div>
+                                )}
                             </div>
 
                             <div>

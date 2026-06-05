@@ -27,6 +27,10 @@ class PayslipResource extends JsonResource
             'days_scheduled'    => $this->days_scheduled,
             'days_worked'       => $this->days_worked,
             'days_absent'       => $this->days_absent,
+            'paid_leave_days'   => $this->paid_leave_days,
+            'unpaid_leave_days' => $this->unpaid_leave_days,
+            'holiday_days'        => $this->holiday_days,
+            'holiday_days_worked' => $this->holiday_days_worked,
             'late_minutes'        => $this->late_minutes,
             'undertime_minutes'   => $this->undertime_minutes,
             'over_break_minutes'  => $this->over_break_minutes,
@@ -49,6 +53,32 @@ class PayslipResource extends JsonResource
                     'amount'      => $l->amount,
                     'is_taxable'  => $l->is_taxable,
                 ])->values()
+            ),
+            'monthly_breakdown' => $this->when(
+                $this->cutoff_type === '13th_month',
+                function () {
+                    $year = (int) $this->period_start?->format('Y');
+                    $rows = \App\Models\Payslip::select('period_start', 'basic_pay')
+                        ->where('user_id', $this->user_id)
+                        ->where('status', 'released')
+                        ->whereYear('period_start', $year)
+                        ->whereIn('cutoff_type', ['first', 'second'])
+                        ->orderBy('period_start')
+                        ->get();
+
+                    $byMonth = [];
+                    foreach ($rows as $ps) {
+                        $num  = (int) $ps->period_start->format('n');
+                        $name = $ps->period_start->format('F');
+                        if (!isset($byMonth[$num])) {
+                            $byMonth[$num] = ['month' => $name, 'basic_pay' => 0.0];
+                        }
+                        $byMonth[$num]['basic_pay'] = round($byMonth[$num]['basic_pay'] + (float) $ps->basic_pay, 2);
+                    }
+
+                    ksort($byMonth);
+                    return array_values($byMonth);
+                }
             ),
         ];
     }

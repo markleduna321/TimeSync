@@ -85,7 +85,13 @@ export default function MyPayslipsPage() {
                                         )}
                                     </div>
                                     <p className="text-xs text-slate-400 mt-0.5">
-                                        Pay date: {p.pay_date ?? 'TBD'}{p.cutoff_type !== '13th_month' ? ` · ${p.days_worked} days worked` : ''}
+                                        Pay date: {p.pay_date ?? 'TBD'}
+                                        {p.cutoff_type !== '13th_month' && (
+                                            <>
+                                                {` · ${p.days_worked} days worked`}
+                                                {p.holiday_days > 0 && ` · ${p.holiday_days} holiday${p.holiday_days > 1 ? 's' : ''}`}
+                                            </>
+                                        )}
                                     </p>
                                 </div>
                                 <div className="flex flex-col items-end gap-1.5">

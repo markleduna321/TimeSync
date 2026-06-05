@@ -9,6 +9,7 @@ const STATUS_CONFIG = {
     rest_day: { bg: 'bg-slate-50',    border: 'border-slate-100',   dot: 'bg-slate-300',   label: 'Rest Day' },
     upcoming: { bg: 'bg-white',       border: 'border-slate-100',   dot: 'bg-slate-200',   label: 'Upcoming' },
     on_leave: { bg: 'bg-violet-50',   border: 'border-violet-200',  dot: 'bg-violet-500',  label: 'On Leave' },
+    holiday:  { bg: 'bg-sky-50',      border: 'border-sky-200',     dot: 'bg-sky-500',     label: 'Holiday'  },
 };
 
 const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -85,6 +86,8 @@ function DayCell({ cell, onClick }) {
     const clockOut      = dayData?.clock_out_time ? fmtTimeStr(dayData.clock_out_time) : fmtTime(dayData?.clock_out);
     const undertimeMins  = dayData?.undertime_minutes  ?? 0;
     const overBreakMins  = dayData?.over_break_minutes ?? 0;
+    const holiday        = dayData?.holiday ?? null;
+    const workedOnHoliday = holiday && (status === 'present' || status === 'late');
 
     // Build stacked issue list — suppressed when correction is approved
     const issues = [];
@@ -146,6 +149,18 @@ function DayCell({ cell, onClick }) {
                         {cfg.label}
                     </span>
                 </div>
+                {/* Holiday name — shown on unworked holiday days */}
+                {holiday && (
+                    <span className="text-[10px] font-semibold text-sky-600 leading-tight truncate">
+                        {holiday.name}
+                    </span>
+                )}
+                {/* When employee worked on a holiday, show the premium rate */}
+                {workedOnHoliday && (
+                    <span className="text-[10px] font-semibold text-sky-500">
+                        {holiday.type === 'regular' ? '+200%' : '+130%'} Holiday
+                    </span>
+                )}
                 {clockIn && (
                     <span className="text-[10px] text-slate-400 tabular-nums">{clockIn}</span>
                 )}
@@ -185,6 +200,7 @@ function Legend() {
         { label: 'Absent',   dot: 'bg-rose-500'    },
         { label: 'Rest Day', dot: 'bg-slate-300'   },
         { label: 'On Leave', dot: 'bg-violet-500'  },
+        { label: 'Holiday',  dot: 'bg-sky-500'     },
     ];
     return (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">

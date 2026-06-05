@@ -17,6 +17,9 @@ use App\Models\TimeLog;
 use App\Models\User;
 use App\Models\UserAllowance;
 use App\Models\UserBreakConfig;
+use App\Models\UserDocument;
+use App\Models\UserExperience;
+use App\Models\UserProfile;
 use App\Policies\AccountPolicy;
 use App\Policies\AllowanceTypePolicy;
 use App\Policies\AttendanceCorrectionPolicy;
@@ -29,7 +32,10 @@ use App\Policies\SchedulePolicy;
 use App\Policies\TeamPolicy;
 use App\Policies\TimeLogPolicy;
 use App\Policies\UserAllowancePolicy;
+use App\Policies\UserDocumentPolicy;
+use App\Policies\UserExperiencePolicy;
 use App\Policies\UserPolicy;
+use App\Policies\UserProfilePolicy;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -52,6 +58,9 @@ class AuthServiceProvider extends ServiceProvider
         Schedule::class             => SchedulePolicy::class,
         UserBreakConfig::class      => BreakConfigPolicy::class,
         Team::class                 => TeamPolicy::class,
+        UserDocument::class         => UserDocumentPolicy::class,
+        UserExperience::class       => UserExperiencePolicy::class,
+        UserProfile::class          => UserProfilePolicy::class,
     ];
 
     /**

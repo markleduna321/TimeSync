@@ -3,8 +3,9 @@ import { Modal } from 'antd';
 import { Send, Trash2, Eye } from 'lucide-react';
 
 const CUTOFF_BADGE = {
-    first:  'bg-sky-50 text-sky-600 border border-sky-200',
-    second: 'bg-violet-50 text-violet-600 border border-violet-200',
+    first:       'bg-sky-50 text-sky-600 border border-sky-200',
+    second:      'bg-violet-50 text-violet-600 border border-violet-200',
+    '13th_month':'bg-amber-50 text-amber-600 border border-amber-200',
 };
 
 const STATUS_BADGE = {
@@ -123,7 +124,7 @@ export default function PayslipTable({ payslips, isLoading, onView, onRelease, o
                             <td className="px-5 py-3">
                                 {p.cutoff_type && (
                                     <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${CUTOFF_BADGE[p.cutoff_type] ?? ''}`}>
-                                        {p.cutoff_type === 'first' ? '1st' : '2nd'}
+                                        {p.cutoff_type === 'first' ? '1st' : p.cutoff_type === 'second' ? '2nd' : '13th'}
                                     </span>
                                 )}
                             </td>

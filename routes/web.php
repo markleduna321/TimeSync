@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ChangePasswordController;
 use App\Http\Controllers\Api\AttendanceCorrectionController;
+use App\Http\Controllers\Api\UserDocumentController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -21,6 +22,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
     Route::get('/admin/reports',          fn () => Inertia::render('admin/reports/page'))->name('admin.reports');
     Route::get('/admin/leave-monetization', fn () => Inertia::render('admin/leave-monetization/page'))->name('admin.leave-monetization');
     Route::get('/admin/thirteenth-month',   fn () => Inertia::render('admin/thirteenth-month/page'))->name('admin.thirteenth-month');
+    Route::get('/admin/documents',          fn () => Inertia::render('admin/documents/page'))->name('admin.documents');
     Route::get('/teams',            fn () => Inertia::render('teams/page'))->name('teams.index');
     Route::get('/time/my-time',     fn () => Inertia::render('time/my-time/page'))->name('time.my-time');
     Route::get('/time/timesheets',  fn () => Inertia::render('time/timesheets/page'))->name('time.timesheets');
@@ -29,10 +31,12 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
     // Proof download — web route so it streams through Laravel auth middleware
     Route::get('/attendance/corrections/{correction}/proof', [AttendanceCorrectionController::class, 'proof'])
         ->name('attendance.corrections.proof');
+    Route::get('/documents/{document}/download', [UserDocumentController::class, 'download'])
+        ->name('documents.download');
 });
 
 Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::get('/profile', fn () => inertia('profile/page'))->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 

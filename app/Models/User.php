@@ -108,6 +108,21 @@ class User extends Authenticatable
         return $this->hasMany(LeaveCredit::class);
     }
 
+    public function profile(): HasOne
+    {
+        return $this->hasOne(UserProfile::class);
+    }
+
+    public function experiences(): HasMany
+    {
+        return $this->hasMany(UserExperience::class)->orderByDesc('start_date');
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(UserDocument::class)->orderByDesc('created_at');
+    }
+
     /* ── Role helpers ──────────────────────────────────── */
 
     public function hasRole(string $slug): bool

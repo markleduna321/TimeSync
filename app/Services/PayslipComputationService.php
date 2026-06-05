@@ -225,9 +225,31 @@ class PayslipComputationService
             }
         }
 
+        // Build a map of date => days_value for approved *unpaid* leave days in this period.
+        $unpaidLeaveDates = [];
+        $approvedUnpaidLeaves = LeaveApplication::where('user_id', $employee->id)
+            ->where('status', 'approved')
+            ->whereHas('leaveType', fn ($q) => $q->where('is_paid', false))
+            ->where('start_date', '<=', $periodEnd->toDateString())
+            ->where('end_date',   '>=', $periodStart->toDateString())
+            ->get();
+        foreach ($approvedUnpaidLeaves as $leave) {
+            $leaveStart = max($leave->start_date->toDateString(), $periodStart->toDateString());
+            $leaveEnd   = min($leave->end_date->toDateString(),   $periodEnd->toDateString());
+            foreach (CarbonPeriod::create($leaveStart, $leaveEnd) as $day) {
+                $ds = $day->toDateString();
+                $value = ($leave->half_day && $leave->start_date->eq($leave->end_date)) ? 0.5 : 1.0;
+                $unpaidLeaveDates[$ds] = ($unpaidLeaveDates[$ds] ?? 0.0) + $value;
+            }
+        }
+
         $daysScheduled = 0;
         $daysWorked    = 0.0;
         $daysAbsent    = 0.0;
+        $paidLeaveDays   = 0.0; // approved paid-leave days consumed this period
+        $unpaidLeaveDays = 0.0; // approved unpaid-leave days consumed this period
+        $holidayDays        = 0; // scheduled holiday days where employee did not work
+        $holidayDaysWorked  = 0; // scheduled holiday days where employee clocked in
         $lateMinutes = $undertimeMins = $overBreakMins = 0;
         $holidayPayExtra = $overtimePay = 0.0;
         $otMinutes = $restDayMinutes = $restDayOtMinutes = 0;
@@ -271,9 +293,22 @@ class PayslipComputationService
             if (!$worked) {
                 if (isset($paidLeaveDates[$dateStr])) {
                     // Approved paid leave — treat as worked, no wage deduction
-                    $daysWorked += $paidLeaveDates[$dateStr];
-                } elseif ($holiday && $holiday->type === 'regular') {
-                    $holidayPayExtra += $this->computeHolidayExtra($dailyRate, 'regular', false);
+                    $daysWorked    += $paidLeaveDates[$dateStr];
+                    $paidLeaveDays += $paidLeaveDates[$dateStr];
+                } elseif ($holiday) {
+                    // Any declared holiday where the employee did not work:
+                    //   Regular  → full daily rate paid (Labor Code Art. 94)
+                    //   Special  → no work, no pay — but NOT an absence penalty
+                    // Either way: remove from scheduled count (it is a holiday, not a work day)
+                    $daysScheduled--;
+                    $holidayDays++;
+                    if ($holiday->type === 'regular') {
+                        $holidayPayExtra += $this->computeHolidayExtra($dailyRate, 'regular', false);
+                    }
+                    // Special non-working holiday: no pay, no absent — nothing more to do
+                } elseif (isset($unpaidLeaveDates[$dateStr])) {
+                    // Approved unpaid leave — no pay, but not an unauthorized absence
+                    $unpaidLeaveDays += $unpaidLeaveDates[$dateStr];
                 } else {
                     $daysAbsent += 1.0;
                 }
@@ -282,6 +317,7 @@ class PayslipComputationService
 
             $daysWorked += 1.0;
             if ($holiday) {
+                $holidayDaysWorked++;
                 $holidayPayExtra += $this->computeHolidayExtra($dailyRate, $holiday->type, true);
             }
 
@@ -491,7 +527,9 @@ class PayslipComputationService
         }
 
         $totalDeductions = round(collect($deductions)->sum('amount'), 2);
-        $netPay          = round($grossPay - $lateDeduction - $utDeduction - $obDeduction - $totalDeductions, 2);
+        // $totalDeductions already includes the late / undertime / over-break lines.
+        // Subtracting them separately here caused double-deduction — fixed.
+        $netPay          = round($grossPay - $totalDeductions, 2);
 
         return [
             'earnings'   => $earnings,
@@ -505,9 +543,13 @@ class PayslipComputationService
                 'gross_pay'         => round($grossPay, 2),
                 'total_deductions'  => $totalDeductions,
                 'net_pay'           => $netPay,
-                'days_scheduled'    => $daysScheduled,
-                'days_worked'       => $daysWorked,
-                'days_absent'       => $daysAbsent,
+                'days_scheduled'      => $daysScheduled,
+                'days_worked'         => $daysWorked,
+                'days_absent'         => $daysAbsent,
+                'paid_leave_days'     => $paidLeaveDays,
+                'unpaid_leave_days'   => $unpaidLeaveDays,
+                'holiday_days'        => $holidayDays,
+                'holiday_days_worked' => $holidayDaysWorked,
                 'late_minutes'        => $lateMinutes,
                 'undertime_minutes'   => $undertimeMins,
                 'over_break_minutes'  => $overBreakMins,

@@ -1,0 +1,870 @@
+================================================================================
+  TIMESYNC — COMPLETE USER GUIDE
+  Last Updated: May 2026
+================================================================================
+
+This guide covers every feature of TimeSync from initial setup to daily
+operations. It is organized by role and workflow order.
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+
+  PART 1 — ROLES & ACCESS LEVELS
+  PART 2 — FIRST-TIME SETUP (Admin)
+    2.1  Logging In & Changing Password
+    2.2  Setting Up the Organization (Accounts & Departments)
+    2.3  Creating Leave Types
+    2.4  Creating Deduction Types
+    2.5  Creating Allowance Types
+    2.6  Adding Holidays
+    2.7  Creating Users
+    2.8  Setting Up Teams
+  PART 3 — PER-USER CONFIGURATION (Admin)
+    3.1  Assigning a Work Schedule
+    3.2  Assigning Break Configuration
+    3.3  Assigning Leave Credits
+    3.4  Configuring Government Deductions
+    3.5  Adding User-Specific Deductions
+    3.6  Adding User-Specific Allowances
+  PART 4 — DAILY OPERATIONS (Employee)
+    4.1  Logging In & First Password Change
+    4.2  Dashboard Overview
+    4.3  Clocking In and Out
+    4.4  Lunch & Break Tracking
+    4.5  Filing a Leave Application
+    4.6  Filing an Attendance Correction
+    4.7  Viewing Your Payslips
+    4.8  Viewing Your Attendance Calendar
+  PART 5 — TIMESHEET & ATTENDANCE MANAGEMENT (Admin/Manager)
+    5.1  Viewing Timesheets
+    5.2  Reviewing Attendance Corrections
+    5.3  Reviewing Leave Applications
+  PART 6 — PAYROLL (Admin)
+    6.1  Generating Payslips
+    6.2  Releasing Payslips
+    6.3  13th Month Pay
+    6.4  Leave Monetization
+  PART 7 — REPORTS (Admin)
+  PART 8 — PROFILE MANAGEMENT (All Users)
+
+================================================================================
+PART 1 — ROLES & ACCESS LEVELS
+================================================================================
+
+TimeSync uses a role-based access system. Each user is assigned exactly one
+role when their account is created.
+
+  admin        Tenant/company owner. Has full access to all features within
+               their own account: user management, payroll, leave, reports,
+               organization settings.
+
+  manager      Can view timesheets for their assigned team. Can review
+               attendance corrections submitted by team members.
+
+  team_lead    Same as manager but scoped to their specific team.
+
+  employee     Standard user. Can clock in/out, file leaves, file attendance
+               corrections, and view their own payslips and attendance.
+
+--------------------------------------------------------------------------------
+NOTE ON VISIBILITY:
+  - Employees only see their own data (payslips, attendance, timesheets).
+  - Managers/Team Leads see their team members' timesheets and corrections.
+--------------------------------------------------------------------------------
+
+
+================================================================================
+PART 2 — FIRST-TIME SETUP (Admin)
+================================================================================
+
+Complete these steps in order before onboarding employees.
+
+
+------------------------------------------------------------------------
+2.1  Logging In & Changing Password
+------------------------------------------------------------------------
+
+1. Navigate to the TimeSync URL in your browser.
+2. Enter your admin email and password.
+3. Click "Sign In."
+4. If your account was newly created by the super admin, you will be
+   redirected to the Change Password page before you can proceed.
+   Enter your temporary password, then your new password twice, and
+   click "Change Password."
+5. You will land on the Dashboard after a successful login.
+
+
+------------------------------------------------------------------------
+2.2  Setting Up the Organization (Accounts & Departments)
+------------------------------------------------------------------------
+
+Go to:  Admin > Organization  (left sidebar)
+
+ACCOUNTS:
+  - An Account represents a company or billing entity.
+  - Your own account is already set up by the super admin.
+  - To view or edit it, click the "Accounts" tab.
+  - Click "Add Account" to create additional accounts if needed.
+  - Fields: Name, Code (short identifier, e.g. "SKYBR"), Description.
+
+DEPARTMENTS:
+  - Departments group employees for reporting and organizational clarity.
+  - Click the "Departments" tab.
+  - Click "Add Department."
+  - Fields: Name (e.g. "Operations"), Code (e.g. "OPS"), Description.
+  - Departments can be marked active/inactive.
+  - When creating users, you will select their department from this list.
+
+
+------------------------------------------------------------------------
+2.3  Creating Leave Types
+------------------------------------------------------------------------
+
+Go to:  Admin > Compensation  (left sidebar) > Leave Types tab
+
+Leave Types define the categories of leave employees can apply for.
+
+Click "Add Leave Type" and fill in:
+
+  Name             Display name (e.g. "Vacation Leave", "Sick Leave")
+  Code             Short code used in payslips (e.g. VL, SL, EL)
+  Color            Hex color code for calendar display (e.g. #6366f1)
+  Paid             Toggle ON if this leave is paid
+  Min Advance Days Minimum days in advance required to file this leave
+                   (e.g. 5 for vacation, 0 for sick leave)
+  Max Consecutive  Maximum consecutive days allowed per application
+  Requires Proof   Number of days after which a proof document is required
+   Above Days      (e.g. enter 2 for SL to require a medical cert for 3+
+                   consecutive sick days)
+  Monetizable      Toggle ON if unused credits can be converted to cash
+                   (used in Leave Monetization — separate feature)
+
+Common leave types to create:
+  - Vacation Leave (VL) — paid, monetizable, 5 days advance, max 5 days
+  - Sick Leave (SL)     — paid, proof required after 2 days, 0 advance
+  - Emergency Leave (EL)— unpaid, 0 advance, max 3 days
+
+After saving, leave types appear as options when employees file leaves.
+
+
+------------------------------------------------------------------------
+2.4  Creating Deduction Types
+------------------------------------------------------------------------
+
+Go to:  Admin > Compensation  > Deduction Types tab
+
+Deduction types are custom deductions that can be assigned to individual
+employees (e.g. salary loans, company advances).
+
+NOTE: Government deductions (SSS, PhilHealth, Pag-IBIG, Withholding Tax)
+are configured separately per-user under the Government Deductions section.
+
+Click "Add Deduction Type" and fill in:
+
+  Name         Display name (e.g. "Salary Loan", "Company Advance")
+  Code         Short identifier used in payslip lines
+  Is Assignable  Whether this type can be assigned to individual users
+
+To assign a deduction to a specific employee, see Section 3.5.
+
+
+------------------------------------------------------------------------
+2.5  Creating Allowance Types
+------------------------------------------------------------------------
+
+Go to:  Admin > Compensation  > Allowance Types tab
+
+Allowance types are custom recurring additions to pay (e.g. transportation
+allowance, meal allowance, housing allowance).
+
+Click "Add Allowance Type" and fill in:
+
+  Name   Display name (e.g. "Transportation Allowance")
+  Code   Short identifier used in payslip lines
+
+To assign an allowance to a specific employee, see Section 3.6.
+
+
+------------------------------------------------------------------------
+2.6  Adding Holidays
+------------------------------------------------------------------------
+
+Go to:  Admin > Holidays  (left sidebar)
+
+Holidays affect payroll computation (holiday pay rules apply) and
+attendance records (employees are not marked absent on holidays).
+
+Click "Add Holiday" and fill in:
+
+  Name    Name of the holiday (e.g. "New Year's Day")
+  Date    The date of the holiday
+  Type    Regular Holiday or Special Non-Working Holiday
+  Repeat  Toggle ON if this holiday recurs annually every year
+
+Click Save. Holidays appear in the attendance calendar for all users.
+
+TIP: Add all national and local holidays for the year before generating
+payslips, as the payroll engine uses this list for computations.
+
+
+------------------------------------------------------------------------
+2.7  Creating Users
+------------------------------------------------------------------------
+
+Go to:  Admin > Users  (left sidebar)
+
+Click "Add User" and fill in:
+
+  First Name       Required
+  Middle Name      Optional
+  Last Name        Required
+  Email            Login email — must be unique
+  Role             Select from available roles (employee, manager,
+                   team_lead, admin). Admins cannot assign super_admin.
+  Department       Select from departments you created in 2.2
+  Monthly Salary   Base monthly salary (used for payroll computation)
+
+After clicking Save:
+  - The user's account is created with a system-generated temporary password.
+  - A Welcome Email is automatically sent to the user's email address
+    containing their login email and temporary password.
+  - The user MUST change their password on first login.
+
+To edit a user:
+  - Click the edit (pencil) icon on the user row.
+  - You can update all fields including role, department, and salary.
+
+To deactivate/delete a user:
+  - Click the delete (trash) icon on the user row.
+  - Confirm the deletion. This is a soft-delete; records are preserved.
+
+
+------------------------------------------------------------------------
+2.8  Setting Up Teams
+------------------------------------------------------------------------
+
+Go to:  Teams  (left sidebar)
+
+Teams group employees under a manager or team lead for timesheet access
+and attendance correction review.
+
+Click "Create Team" and fill in:
+
+  Name     Team name (e.g. "Backend Team", "Sales Team")
+  Leader   Select a user with the manager or team_lead role
+
+After creating the team:
+  - Click "Manage Members" on the team card.
+  - Search for and add employees to the team.
+
+A user can belong to multiple teams. The team leader will be able to
+see all team members' timesheets on the Timesheets page.
+
+
+================================================================================
+PART 3 — PER-USER CONFIGURATION (Admin)
+================================================================================
+
+After creating users, configure each employee's work settings.
+Go to:  Admin > Users  > click the settings/config icon on a user row.
+
+
+------------------------------------------------------------------------
+3.1  Assigning a Work Schedule
+------------------------------------------------------------------------
+
+Go to:  Admin > Schedules  (or via the user settings panel)
+
+A schedule defines the employee's work days and shift hours.
+
+  Work Days    Select which days the employee works (e.g. Mon–Fri)
+  Shift Start  Time the shift begins (e.g. 08:00)
+  Shift End    Time the shift ends (e.g. 17:00)
+
+Without a schedule, the system cannot compute late minutes or flag
+absences correctly. Assign a schedule before the employee starts.
+
+
+------------------------------------------------------------------------
+3.2  Assigning Break Configuration
+------------------------------------------------------------------------
+
+Go to:  Admin > Users  > user settings > Break Config tab
+
+Break configuration defines how many breaks an employee is allowed
+and how long each break can be.
+
+  Max Breaks       Maximum number of breaks per day
+  Max Break Mins   Maximum total minutes allowed for all breaks combined
+
+Exceeding break limits results in "over break" minutes recorded on
+the payslip.
+
+
+------------------------------------------------------------------------
+3.3  Assigning Leave Credits
+------------------------------------------------------------------------
+
+Go to:  Admin > Users  > user settings > Leave Credits tab
+
+Leave credits are the balance of leave days an employee is entitled to.
+Credits must be assigned before employees can file leave applications.
+
+To assign leave credits to one user:
+  1. Click "Assign Leave Type" or "Add Credits."
+  2. Select the Leave Type (e.g. Vacation Leave).
+  3. Enter the year (e.g. 2026).
+  4. Enter the total credits (e.g. 15 for 15 days).
+  5. Click Save.
+
+To assign credits to ALL employees at once (bulk):
+  - Go to  Admin > Compensation  > Leave Credits tab.
+  - Click "Bulk Allocate."
+  - Select the leave type, year, and number of credits.
+  - Click Allocate. All active employees receive the credits.
+
+Leave credits track used and remaining balances automatically as
+employees file and get approved for leaves.
+
+
+------------------------------------------------------------------------
+3.4  Configuring Government Deductions
+------------------------------------------------------------------------
+
+Go to:  Admin > Users  > user settings > Government Deductions tab
+
+Four government deductions can be enabled or disabled per employee:
+
+  SSS            Social Security System contribution
+  PHILHEALTH     Philippine Health Insurance contribution
+  PAGIBIG        Pag-IBIG Fund contribution
+  WITHHOLDING TAX  BIR income tax withholding
+
+Toggle each one ON or OFF for the employee. When enabled, the system
+automatically computes the deduction amount using standard government
+tables when generating payslips.
+
+
+------------------------------------------------------------------------
+3.5  Adding User-Specific Deductions
+------------------------------------------------------------------------
+
+Go to:  Admin > Users  > user settings > Deductions tab
+
+These are non-government deductions specific to this employee.
+
+Click "Add Deduction":
+  - Select the Deduction Type (created in 2.4)
+  - Enter the Amount to deduct per payroll cutoff
+  - Click Save
+
+The deduction will automatically appear as a line on this employee's
+payslips until removed.
+
+To remove a deduction: click the delete icon next to it.
+
+
+------------------------------------------------------------------------
+3.6  Adding User-Specific Allowances
+------------------------------------------------------------------------
+
+Go to:  Admin > Users  > user settings > Allowances tab
+
+These are recurring allowances specific to this employee.
+
+Click "Add Allowance":
+  - Select the Allowance Type (created in 2.5)
+  - Enter the Amount to add per payroll cutoff
+  - Click Save
+
+The allowance will automatically appear as an earning line on this
+employee's payslips until removed.
+
+
+================================================================================
+PART 4 — DAILY OPERATIONS (Employee)
+================================================================================
+
+------------------------------------------------------------------------
+4.1  Logging In & First Password Change
+------------------------------------------------------------------------
+
+1. Open the TimeSync URL in your browser.
+2. Enter the email and temporary password from your Welcome Email.
+3. Click "Sign In."
+4. You will be redirected to the Change Password page.
+   - Enter your current temporary password.
+   - Enter your new password (must meet complexity requirements).
+   - Confirm the new password.
+   - Click "Change Password."
+5. You will be taken to your Dashboard.
+
+After the first password change, you will log in normally with your
+new password on all future visits.
+
+
+------------------------------------------------------------------------
+4.2  Dashboard Overview
+------------------------------------------------------------------------
+
+The Dashboard shows a summary of your work status for the day and
+recent activity:
+
+  Today's Status    Whether you are clocked in, on lunch, or clocked out
+  Today's Hours     Computed hours worked so far today
+  This Month        Leave balance, absences, and late days at a glance
+  Recent Activity   Latest attendance events and leave application updates
+  Notifications     Bell icon (top right) shows unread notifications
+
+Admins see a different dashboard with company-wide KPIs:
+  Total headcount, present today, on leave, absences, monthly payroll
+  cost summary, and recent activity feed.
+
+
+------------------------------------------------------------------------
+4.3  Clocking In and Out
+------------------------------------------------------------------------
+
+Go to:  My Time  (left sidebar, under "Time")
+
+The My Time page is your daily time tracking panel.
+
+TO CLOCK IN:
+  1. Click the "Clock In" button.
+  2. Your clock-in time is recorded immediately.
+  3. The button changes to show your current status.
+
+TO CLOCK OUT:
+  1. Click the "Clock Out" button at the end of your shift.
+  2. Your clock-out time is recorded.
+  3. Your total hours for the day are shown.
+
+IMPORTANT:
+  - You can only clock in once per day.
+  - If you forgot to clock in/out, you must file an Attendance Correction
+    (see Section 4.6).
+  - Clocking in after your scheduled shift start time will record late
+    minutes, which may affect your payslip.
+
+
+------------------------------------------------------------------------
+4.4  Lunch & Break Tracking
+------------------------------------------------------------------------
+
+Go to:  My Time  (while clocked in)
+
+LUNCH:
+  - Click "Start Lunch" when you leave for lunch.
+  - Click "End Lunch" when you return.
+  - Lunch time is excluded from your computed work hours.
+
+BREAKS:
+  - Click "Start Break" to begin a break.
+  - Click "End Break" when you return.
+  - Breaks are tracked separately from lunch.
+  - If total break time exceeds the configured limit (set by admin),
+    excess minutes will be recorded as "over break" on your payslip.
+
+NOTE: Only one lunch and one active break are allowed at a time.
+You must end your current break before starting another.
+
+
+------------------------------------------------------------------------
+4.5  Filing a Leave Application
+------------------------------------------------------------------------
+
+Go to:  Attendance  (left sidebar, under "Time")  > Leave tab
+
+OR from:  Dashboard  > "File a Leave" shortcut
+
+1. Click "Apply for Leave."
+2. Fill in the form:
+
+   Leave Type     Select from available types (VL, SL, EL, etc.)
+   Start Date     First day of your leave
+   End Date       Last day of your leave (can be same day for 1-day leaves)
+   Half Day       Toggle ON if you only need a half day off
+   Half Day       Select AM or PM if half day is toggled
+    Period
+   Reason         Brief description of why you are taking leave
+   Proof          Upload a document if required (e.g. medical certificate
+                  for sick leave beyond the proof threshold)
+
+3. Click "Submit."
+
+WHAT HAPPENS NEXT:
+  - Your leave application is sent to your admin/manager for review.
+  - You will receive a notification when it is approved or rejected.
+  - Approved leaves automatically deduct from your leave credit balance.
+  - Approved leave days will appear on your attendance calendar.
+
+CANCELLING A LEAVE:
+  - You can cancel a pending leave application before it is reviewed.
+  - Find the application in your leave list and click "Cancel."
+  - Once approved, contact your admin to cancel.
+
+
+------------------------------------------------------------------------
+4.6  Filing an Attendance Correction
+------------------------------------------------------------------------
+
+Go to:  Attendance  (left sidebar) > Corrections tab
+
+Use this when you forgot to clock in/out, clocked at the wrong time,
+or had a system issue that caused an incorrect attendance record.
+
+1. Click "File Correction."
+2. Fill in the form:
+
+   Date               The date the error occurred
+   Clock In Time      Your actual intended clock-in time (leave blank if
+                      no correction needed for clock-in)
+   Clock Out Time     Your actual intended clock-out time
+   Lunch Start/End    Corrected lunch times if needed
+   Remarks            Explanation of why the correction is needed
+
+3. Click "Submit."
+
+WHAT HAPPENS NEXT:
+  - The correction goes to your admin/manager for review.
+  - You will receive a notification when it is approved or rejected.
+  - If approved, your attendance record is updated to the corrected times.
+
+
+------------------------------------------------------------------------
+4.7  Viewing Your Payslips
+------------------------------------------------------------------------
+
+Go to:  Payslips  (left sidebar, under "Time")
+
+This page shows all your released payslips.
+
+  - Each payslip shows the pay period (e.g. "Jan 1 – Jan 15, 2026"),
+    gross pay, total deductions, and net pay.
+  - Click on a payslip row to expand and see the full breakdown:
+      - Earnings: Basic Pay, Allowances, Overtime, etc.
+      - Deductions: SSS, PhilHealth, Pag-IBIG, Tax, Loans, etc.
+  - Only released payslips are visible to employees.
+    Draft payslips are only visible to admins.
+
+
+------------------------------------------------------------------------
+4.8  Viewing Your Attendance Calendar
+------------------------------------------------------------------------
+
+Go to:  Attendance  (left sidebar) > Calendar view
+
+The calendar shows a month-by-month view of your attendance:
+
+  Green       Present (clocked in on a work day)
+  Yellow/Orange  Late (clocked in after shift start time)
+  Red         Absent (scheduled work day with no clock-in)
+  Blue/Purple Leave day (approved leave application)
+  Gray        Weekend or holiday
+
+Click any date to see the time log details for that day (exact clock
+times, lunch, breaks, total hours worked).
+
+Use the navigation arrows to move between months.
+
+
+================================================================================
+PART 5 — TIMESHEET & ATTENDANCE MANAGEMENT (Admin/Manager)
+================================================================================
+
+------------------------------------------------------------------------
+5.1  Viewing Timesheets
+------------------------------------------------------------------------
+
+Go to:  Timesheets  (left sidebar, under "Time")
+
+Timesheets display a filterable list of all employee time logs.
+
+FILTERS:
+  Employee     Search and filter by a specific employee
+  Date Range   Set start and end dates to view a specific period
+  Status       Filter by present, late, absent
+
+WHAT YOU SEE PER ROW:
+  - Employee name, date, clock-in, clock-out, hours worked
+  - Late minutes, break minutes
+  - Status badge (Present / Late / Absent / On Leave)
+
+Admins see all employees in their account.
+Managers/Team Leads only see their assigned team members.
+
+You can use timesheets to:
+  - Verify attendance before generating payslips
+  - Spot patterns of tardiness or absences
+  - Cross-check against leave applications
+
+
+------------------------------------------------------------------------
+5.2  Reviewing Attendance Corrections
+------------------------------------------------------------------------
+
+Go to:  Attendance  (left sidebar) > Corrections tab  (admin view)
+
+This tab shows all pending correction requests from employees.
+
+TO REVIEW A CORRECTION:
+  1. Click the correction request row to expand details.
+  2. Compare the requested times to the existing attendance record.
+  3. Click "Approve" to accept and update the time log.
+     Click "Reject" and enter a reason to decline the request.
+  4. The employee is notified of your decision automatically.
+
+Approved corrections immediately update the employee's time log record,
+which will be reflected in their next payslip computation.
+
+
+------------------------------------------------------------------------
+5.3  Reviewing Leave Applications
+------------------------------------------------------------------------
+
+Go to:  Attendance  (left sidebar) > Leaves tab  (admin view)
+
+All pending leave applications appear here.
+
+TO REVIEW A LEAVE:
+  1. Click the application row.
+  2. Review the leave type, dates, reason, and any attached proof.
+  3. Click "Approve" or "Reject."
+  4. For rejections, enter an admin note explaining the reason.
+  5. The employee is notified automatically.
+
+APPROVED LEAVE EFFECTS:
+  - The employee's leave credit balance is decremented.
+  - The leave days appear on the attendance calendar.
+  - The days are counted as paid (or unpaid, per leave type) in payslip
+    computations.
+
+
+================================================================================
+PART 6 — PAYROLL (Admin)
+================================================================================
+
+------------------------------------------------------------------------
+6.1  Generating Payslips
+------------------------------------------------------------------------
+
+Go to:  Admin > Payroll  (left sidebar)
+
+Payslips are generated per cutoff period:
+  - First Cutoff:   1st to 15th of the month
+  - Second Cutoff:  16th to end of the month
+
+STEPS TO GENERATE PAYSLIPS:
+
+1. Select the cutoff type (First or Second).
+2. Select the month and year.
+3. Click "Generate Payslips."
+4. The system computes for all active employees:
+     - Basic Pay (based on monthly salary ÷ 2)
+     - Deductions for absences (absent days × daily rate)
+     - Deductions for late minutes (minutes × per-minute rate)
+     - Government contributions (SSS, PhilHealth, Pag-IBIG, Tax)
+     - Custom deductions (loans, etc.)
+     - Custom allowances
+5. Payslips are created in "Draft" status.
+6. Review each payslip before releasing.
+
+IMPORTANT: Generate payslips AFTER the cutoff period has ended so all
+attendance data is complete. If corrections are pending, approve them
+before generating.
+
+
+------------------------------------------------------------------------
+6.2  Releasing Payslips
+------------------------------------------------------------------------
+
+After reviewing draft payslips:
+
+TO RELEASE ONE PAYSLIP:
+  - Click the payslip row to open it.
+  - Verify all earnings and deduction lines are correct.
+  - Click "Release."
+  - The payslip is now visible to the employee on their Payslips page.
+
+TO RELEASE ALL AT ONCE:
+  - Select all draft payslips for the cutoff using the checkboxes.
+  - Click "Bulk Release."
+  - Confirm. All selected payslips are released simultaneously.
+
+Released payslips cannot be edited. If an error is found after release,
+you must delete the payslip and regenerate it.
+
+TO DELETE A PAYSLIP:
+  - Click the payslip row.
+  - Click "Delete."
+  - Regenerate as needed.
+
+
+------------------------------------------------------------------------
+6.3  13th Month Pay
+------------------------------------------------------------------------
+
+Go to:  Admin > 13th Month  (left sidebar)
+
+13th month pay is computed based on total basic salary earned from
+January to December of the year.
+
+STEPS:
+1. Select the year.
+2. Click "Generate 13th Month."
+3. The system computes each employee's 13th month amount
+   (total basic pay for the year ÷ 12).
+4. Review the generated amounts.
+5. Click "Release" or "Bulk Release" to make them visible to employees.
+
+NOTE: 13th month payslips use the cutoff_type "13th_month" and appear
+separately from regular payslips on the employee's Payslips page.
+
+
+------------------------------------------------------------------------
+6.4  Leave Monetization
+------------------------------------------------------------------------
+
+Go to:  Admin > Leave Monetization  (left sidebar)
+
+Leave monetization converts unused leave credits into cash payment for
+employees, for leave types that have monetization enabled (e.g. VL).
+
+STEPS:
+1. Click "Run Leave Monetization."
+2. Select the year to monetize.
+3. The system calculates each employee's unused convertible leave credits
+   and the corresponding cash amount.
+4. Review the computed amounts in the list.
+5. Click "Process" on individual records, or "Bulk Process" for all.
+
+Processed monetization records are marked as paid and the corresponding
+leave credits are zeroed out.
+
+
+================================================================================
+PART 7 — REPORTS (Admin)
+================================================================================
+
+Go to:  Admin > Reports  (left sidebar)
+
+Reports provide summarized analytics for HR and management decisions.
+All reports support date range filtering and can be exported.
+
+Available Reports:
+
+  PAYROLL SUMMARY
+    Total gross pay, deductions, and net pay per employee for a period.
+    Useful for auditing payroll costs.
+
+  PAYROLL TREND
+    Month-over-month payroll cost trends shown as a chart.
+    Useful for budget forecasting.
+
+  ATTENDANCE SUMMARY
+    Per-employee totals of days present, absent, late, and on leave
+    for a selected period.
+
+  GOVERNMENT CONTRIBUTIONS
+    Summary of SSS, PhilHealth, Pag-IBIG, and tax contributions per
+    employee. Useful for government remittance filings.
+
+  DEPARTMENT PAYROLL
+    Payroll costs broken down by department.
+
+  LEAVE UTILIZATION
+    Leave credits granted vs. used vs. remaining per employee and leave
+    type. Useful for year-end leave planning.
+
+  AI INSIGHTS (if enabled)
+    Submit a natural language question about your payroll or attendance
+    data and receive a generated analysis.
+
+
+================================================================================
+PART 8 — PROFILE MANAGEMENT (All Users)
+================================================================================
+
+------------------------------------------------------------------------
+8.1  Updating Your Profile
+------------------------------------------------------------------------
+
+Go to:  Profile  (click your name/avatar in the top bar or sidebar)
+
+  - Update your profile photo: click the avatar area and upload an image.
+  - Update your name: edit the first and last name fields and save.
+
+------------------------------------------------------------------------
+8.2  Changing Your Email
+------------------------------------------------------------------------
+
+Go to:  Profile  > Email section
+
+  1. Enter your new email address.
+  2. Click "Update Email."
+  3. Use the new email on your next login.
+
+------------------------------------------------------------------------
+8.3  Changing Your Password
+------------------------------------------------------------------------
+
+Go to:  Profile  > Password section
+
+  1. Enter your current password.
+  2. Enter your new password.
+  3. Confirm the new password.
+  4. Click "Update Password."
+
+------------------------------------------------------------------------
+8.4  Notifications
+------------------------------------------------------------------------
+
+The bell icon in the top-right header shows unread notifications.
+
+Notifications are sent for:
+  - Leave application status changes (approved / rejected)
+  - Attendance correction status changes (approved / rejected)
+  - Payslip released (employee notified when admin releases their payslip)
+
+Click a notification to go directly to the relevant record.
+Click "Mark All as Read" to clear the notification count.
+
+
+================================================================================
+QUICK REFERENCE — RECOMMENDED SETUP ORDER
+================================================================================
+
+For a new admin account, follow this order to get everything running:
+
+  1.  Log in and change your password
+  2.  Set up Departments  (Admin > Organization)
+  3.  Create Leave Types  (Admin > Compensation > Leave Types)
+  4.  Create Deduction Types  (Admin > Compensation > Deduction Types)
+  5.  Create Allowance Types  (Admin > Compensation > Allowance Types)
+  6.  Add Holidays for the year  (Admin > Holidays)
+  7.  Create employee Users  (Admin > Users)
+  8.  Assign Schedules per user  (Admin > Schedules)
+  9.  Configure Break limits per user  (Admin > Users > Break Config)
+  10. Enable Government Deductions per user  (Admin > Users > Gov Deductions)
+  11. Add custom Deductions/Allowances per user as needed
+  12. Bulk Allocate Leave Credits for the year  (Admin > Compensation > Leave Credits)
+  13. Create Teams and assign team leaders  (Teams)
+  14. Employees log in, change passwords, and begin clocking in
+
+MONTHLY PAYROLL CYCLE:
+  1.  Approve all attendance corrections for the cutoff period
+  2.  Approve or reject pending leave applications
+  3.  Generate payslips for the cutoff  (Admin > Payroll)
+  4.  Review draft payslips
+  5.  Bulk release payslips
+
+YEAR-END:
+  1.  Generate 13th Month Pay  (Admin > 13th Month)
+  2.  Run Leave Monetization for unused VL  (Admin > Leave Monetization)
+  3.  Bulk Allocate new Leave Credits for the new year
+
+
+================================================================================
+  END OF GUIDE
+================================================================================
