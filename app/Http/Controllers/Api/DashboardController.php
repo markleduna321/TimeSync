@@ -27,8 +27,10 @@ class DashboardController extends Controller
         // Workforce headcount (all non-soft-deleted users)
         $totalEmployees = User::count();
 
-        // Current month payroll totals (any payslip whose period_start falls this month)
-        $payrollTotals = Payslip::whereBetween('period_start', [$monthStart, $monthEnd])
+        // Current month payroll totals — only finalized (released) payslips
+        // whose period_start falls within this month.
+        $payrollTotals = Payslip::where('status', 'released')
+            ->whereBetween('period_start', [$monthStart, $monthEnd])
             ->selectRaw('SUM(gross_pay) as gross_total, SUM(net_pay) as net_total')
             ->first();
 
