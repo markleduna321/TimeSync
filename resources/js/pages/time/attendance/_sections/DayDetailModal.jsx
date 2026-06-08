@@ -33,7 +33,15 @@ function fmtTime(iso) {
 }
 function fmtTimeStr(timeStr) {
     if (!timeStr) return '—';
-    return new Date('1970-01-01T' + timeStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    // Backend stores clock_in/clock_out as DATETIME interpreted in UTC and
+    // slices off the time-of-day string. The 'Z' suffix forces JS to treat
+    // it as UTC, so toLocaleTimeString converts to the user's local zone
+    // (Asia/Manila) — matching the My Time / ClockWidget views.
+    return new Date('1970-01-01T' + timeStr + 'Z').toLocaleTimeString(UI_LOCALE, {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+    });
 }
 function fmtDate(dateStr) {
     if (!dateStr) return '';

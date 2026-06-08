@@ -49,7 +49,14 @@ function fmtTime(iso) {
 }
 function fmtTimeStr(timeStr) {
     if (!timeStr) return '—';
-    return new Date('1970-01-01T' + timeStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    // Backend stores requested_clock_in/out as TIME in UTC. Append 'Z' so
+    // JS treats the literal as UTC, then toLocaleTimeString converts to
+    // the user's local zone (Asia/Manila) — matching ClockWidget.
+    return new Date('1970-01-01T' + timeStr + 'Z').toLocaleTimeString(UI_LOCALE, {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+    });
 }
 function fmtFull(iso) {
     if (!iso) return '—';
