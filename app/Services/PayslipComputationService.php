@@ -281,11 +281,19 @@ class PayslipComputationService
             }
 
             if (!$isWorkDay && $holiday) {
-                if (!$worked) {
-                    $holidayPayExtra += $this->computeHolidayExtra($dailyRate, $holiday->type, false);
-                } else {
-                    $daysWorked++;
-                    $holidayPayExtra += $this->computeHolidayExtra($dailyRate, $holiday->type, true);
+                // Holiday that falls on the employee's rest day.
+                // Under Flat Rate, basic_pay already covers the half-month, so
+                // do NOT add an extra holiday pay on top.
+                // Under Days-Worked, we still need to add the holiday's daily
+                // rate (employee is paid for the holiday even though it is
+                // their rest day, per Labor Code Art. 94).
+                if ($method === 'days_worked') {
+                    if (!$worked) {
+                        $holidayPayExtra += $this->computeHolidayExtra($dailyRate, $holiday->type, false);
+                    } else {
+                        $daysWorked++;
+                        $holidayPayExtra += $this->computeHolidayExtra($dailyRate, $holiday->type, true);
+                    }
                 }
                 continue;
             }
@@ -303,7 +311,12 @@ class PayslipComputationService
                     // Either way: remove from scheduled count (it is a holiday, not a work day)
                     $daysScheduled--;
                     $holidayDays++;
-                    if ($holiday->type === 'regular') {
+                    // Under Flat Rate, basic_pay is already the full half-month
+                    // regardless of days worked, so we must NOT add an extra
+                    // holiday pay on top — the flat rate already covers it.
+                    // Under Days-Worked, basic_pay only counts actual days worked,
+                    // so we need to add the holiday's daily rate here.
+                    if ($holiday->type === 'regular' && $method === 'days_worked') {
                         $holidayPayExtra += $this->computeHolidayExtra($dailyRate, 'regular', false);
                     }
                     // Special non-working holiday: no pay, no absent — nothing more to do
