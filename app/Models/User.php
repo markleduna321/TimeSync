@@ -73,6 +73,16 @@ class User extends Authenticatable
         return $this->hasOne(UserBreakConfig::class);
     }
 
+    /**
+     * Today's TimeLog (or null if the user has not clocked in yet / is off today).
+     * Scoped at relation-time so eager-loading becomes a single indexed query.
+     */
+    public function todayTimeLog(): HasOne
+    {
+        return $this->hasOne(TimeLog::class)
+            ->where('date', now()->toDateString());
+    }
+
     public function payslips(): HasMany
     {
         return $this->hasMany(Payslip::class);

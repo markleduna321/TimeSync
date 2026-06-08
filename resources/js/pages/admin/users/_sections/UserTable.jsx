@@ -1,6 +1,48 @@
 import React from 'react';
 import { Table, Tag, Tooltip } from 'antd';
 import { Pencil, Trash2, Users } from 'lucide-react';
+import { getStatusConfig, getLabelTone } from '@/features/attendance/statusConfig';
+
+/**
+ * Live "current status" pill + optional sub-labels.
+ * Backend shape: { state, clock_in_at, clock_out_at, labels: [{key,label,extra}] }
+ */
+function StatusPill({ status }) {
+    if (!status) {
+        return <span className="text-xs text-slate-400">—</span>;
+    }
+
+    const cfg   = getStatusConfig(status.state);
+    const sub   = (status.labels ?? []).map((l) => getLabelTone(l.key));
+
+    // Build a tooltip with the clock-in time when relevant
+    const tooltip = status.clock_in_at
+        ? `Clocked in at ${new Date(status.clock_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+        : null;
+
+    const pill = (
+        <span
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium ${cfg.tone}`}
+        >
+            <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+            {cfg.label}
+        </span>
+    );
+
+    return (
+        <div className="flex flex-wrap items-center gap-1">
+            {tooltip ? <Tooltip title={tooltip}>{pill}</Tooltip> : pill}
+            {sub.map((s, i) => (
+                <span
+                    key={i}
+                    className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${s.tone}`}
+                >
+                    {s.label}
+                </span>
+            ))}
+        </div>
+    );
+}
 
 /* Role → badge colour mapping */
 const ROLE_COLORS = {
@@ -71,6 +113,12 @@ export default function UserTable({ users, meta, isLoading, page, onPageChange, 
                 ) : (
                     <span className="text-xs text-slate-400">No roles</span>
                 ),
+        },
+        {
+            title: 'Status',
+            key: 'current_status',
+            width: 220,
+            render: (_, record) => <StatusPill status={record.current_status} />,
         },
         {
             title: 'Joined',

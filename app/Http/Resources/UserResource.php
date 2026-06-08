@@ -45,6 +45,15 @@ class UserResource extends JsonResource
             'email_verified_at' => $this->email_verified_at,
             'created_at'        => $this->created_at,
             'updated_at'        => $this->updated_at,
+            // Live status (clocked-in, on break, on lunch, not clocked in, etc.)
+            // + additive labels (late, over break, over lunch).
+            // Attached by AdminUserController::attachCurrentStatus().
+            'current_status'    => $this->current_status ?? [
+                'state'        => 'not_clocked_in',
+                'clock_in_at'  => null,
+                'clock_out_at' => null,
+                'labels'       => [],
+            ],
         ];
     }
 }

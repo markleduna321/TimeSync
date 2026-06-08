@@ -7,7 +7,11 @@ use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Mail\WelcomeEmail;
+use App\Models\Holiday;
+use App\Models\LeaveApplication;
 use App\Models\User;
+use App\Services\UserStatusService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -48,9 +52,68 @@ class AdminUserController extends Controller
             $query->where('department_id', (int) $departmentId);
         }
 
-        $perPage = min((int) $request->input('per_page', 20), 500);
+        $perPage  = min((int) $request->input('per_page', 20), 500);
+        $paginator = $query->paginate($perPage);
 
-        return UserResource::collection($query->paginate($perPage));
+        // Eager-load live status data for the current page only (bounded by perPage).
+        // This keeps the query count flat regardless of how many total users exist.
+        $this->attachCurrentStatus($paginator->getCollection());
+
+        return UserResource::collection($paginator);
+    }
+
+    /**
+     * Attach a `current_status` block to every user in the given collection.
+     * Performs 4 indexed queries total (one per relation) for the whole page.
+     */
+    private function attachCurrentStatus(\Illuminate\Support\Collection $users): void
+    {
+        if ($users->isEmpty()) {
+            return;
+        }
+
+        $now         = Carbon::now();
+        $todayStr    = $now->toDateString();
+        $userIds     = $users->pluck('id')->all();
+
+        // 1) Today's TimeLog (scoped to today via the relation)
+        $logs = \App\Models\TimeLog::whereIn('user_id', $userIds)
+            ->where('date', $todayStr)
+            ->get()
+            ->keyBy('user_id');
+
+        // 2) User break config (single batched query)
+        $breakConfigs = \App\Models\UserBreakConfig::whereIn('user_id', $userIds)
+            ->get()
+            ->keyBy('user_id');
+
+        // 3) Approved leave applications covering today
+        $leaves = LeaveApplication::whereIn('user_id', $userIds)
+            ->where('status', 'approved')
+            ->where('start_date', '<=', $todayStr)
+            ->where('end_date',   '>=', $todayStr)
+            ->get()
+            ->keyBy('user_id');
+
+        // 4) Today's holiday (single global row)
+        $holiday = Holiday::where('date', $todayStr)->first();
+
+        foreach ($users as $user) {
+            $user->setRelation('todayTimeLog', $logs->get($user->id));
+            $user->setRelation('breakConfig',  $breakConfigs->get($user->id) ?? $user->breakConfig);
+            $user->setAttribute(
+                'current_status',
+                UserStatusService::resolve(
+                    $user,
+                    $logs->get($user->id),
+                    $user->schedule,
+                    $breakConfigs->get($user->id),
+                    $leaves->get($user->id),
+                    $holiday,
+                    $now
+                )
+            );
+        }
     }
 
     public function store(StoreUserRequest $request): UserResource

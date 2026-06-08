@@ -19,6 +19,12 @@ export const usersApi = createApi({
                         { type: 'User', id: 'LIST' },
                     ]
                     : [{ type: 'User', id: 'LIST' }],
+            // Refresh live "current_status" data every 90s. RTK Query
+            // automatically pauses polling when the tab is hidden, so this
+            // only runs while the user is actually looking at the page.
+            pollingInterval: 90_000,
+            refetchOnFocus: true,
+            refetchOnReconnect: true,
         }),
         getUser: builder.query({
             query: (id) => `/admin/users/${id}`,
