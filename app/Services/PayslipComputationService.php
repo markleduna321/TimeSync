@@ -175,7 +175,8 @@ class PayslipComputationService
         Carbon $periodStart,
         Carbon $periodEnd,
         float  $incentiveAmount = 0.0,
-        string $incentiveDescription = 'Incentive / Bonus'
+        string $incentiveDescription = 'Incentive / Bonus',
+        string $method = 'days_worked'
     ): array {
         $monthlySalary = (float)($employee->monthly_salary ?? 0);
         if ($monthlySalary <= 0) {
@@ -358,7 +359,18 @@ class PayslipComputationService
             }
         } // end foreach CarbonPeriod
 
-        $basicPay      = round($daysWorked * $dailyRate, 2);
+        // Basic pay depends on the chosen method:
+        //   days_worked (default, DOLE Days-Worked Method) — basic = days_worked × daily_rate
+        //   flat_rate                                  — basic = (monthly_salary / 2) − (days_absent × daily_rate)
+        //   Late / undertime / over-break deductions, OT, allowances, holiday pay,
+        //   rest-day pay, and government contributions all apply in BOTH methods.
+        if ($method === 'flat_rate') {
+            $baseHalf        = round($monthlySalary / 2, 2);
+            $absentDeduction = round($daysAbsent * $dailyRate, 2);
+            $basicPay        = round($baseHalf - $absentDeduction, 2);
+        } else {
+            $basicPay = round($daysWorked * $dailyRate, 2);
+        }
         $lateDeduction = $this->computeLateDeduction($dailyRate, $lateMinutes);
         $utDeduction   = $this->computeUndertimeDeduction($dailyRate, $undertimeMins);
         $obDeduction   = $this->computeOverBreakDeduction($dailyRate, $overBreakMins);
@@ -536,6 +548,7 @@ class PayslipComputationService
             'deductions' => $deductions,
             'summary'    => [
                 'cutoff_type'       => $cutoffType,
+                'method'            => $method,
                 'taxable_income'    => round($semiMonthlyTaxable, 2),
                 'monthly_salary'    => $monthlySalary,
                 'daily_rate'        => $dailyRate,

@@ -20,6 +20,7 @@ class GeneratePayslipRequest extends FormRequest
             'prior_period_amount'   => 'nullable|numeric|min:0',
             'prior_period_start'    => 'nullable|date_format:Y-m-d',
             'prior_period_end'      => 'nullable|date_format:Y-m-d|after_or_equal:prior_period_start',
+            'method'                => 'nullable|in:days_worked,flat_rate',
         ];
     }
 }

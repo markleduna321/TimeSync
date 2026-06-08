@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MainLayout from '@/Layouts/MainLayout';
 import { Plus, Users } from 'lucide-react';
 import { Select } from 'antd';
@@ -12,7 +12,19 @@ import PayslipTable          from './_sections/PayslipTable';
 import PayslipGenerateModal  from './_sections/PayslipGenerateModal';
 import BulkDraftModal        from './_sections/BulkDraftModal';
 import BulkReleaseModal      from './_sections/BulkReleaseModal';
+import MethodToggle          from './_sections/MethodToggle';
 import PayslipDetailModal    from '@/components/payroll/PayslipDetailModal';
+
+const METHOD_STORAGE_KEY = 'payrollMethod';
+const ALLOWED_METHODS = ['days_worked', 'flat_rate'];
+function readStoredMethod() {
+    try {
+        const v = localStorage.getItem(METHOD_STORAGE_KEY);
+        return ALLOWED_METHODS.includes(v) ? v : 'days_worked';
+    } catch {
+        return 'days_worked';
+    }
+}
 
 const YEAR = new Date().getFullYear();
 
@@ -41,6 +53,13 @@ export default function AdminPayrollPage() {
 
     const [releasingId, setReleasingId]     = useState(null);
     const [deletingId, setDeletingId]       = useState(null);
+
+    // Payroll method — persisted across reloads so admins don't have to
+    // re-pick the method every visit. Drives both single Generate and Bulk Draft.
+    const [payrollMethod, setPayrollMethod] = useState(readStoredMethod);
+    useEffect(() => {
+        try { localStorage.setItem(METHOD_STORAGE_KEY, payrollMethod); } catch {}
+    }, [payrollMethod]);
 
     const params = { page, year: filterYear };
     if (filterUserId) params.user_id = filterUserId;
@@ -83,6 +102,8 @@ export default function AdminPayrollPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    {/* Method toggle — drives both single Generate and Bulk Draft. */}
+                    <MethodToggle value={payrollMethod} onChange={setPayrollMethod} />
                     <button
                         onClick={() => setBulkOpen(true)}
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
@@ -229,6 +250,7 @@ export default function AdminPayrollPage() {
             <BulkDraftModal
                 open={bulkOpen}
                 onClose={() => setBulkOpen(false)}
+                method={payrollMethod}
             />
             <BulkReleaseModal
                 open={bulkReleaseOpen}
@@ -239,6 +261,7 @@ export default function AdminPayrollPage() {
             <PayslipGenerateModal
                 open={generateOpen}
                 onClose={() => setGenerateOpen(false)}
+                method={payrollMethod}
             />
             <PayslipDetailModal
                 open={!!viewingPayslip}

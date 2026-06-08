@@ -175,8 +175,17 @@ export default function PayslipDetailModal({ open, onClose, payslipId }) {
                         <span className="text-xl font-extrabold text-white tabular-nums">{fmtCurrency(p.net_pay)}</span>
                     </div>
 
-                    {/* Status chip */}
-                    <div className="flex justify-end">
+                    {/* Method + status chips */}
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                        {p.method && (
+                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                p.method === 'flat_rate'
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    : 'bg-slate-50 text-slate-600 border border-slate-200'
+                            }`}>
+                                {p.method === 'flat_rate' ? 'Flat Rate Method' : 'Days-Worked Method'}
+                            </span>
+                        )}
                         <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${p.status === 'released' ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-amber-50 text-amber-600 border border-amber-200'}`}>
                             {p.status}
                             {p.released_at ? ` · ${p.released_at.slice(0, 10)}` : ''}

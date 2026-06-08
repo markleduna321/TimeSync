@@ -8,6 +8,11 @@ const CUTOFF_BADGE = {
     '13th_month':'bg-amber-50 text-amber-600 border border-amber-200',
 };
 
+const METHOD_BADGE = {
+    days_worked: { label: 'Days-Worked', tone: 'bg-slate-50 text-slate-500 border border-slate-200' },
+    flat_rate:   { label: 'Flat Rate',   tone: 'bg-amber-50 text-amber-700 border border-amber-200' },
+};
+
 const STATUS_BADGE = {
     draft:    'bg-amber-50 text-amber-600 border border-amber-200',
     released: 'bg-green-50 text-green-600 border border-green-200',
@@ -122,11 +127,18 @@ export default function PayslipTable({ payslips, isLoading, onView, onRelease, o
                                 {p.period_start}<br />{p.period_end}
                             </td>
                             <td className="px-5 py-3">
-                                {p.cutoff_type && (
-                                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${CUTOFF_BADGE[p.cutoff_type] ?? ''}`}>
-                                        {p.cutoff_type === 'first' ? '1st' : p.cutoff_type === 'second' ? '2nd' : '13th'}
-                                    </span>
-                                )}
+                                <div className="flex flex-col items-start gap-1">
+                                    {p.cutoff_type && (
+                                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${CUTOFF_BADGE[p.cutoff_type] ?? ''}`}>
+                                            {p.cutoff_type === 'first' ? '1st' : p.cutoff_type === 'second' ? '2nd' : '13th'}
+                                        </span>
+                                    )}
+                                    {p.method && METHOD_BADGE[p.method] && (
+                                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${METHOD_BADGE[p.method].tone}`} title={`Computed using ${METHOD_BADGE[p.method].label} method`}>
+                                            {METHOD_BADGE[p.method].label}
+                                        </span>
+                                    )}
+                                </div>
                             </td>
                             <td className="px-5 py-3 text-right tabular-nums text-slate-700">{fmtCurrency(p.basic_pay)}</td>
                             <td className="px-5 py-3 text-right tabular-nums text-rose-600">{fmtCurrency(p.total_deductions)}</td>

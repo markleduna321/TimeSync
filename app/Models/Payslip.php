@@ -35,6 +35,8 @@ class Payslip extends Model
         'rest_day_ot_minutes',
         'status',
         'cutoff_type',
+        // Which basic-pay formula was used: 'days_worked' or 'flat_rate'
+        'method',
         'generated_by',
         'released_at',
     ];

@@ -6,6 +6,11 @@ import { useGetUsersQuery } from '@/features/users/usersApi';
 
 const DEFAULT_FORM = { user_id: '', period_start: '', period_end: '', pay_date: '', incentive_amount: '', incentive_description: '', prior_period_amount: '', prior_period_start: '', prior_period_end: '' };
 
+const METHOD_LABELS = {
+    days_worked: 'Days-Worked Method',
+    flat_rate:   'Flat Rate Method',
+};
+
 /**
  * Build quick-fill dates for a cutoff in a given month/year.
  * 1st cutoff: 1–15. 2nd cutoff: 16–last day.
@@ -29,10 +34,12 @@ function detectCutoffLabel(periodEnd) {
     return parseInt(periodEnd.split('-')[2], 10) <= 15 ? 'first' : 'second';
 }
 
-export default function PayslipGenerateModal({ open, onClose }) {
+export default function PayslipGenerateModal({ open, onClose, method = 'days_worked' }) {
     const [form, setForm]       = useState(DEFAULT_FORM);
     const [errors, setErrors]   = useState({});
     const [showExtra, setShowExtra] = useState(false);
+    const methodLabel           = METHOD_LABELS[method] ?? 'Days-Worked Method';
+    const isFlatRate            = method === 'flat_rate';
 
     const { data: usersData }       = useGetUsersQuery({ per_page: 200 });
     const [generate, { isLoading }] = useGeneratePayslipMutation();
@@ -76,6 +83,7 @@ export default function PayslipGenerateModal({ open, onClose }) {
                 prior_period_amount:   form.prior_period_amount ? parseFloat(form.prior_period_amount) : null,
                 prior_period_start:    form.prior_period_start || null,
                 prior_period_end:      form.prior_period_end || null,
+                method:                method,
             }).unwrap();
             onClose();
         } catch (err) {
@@ -97,6 +105,18 @@ export default function PayslipGenerateModal({ open, onClose }) {
             }
             destroyOnHidden
         >
+            {/* Method indicator — shows which method is active for this run.
+                The toggle lives in the page header; this is just a heads-up. */}
+            <div className={`mt-2 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium ${
+                isFlatRate
+                    ? 'border-amber-200 bg-amber-50 text-amber-700'
+                    : 'border-indigo-200 bg-indigo-50 text-indigo-700'
+            }`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${isFlatRate ? 'bg-amber-500' : 'bg-indigo-500'}`} />
+                Using <strong className="font-semibold">{methodLabel}</strong>
+                {isFlatRate && ' — basic pay = (monthly ÷ 2) − (absent × daily rate)'}
+            </div>
+
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
                 {/* Employee */}
                 <div>

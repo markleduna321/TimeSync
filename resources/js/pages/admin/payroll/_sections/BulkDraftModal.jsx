@@ -5,6 +5,11 @@ import { useBulkDraftPayslipsMutation } from '@/features/payroll/payrollApi';
 
 const DEFAULT_FORM = { period_start: '', period_end: '', pay_date: '' };
 
+const METHOD_LABELS = {
+    days_worked: 'Days-Worked Method',
+    flat_rate:   'Flat Rate Method',
+};
+
 function getCutoffDates(cutoff, year, month) {
     const pad = (n) => String(n).padStart(2, '0');
     if (cutoff === 'first') {
@@ -14,10 +19,12 @@ function getCutoffDates(cutoff, year, month) {
     return { start: `${year}-${pad(month)}-16`, end: `${year}-${pad(month)}-${lastDay}` };
 }
 
-export default function BulkDraftModal({ open, onClose }) {
+export default function BulkDraftModal({ open, onClose, method = 'days_worked' }) {
     const [form, setForm]     = useState(DEFAULT_FORM);
     const [errors, setErrors] = useState({});
     const [result, setResult] = useState(null); // { generated, skipped, message }
+    const methodLabel         = METHOD_LABELS[method] ?? 'Days-Worked Method';
+    const isFlatRate          = method === 'flat_rate';
 
     const [bulkDraft, { isLoading }] = useBulkDraftPayslipsMutation();
 
@@ -51,6 +58,7 @@ export default function BulkDraftModal({ open, onClose }) {
                 period_start: form.period_start,
                 period_end:   form.period_end,
                 pay_date:     form.pay_date || null,
+                method:       method,
             }).unwrap();
             setResult(res);
         } catch (err) {
@@ -118,6 +126,19 @@ export default function BulkDraftModal({ open, onClose }) {
             destroyOnHidden
         >
             <div className="space-y-4 pt-2">
+                {/* Method indicator */}
+                {!hasResult && (
+                    <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium ${
+                        isFlatRate
+                            ? 'border-amber-200 bg-amber-50 text-amber-700'
+                            : 'border-indigo-200 bg-indigo-50 text-indigo-700'
+                    }`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${isFlatRate ? 'bg-amber-500' : 'bg-indigo-500'}`} />
+                        Using <strong className="font-semibold">{methodLabel}</strong>
+                        {isFlatRate && ' — basic pay = (monthly ÷ 2) − (absent × daily rate)'}
+                    </div>
+                )}
+
                 {/* Description */}
                 {!hasResult && (
                     <p className="text-sm text-slate-500">

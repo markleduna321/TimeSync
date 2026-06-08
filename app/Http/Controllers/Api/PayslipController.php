@@ -82,12 +82,15 @@ class PayslipController extends Controller
             return abort(422, 'A payslip for this employee and period already exists.');
         }
 
+        $method = (string) ($request->input('method', 'days_worked'));
+
         $result = $this->service->compute(
             $employee,
             $periodStart,
             $periodEnd,
             (float) ($request->incentive_amount ?? 0.0),
-            (string) ($request->incentive_description ?? 'Incentive / Bonus')
+            (string) ($request->incentive_description ?? 'Incentive / Bonus'),
+            $method
         );
         $s = $result['summary'];
 
@@ -117,6 +120,7 @@ class PayslipController extends Controller
             'rest_day_ot_minutes' => $s['rest_day_ot_minutes'],
             'status'           => 'draft',
             'cutoff_type'      => $s['cutoff_type'],
+            'method'           => $s['method'] ?? $method,
             'taxable_income'   => $s['taxable_income'],
             'generated_by'     => $request->user()->id,
         ]);
@@ -221,6 +225,7 @@ class PayslipController extends Controller
         $periodStart = Carbon::parse($request->period_start);
         $periodEnd   = Carbon::parse($request->period_end);
         $payDate     = $request->pay_date;
+        $method      = (string) ($request->input('method', 'days_worked'));
 
         $employees = User::with('schedule')
             ->whereHas('roles', fn ($q) => $q->where('slug', 'employee'))
@@ -245,7 +250,8 @@ class PayslipController extends Controller
                 $periodStart,
                 $periodEnd,
                 0.0,
-                'Incentive / Bonus'
+                'Incentive / Bonus',
+                $method
             );
             $s = $result['summary'];
 
@@ -275,6 +281,7 @@ class PayslipController extends Controller
                 'rest_day_ot_minutes' => $s['rest_day_ot_minutes'],
                 'status'            => 'draft',
                 'cutoff_type'       => $s['cutoff_type'],
+                'method'            => $s['method'] ?? $method,
                 'taxable_income'    => $s['taxable_income'],
                 'generated_by'      => $request->user()->id,
             ]);

@@ -14,6 +14,7 @@ class BulkDraftPayslipRequest extends FormRequest
             'period_start' => ['required', 'date_format:Y-m-d'],
             'period_end'   => ['required', 'date_format:Y-m-d', 'after_or_equal:period_start'],
             'pay_date'     => ['nullable', 'date_format:Y-m-d'],
+            'method'       => ['nullable', 'in:days_worked,flat_rate'],
         ];
     }
 
