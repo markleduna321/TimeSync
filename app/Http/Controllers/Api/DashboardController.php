@@ -28,9 +28,16 @@ class DashboardController extends Controller
         $totalEmployees = User::count();
 
         // Current month payroll totals — only finalized (released) payslips
-        // whose period_start falls within this month.
+        // whose cash-out (released_at) falls within this month.
+        //
+        // Rationale: in PH payroll, the 2nd cut-off (e.g. May 16–31) is paid
+        // on the 5th of the NEXT month, so filtering by period_start would
+        // mis-attribute the 2nd cut-off to its service month instead of the
+        // month the money actually went out. Using released_at gives the
+        // true "paid this month" figure.
         $payrollTotals = Payslip::where('status', 'released')
-            ->whereBetween('period_start', [$monthStart, $monthEnd])
+            ->whereNotNull('released_at')
+            ->whereBetween('released_at', [$monthStart, $monthEnd])
             ->selectRaw('SUM(gross_pay) as gross_total, SUM(net_pay) as net_total')
             ->first();
 
