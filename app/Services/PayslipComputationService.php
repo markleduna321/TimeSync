@@ -17,16 +17,16 @@ use Carbon\CarbonPeriod;
  * Philippine-government-compliant payslip computation service.
  *
  * References:
- *  - SSS: Circular 2023-005 (contribution table)
- *  - PhilHealth: PhilHealth Circular 2024-0005 (5% total; employee 2.5%)
- *  - Pag-IBIG: RA 9679 (employee share capped 100/month)
- *  - Withholding Tax: TRAIN Law (RA 10963)
- *    - 1st cutoff: semi-monthly BIR table (annual / 24)
- *    - 2nd cutoff: cumulative monthly adjustment (Monthly table - 1st cutoff WHT)
- *  - SSS WISP: mandatory provident fund for MSC > 20000 (100/month, split 50/cutoff)
- *  - De minimis: BIR RR 11-2018 / RMC 50-2018
- *  - 13th Month: PD 851; first 90000 non-taxable (TRAIN)
- *  - Holiday pay: Labor Code Arts. 93-94
+ * - SSS: Circular 2023-005 (contribution table)
+ * - PhilHealth: PhilHealth Circular 2024-0005 (5% total; employee 2.5%)
+ * - Pag-IBIG: RA 9679 (employee share capped 100/month)
+ * - Withholding Tax: TRAIN Law (RA 10963)
+ * - 1st cutoff: semi-monthly BIR table (annual / 24)
+ * - 2nd cutoff: cumulative monthly adjustment (Monthly table - 1st cutoff WHT)
+ * - SSS WISP: mandatory provident fund for MSC > 20000 (100/month, split 50/cutoff)
+ * - De minimis: BIR RR 11-2018 / RMC 50-2018
+ * - 13th Month: PD 851; first 90000 non-taxable (TRAIN)
+ * - Holiday pay: Labor Code Arts. 93-94
  */
 class PayslipComputationService
 {
@@ -51,16 +51,16 @@ class PayslipComputationService
        [17250,  18249.99,  810.00,   0],
        [18250,  19249.99,  855.00,   0],
        [19250,  20249.99,  900.00,   0],
-       [20250,  21249.99,  945.00, 100],
-       [21250,  22249.99,  990.00, 100],
-       [22250,  23249.99, 1035.00, 100],
-       [23250,  24249.99, 1080.00, 100],
-       [24250,  25249.99, 1125.00, 100],
-       [25250,  26249.99, 1170.00, 100],
-       [26250,  27249.99, 1215.00, 100],
-       [27250,  28249.99, 1260.00, 100],
-       [28250,  29249.99, 1305.00, 100],
-       [29250,  30000.00, 1350.00, 100],
+       [20250,  21249.99,  945.00,   0],
+       [21250,  22249.99,  990.00,   0],
+       [22250,  23249.99, 1035.00,   0],
+       [23250,  24249.99, 1080.00,   0],
+       [24250,  25249.99, 1125.00,   0],
+       [25250,  26249.99, 1170.00,   0],
+       [26250,  27249.99, 1215.00,   0],
+       [27250,  28249.99, 1260.00,   0],
+       [28250,  29249.99, 1305.00,   0],
+       [29250,  30000.00, 1350.00,   0],
     ];
 
     public function computeSSS(float $monthlySalary): array
@@ -488,15 +488,19 @@ class PayslipComputationService
                 ->whereMonth('period_end', $periodEnd->month)
                 ->latest('period_end')->first();
 
-            $firstTaxable = (float)($firstPayslip?->taxable_income ?? 0.0);
-            $firstWht     = $firstPayslip
-                ? (float)(PayslipLine::where('payslip_id', $firstPayslip->id)->where('code', 'WITHHOLDING_TAX')->value('amount') ?? 0.0)
-                : 0.0;
+            if ($firstPayslip) {
+                // First cutoff exists, safely do the cumulative adjustment
+                $firstTaxable = (float)($firstPayslip->taxable_income ?? 0.0);
+                $firstWht     = (float)(PayslipLine::where('payslip_id', $firstPayslip->id)->where('code', 'WITHHOLDING_TAX')->value('amount') ?? 0.0);
 
-            // Include 13th month taxable excess in December cumulative base
-            $monthlyTaxable  = $firstTaxable + $semiMonthlyTaxable + $thirteenthTaxable;
-            $totalMonthlyWht = $this->computeWithholdingTaxMonthly($monthlyTaxable);
-            $wht             = max(0.0, round($totalMonthlyWht - $firstWht, 2));
+                // Include 13th month taxable excess in December cumulative base
+                $monthlyTaxable  = $firstTaxable + $semiMonthlyTaxable + $thirteenthTaxable;
+                $totalMonthlyWht = $this->computeWithholdingTaxMonthly($monthlyTaxable);
+                $wht             = max(0.0, round($totalMonthlyWht - $firstWht, 2));
+            } else {
+                // FIX: No 1st cutoff exists. Fall back to the semi-monthly table.
+                $wht = $this->computeWithholdingTaxSemiMonthly($semiMonthlyTaxable);
+            }
         }
 
         if (!$whtEnabled) { $wht = 0.0; }
@@ -506,9 +510,11 @@ class PayslipComputationService
 
         if ($sssEnabled) {
             $deductions[] = ['code' => 'SSS', 'description' => 'SSS Contribution', 'sort_order' => $dsort++, 'amount' => $sssHalf, 'is_taxable' => false];
-            if ($wispHalf > 0) {
-                $deductions[] = ['code' => 'SSS_WISP', 'description' => 'SSS WISP (Provident)', 'sort_order' => $dsort++, 'amount' => $wispHalf, 'is_taxable' => false];
-            }
+            
+            // WISP disabled per client request
+            // if ($wispHalf > 0) {
+            //     $deductions[] = ['code' => 'SSS_WISP', 'description' => 'SSS WISP (Provident)', 'sort_order' => $dsort++, 'amount' => $wispHalf, 'is_taxable' => false];
+            // }
         }
         if ($phEnabled) {
             $deductions[] = ['code' => 'PHILHEALTH', 'description' => 'PhilHealth Contribution', 'sort_order' => $dsort++, 'amount' => $philhealthHalf, 'is_taxable' => false];
