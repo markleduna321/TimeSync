@@ -77,6 +77,8 @@ class AttendanceController extends Controller
         // Normalize to HH:MM — DB may store as "13:00:00" (with seconds)
         $shiftStart = $schedule?->shift_start ? substr($schedule->shift_start, 0, 5) : null;
         $shiftEnd   = $schedule?->shift_end   ? substr($schedule->shift_end,   0, 5) : null;
+        // Timestamps are stored in UTC — use app timezone when extracting HH:MM for comparison
+        $appTz = config('app.timezone', 'UTC');
         $today      = now()->toDateString();
 
         // Break config for over-break computation
@@ -120,11 +122,10 @@ class AttendanceController extends Controller
             } elseif (! $log || ! $log->clock_in) {
                 $status = 'absent';
             } else {
-                // Use the Carbon-cast attributes which Laravel automatically converts
-                // to the app timezone — format to HH:MM for a simple string comparison
-                // against the schedule's shift_start / shift_end (also HH:MM).
-                $clockInTime  = $log->clock_in  ? $log->clock_in->format('H:i')  : null;
-                $clockOutTime = $log->clock_out ? $log->clock_out->format('H:i') : null;
+                // Timestamps are UTC in DB — convert to app timezone before extracting
+                // HH:MM so the comparison against shift_start/shift_end is correct.
+                $clockInTime  = $log->clock_in  ? $log->clock_in->copy()->setTimezone($appTz)->format('H:i')  : null;
+                $clockOutTime = $log->clock_out ? $log->clock_out->copy()->setTimezone($appTz)->format('H:i') : null;
 
                 // Late: clock-in time is after shift start
                 $status = 'present';
