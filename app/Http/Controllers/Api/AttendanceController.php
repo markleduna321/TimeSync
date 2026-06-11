@@ -39,22 +39,28 @@ class AttendanceController extends Controller
             $end   = now()->endOfMonth();
         }
 
+        // Helper: safely get a YYYY-MM-DD string whether the model casts `date`
+        // as a Carbon instance or leaves it as a plain string.
+        $toDateStr = fn ($val) => $val instanceof \Carbon\Carbon
+            ? $val->format('Y-m-d')
+            : substr((string) $val, 0, 10);
+
         // Eager-load logs and corrections for the month in 2 queries
         $logs = TimeLog::where('user_id', $target->id)
             ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
             ->get()
-            ->keyBy(fn ($l) => $l->date->format('Y-m-d'));
+            ->keyBy(fn ($l) => $toDateStr($l->date));
 
         $corrections = AttendanceCorrection::with('history.changedBy')
             ->where('user_id', $target->id)
             ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
             ->get()
-            ->keyBy(fn ($c) => $c->date->format('Y-m-d') . '_' . $c->type);
+            ->keyBy(fn ($c) => $toDateStr($c->date) . '_' . $c->type);
 
         // Holidays declared for this month
         $holidayMap = Holiday::whereBetween('date', [$start->toDateString(), $end->toDateString()])
             ->get()
-            ->keyBy(fn ($h) => $h->date->format('Y-m-d'));
+            ->keyBy(fn ($h) => $toDateStr($h->date));
 
         // Load leave applications covering any day in this month.
         $leaveApplications = LeaveApplication::with('leaveType')
