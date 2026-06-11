@@ -39,28 +39,22 @@ class AttendanceController extends Controller
             $end   = now()->endOfMonth();
         }
 
-        // Helper: safely get a YYYY-MM-DD string whether the model casts `date`
-        // as a Carbon instance or leaves it as a plain string.
-        $toDateStr = fn ($val) => $val instanceof \Carbon\Carbon
-            ? $val->format('Y-m-d')
-            : substr((string) $val, 0, 10);
-
         // Eager-load logs and corrections for the month in 2 queries
         $logs = TimeLog::where('user_id', $target->id)
             ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
             ->get()
-            ->keyBy(fn ($l) => $toDateStr($l->date));
+            ->keyBy(fn ($l) => $l->date->format('Y-m-d'));
 
         $corrections = AttendanceCorrection::with('history.changedBy')
             ->where('user_id', $target->id)
             ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
             ->get()
-            ->keyBy(fn ($c) => $toDateStr($c->date) . '_' . $c->type);
+            ->keyBy(fn ($c) => $c->date->format('Y-m-d') . '_' . $c->type);
 
         // Holidays declared for this month
         $holidayMap = Holiday::whereBetween('date', [$start->toDateString(), $end->toDateString()])
             ->get()
-            ->keyBy(fn ($h) => $toDateStr($h->date));
+            ->keyBy(fn ($h) => $h->date->format('Y-m-d'));
 
         // Load leave applications covering any day in this month.
         $leaveApplications = LeaveApplication::with('leaveType')
@@ -120,26 +114,20 @@ class AttendanceController extends Controller
             } elseif (! $log || ! $log->clock_in) {
                 $status = 'absent';
             } else {
-                // Determine present vs late — 1 minute over shift start = late
-                // Use createFromFormat with the app timezone so UTC-stored datetimes
-                // are compared on equal footing against the schedule times.
-                $appTz = config('app.timezone', 'UTC');
+                $clockInTime  = $clockInRaw  ? substr($clockInRaw,  11, 5) : null; // "08:05"
+                $clockOutTime = $clockOutRaw ? substr($clockOutRaw, 11, 5) : null; // "17:02"
+
+                // Late: simple string comparison works perfectly for HH:MM
                 $status = 'present';
-                if ($shiftStart) {
-                    $shiftCarbon   = Carbon::createFromFormat('Y-m-d H:i', $dateStr . ' ' . $shiftStart, $appTz);
-                    $clockInCarbon = Carbon::parse($log->clock_in)->setTimezone($appTz);
-                    if ($clockInCarbon->gt($shiftCarbon)) {
-                        $status = 'late';
-                    }
+                if ($shiftStart && $clockInTime && $clockInTime > $shiftStart) {
+                    $status = 'late';
                 }
 
-                // Undertime — clocked out before shift end
-                $undertimeMinutes = 0;
-                if ($log->clock_out && $shiftEnd) {
-                    $shiftEndCarbon = Carbon::createFromFormat('Y-m-d H:i', $dateStr . ' ' . $shiftEnd, $appTz);
-                    $clockOutCarbon = Carbon::parse($log->clock_out)->setTimezone($appTz);
-                    $diff = $shiftEndCarbon->diffInMinutes($clockOutCarbon, false);
-                    $undertimeMinutes = $diff < 0 ? (int) abs($diff) : 0;
+                // Undertime: convert both times to total minutes, then subtract
+                if ($shiftEnd && $clockOutTime && $clockOutTime < $shiftEnd) {
+                    [$sh, $sm] = explode(':', $shiftEnd);
+                    [$ch, $cm] = explode(':', $clockOutTime);
+                    $undertimeMinutes = (((int)$sh * 60) + (int)$sm) - (((int)$ch * 60) + (int)$cm);
                 }
             }
 
