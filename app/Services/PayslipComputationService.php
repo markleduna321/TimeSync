@@ -186,8 +186,10 @@ class PayslipComputationService
         $cutoffType  = $periodEnd->day <= 15 ? 'first' : 'second';
         $schedule    = $employee->schedule;
         $workDays    = $schedule?->work_days ?? [];
-        $shiftStart  = $schedule?->shift_start ?? '08:00';
-        $shiftEnd    = $schedule?->shift_end   ?? '17:00';
+        // Normalize to HH:MM — DB may store as "13:00:00" (with seconds)
+        $shiftStart  = substr($schedule?->shift_start ?? '08:00', 0, 5);
+        $shiftEnd    = substr($schedule?->shift_end   ?? '17:00', 0, 5);
+        $localTz     = env('APP_LOCAL_TIMEZONE', 'Asia/Manila');
         $daysPerWeek = count($workDays);
         $dailyRate   = $this->computeDailyRate($monthlySalary, $daysPerWeek);
 
@@ -199,12 +201,16 @@ class PayslipComputationService
             : 0;
         $allowedLunchMins = $breakConfig ? $breakConfig->lunch_duration_minutes : 60;
 
+        $toDateStr = fn ($val) => $val instanceof \Carbon\Carbon
+            ? $val->format('Y-m-d')
+            : substr((string) $val, 0, 10);
+
         $logs = TimeLog::where('user_id', $employee->id)
             ->whereBetween('date', [$periodStart->toDateString(), $periodEnd->toDateString()])
-            ->get()->keyBy(fn($l) => $l->date->format('Y-m-d'));
+            ->get()->keyBy(fn($l) => $toDateStr($l->date));
 
         $holidays = Holiday::whereBetween('date', [$periodStart->toDateString(), $periodEnd->toDateString()])
-            ->get()->keyBy(fn($h) => $h->date->format('Y-m-d'));
+            ->get()->keyBy(fn($h) => $toDateStr($h->date));
 
         // Build a map of date => days_value for approved paid-leave days in this period.
         // A full-day leave counts as 1.0; a half-day leave counts as 0.5.
@@ -335,17 +341,22 @@ class PayslipComputationService
                 $holidayPayExtra += $this->computeHolidayExtra($dailyRate, $holiday->type, true);
             }
 
-            $shiftCarbon = Carbon::parse($dateStr . ' ' . $shiftStart);
-            $clockIn     = Carbon::parse($log->clock_in);
-            if ($clockIn->gt($shiftCarbon)) {
-                $lateMinutes += (int)$shiftCarbon->diffInMinutes($clockIn);
+            // Parse raw UTC values and convert to local timezone for HH:MM comparison
+            $clockInRaw  = $log->getRawOriginal('clock_in');
+            $clockOutRaw = $log->getRawOriginal('clock_out');
+            $clockInTime  = $clockInRaw  ? Carbon::parse($clockInRaw,  'UTC')->setTimezone($localTz)->format('H:i') : null;
+            $clockOutTime = $clockOutRaw ? Carbon::parse($clockOutRaw, 'UTC')->setTimezone($localTz)->format('H:i') : null;
+
+            if ($clockInTime && $clockInTime > $shiftStart) {
+                [$sh, $sm] = explode(':', $shiftStart);
+                [$ch, $cm] = explode(':', $clockInTime);
+                $lateMinutes += (((int)$ch * 60) + (int)$cm) - (((int)$sh * 60) + (int)$sm);
             }
 
-            if ($log->clock_out) {
-                $shiftEndC  = Carbon::parse($dateStr . ' ' . $shiftEnd);
-                $clockOutC  = Carbon::parse($log->clock_out);
-                $diff = $shiftEndC->diffInMinutes($clockOutC, false);
-                if ($diff < 0) $undertimeMins += (int)abs($diff);
+            if ($clockOutTime && $clockOutTime < $shiftEnd) {
+                [$sh, $sm] = explode(':', $shiftEnd);
+                [$ch, $cm] = explode(':', $clockOutTime);
+                $undertimeMins += (((int)$sh * 60) + (int)$sm) - (((int)$ch * 60) + (int)$cm);
             }
 
             if ($log->overtime_minutes ?? 0) {
