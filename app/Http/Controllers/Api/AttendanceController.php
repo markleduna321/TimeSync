@@ -115,10 +115,13 @@ class AttendanceController extends Controller
                 $status = 'absent';
             } else {
                 // Determine present vs late — 1 minute over shift start = late
+                // Use createFromFormat with the app timezone so UTC-stored datetimes
+                // are compared on equal footing against the schedule times.
+                $appTz = config('app.timezone', 'UTC');
                 $status = 'present';
                 if ($shiftStart) {
-                    $shiftCarbon   = Carbon::parse($dateStr . ' ' . $shiftStart);
-                    $clockInCarbon = Carbon::parse($log->clock_in);
+                    $shiftCarbon   = Carbon::createFromFormat('Y-m-d H:i', $dateStr . ' ' . $shiftStart, $appTz);
+                    $clockInCarbon = Carbon::parse($log->clock_in)->setTimezone($appTz);
                     if ($clockInCarbon->gt($shiftCarbon)) {
                         $status = 'late';
                     }
@@ -127,8 +130,8 @@ class AttendanceController extends Controller
                 // Undertime — clocked out before shift end
                 $undertimeMinutes = 0;
                 if ($log->clock_out && $shiftEnd) {
-                    $shiftEndCarbon = Carbon::parse($dateStr . ' ' . $shiftEnd);
-                    $clockOutCarbon = Carbon::parse($log->clock_out);
+                    $shiftEndCarbon = Carbon::createFromFormat('Y-m-d H:i', $dateStr . ' ' . $shiftEnd, $appTz);
+                    $clockOutCarbon = Carbon::parse($log->clock_out)->setTimezone($appTz);
                     $diff = $shiftEndCarbon->diffInMinutes($clockOutCarbon, false);
                     $undertimeMinutes = $diff < 0 ? (int) abs($diff) : 0;
                 }
