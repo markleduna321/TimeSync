@@ -796,6 +796,13 @@ function ScheduleTab({ user }) {
 
     const [upsertSchedule, { isLoading }] = useUpsertScheduleMutation();
 
+    // 1. Calculate if it crosses midnight
+    const isOvernight = Boolean(
+        form.shift_start && 
+        form.shift_end && 
+        form.shift_start > form.shift_end
+    );
+
     useEffect(() => {
         const s = user?.schedule;
         if (s) {
@@ -829,13 +836,90 @@ function ScheduleTab({ user }) {
         setErrors({});
         setSaved(false);
         try {
-            await upsertSchedule({ userId: user.id, work_days: form.work_days, shift_start: form.shift_start, shift_end: form.shift_end }).unwrap();
+            await upsertSchedule({ 
+                userId: user.id, 
+                work_days: form.work_days, 
+                shift_start: form.shift_start, 
+                shift_end: form.shift_end,
+                // 2. Pass the overnight flag to the backend
+                is_overnight: isOvernight
+            }).unwrap();
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
         } catch (err) {
             if (err?.status === 422) setErrors(err.data?.errors ?? {});
         }
     }
+
+    return (
+        <form onSubmit={handleSave} className="space-y-5 pt-1">
+            {/* Work Days */}
+            <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Work Days</label>
+                <div className="flex flex-wrap gap-2">
+                    {ALL_DAYS.map((day) => {
+                        const selected = form.work_days.includes(day);
+                        return (
+                            <button key={day} type="button" onClick={() => toggleDay(day)}
+                                aria-pressed={selected}
+                                className={[
+                                    'rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                                    selected ? DAY_COLORS[day] : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600',
+                                ].join(' ')}>
+                                {day}
+                            </button>
+                        );
+                    })}
+                </div>
+                {errors.work_days && <p className="mt-1 text-xs text-red-500">{errors.work_days[0]}</p>}
+                {form.work_days.length === 0 && !errors.work_days && (
+                    <p className="mt-1 text-xs text-amber-500">Select at least one day.</p>
+                )}
+            </div>
+
+            {/* Shift Hours */}
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Shift Start</label>
+                    <input type="time" value={form.shift_start} onChange={(e) => setField('shift_start', e.target.value)}
+                        className={`w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.shift_start ? 'border-red-400' : 'border-slate-300'}`} />
+                    {errors.shift_start && <p className="mt-1 text-xs text-red-500">{errors.shift_start[0]}</p>}
+                </div>
+                <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Shift End</label>
+                    <input type="time" value={form.shift_end} onChange={(e) => setField('shift_end', e.target.value)}
+                        className={`w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.shift_end ? 'border-red-400' : 'border-slate-300'}`} />
+                    {errors.shift_end && <p className="mt-1 text-xs text-red-500">{errors.shift_end[0]}</p>}
+                </div>
+            </div>
+
+            {/* Preview */}
+            {form.work_days.length > 0 && (
+                <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                    <p className="text-xs text-slate-500">Preview</p>
+                    <p className="mt-0.5 text-sm font-medium text-slate-700 flex items-center gap-2">
+                        {form.work_days.join(', ')} &nbsp;·&nbsp; {form.shift_start} → {form.shift_end}
+                    </p>
+                    {/* 3. Helpful UI indicator for overnight shifts */}
+                    {isOvernight && (
+                        <p className="mt-1 text-xs font-medium text-indigo-600 bg-indigo-50 inline-block px-2 py-0.5 rounded">
+                            🌙 Overnight Shift (Ends following day)
+                        </p>
+                    )}
+                </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+                {saved && <SavedBadge />}
+                <button type="submit" disabled={isLoading}
+                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-60">
+                    {isLoading && <Spin size="small" />}
+                    Save Schedule
+                </button>
+            </div>
+        </form>
+    );
+
 
     return (
         <form onSubmit={handleSave} className="space-y-5 pt-1">

@@ -57,6 +57,7 @@ class ScheduleController extends Controller
     }
 
     /** Admin/manager/team_lead: assign or update a user's schedule. */
+    /** Admin/manager/team_lead: assign or update a user's schedule. */
     public function upsert(StoreScheduleRequest $request, User $user): ScheduleResource
     {
         $schedule = Schedule::firstOrNew(['user_id' => $user->id]);
@@ -68,9 +69,14 @@ class ScheduleController extends Controller
             $this->authorize('create', Schedule::class);
         }
 
-        $schedule->fill(array_merge($request->validated(), ['user_id' => $user->id]));
+        // 1. Grab validated data EXCEPT the 'is_overnight' flag
+        $scheduleData = $request->safe()->except(['is_overnight']);
+
+        // 2. Merge with user_id and save
+        $schedule->fill(array_merge($scheduleData, ['user_id' => $user->id]));
         $schedule->save();
 
         return new ScheduleResource($schedule);
     }
 }
+ 
