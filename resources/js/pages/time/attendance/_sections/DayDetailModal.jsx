@@ -5,9 +5,6 @@ import { useFileCorrectionMutation } from '@/features/timekeeping/attendanceApi'
 import { useCancelLeaveApplicationMutation } from '@/features/leave/leaveApi';
 import LeaveApplicationModal from './LeaveApplicationModal';
 
-const UI_LOCALE = 'en-PH';
-const UI_TIMEZONE = 'Asia/Manila';
-
 /* ── Status config ────────────────────────────────────────────────────── */
 const STATUS_CONFIG = {
     present:  { label: 'Present',   cls: 'bg-emerald-100 text-emerald-700' },
@@ -24,30 +21,27 @@ const CORRECTION_STATUS = {
 
 function fmtTime(iso) {
     if (!iso) return '—';
-    return new Date(iso).toLocaleTimeString(UI_LOCALE, {
+    return new Date(iso).toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true,
-        timeZone: UI_TIMEZONE,
     });
 }
+
 function fmtTimeStr(timeStr) {
     if (!timeStr) return '—';
-    // Backend stores clock_in/clock_out as DATETIME interpreted in UTC and
-    // slices off the time-of-day string. The 'Z' suffix forces JS to treat
-    // it as UTC, so toLocaleTimeString converts to the user's local zone
-    // (Asia/Manila) — matching the My Time / ClockWidget views.
-    return new Date('1970-01-01T' + timeStr + 'Z').toLocaleTimeString(UI_LOCALE, {
+    // Matches TimeHistoryTable: Appending 'Z' forces UTC, browser converts to local
+    return new Date('1970-01-01T' + timeStr + 'Z').toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true,
     });
 }
+
 function fmtDate(dateStr) {
     if (!dateStr) return '';
-    return new Date(dateStr + 'T00:00:00').toLocaleDateString(UI_LOCALE, {
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString([], {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-        timeZone: UI_TIMEZONE,
     });
 }
 
@@ -124,7 +118,10 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
     const [cancelLeave, { isLoading: cancelling }]    = useCancelLeaveApplicationMutation();
     const [leaveModalOpen, setLeaveModalOpen]         = useState(false);
 
-    const today          = new Date().toISOString().slice(0, 10);
+    // Get true local "today" string
+    const todayLocal = new Date();
+    const today = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`;
+
     const status         = day?.status ?? 'upcoming';
     const isRestDay      = status === 'rest_day';
     const isPastOrToday  = day?.date <= today;
@@ -217,10 +214,6 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
 
     // Can user file anything at all?
     const canFileAny = canFileCorrection || canFileOvertime;
-    // After a success, show form only if the other type is still available
-    const canFileAfterSuccess = success
-        ? (formType === 'correction' ? canFileOvertime : canFileCorrection)
-        : false;
 
     return (
         <Modal
@@ -308,7 +301,7 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                 )}
                                 {correction.created_at && (
                                     <p className="mt-1.5 text-[10px] opacity-60">
-                                        Filed {new Date(correction.created_at).toLocaleString(UI_LOCALE, { timeZone: UI_TIMEZONE, dateStyle: 'medium', timeStyle: 'short' })}
+                                        Filed {new Date(correction.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                                     </p>
                                 )}
                             </div>
@@ -336,7 +329,7 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                         {h.changed_by && (
                                             <span className="ml-auto text-[10px] text-slate-400">
                                                 by <strong className="text-slate-500">{h.changed_by}</strong>
-                                                {h.changed_at && <> · {new Date(h.changed_at).toLocaleString(UI_LOCALE, { timeZone: UI_TIMEZONE, dateStyle: 'medium', timeStyle: 'short' })}</>}
+                                                {h.changed_at && <> · {new Date(h.changed_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</>}
                                             </span>
                                         )}
                                     </div>
@@ -367,7 +360,7 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                             )}
                             {overtime.created_at && (
                                 <p className="mt-1.5 text-[10px] opacity-60">
-                                    Filed {new Date(overtime.created_at).toLocaleString(UI_LOCALE, { timeZone: UI_TIMEZONE, dateStyle: 'medium', timeStyle: 'short' })}
+                                    Filed {new Date(overtime.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                                 </p>
                             )}
                         </div>
@@ -383,9 +376,9 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                 {leave.leave_type?.name ?? 'Leave'} — {leaveCfg.label}
                             </p>
                             <p className="mt-0.5 text-xs opacity-80">
-                                {new Date(leave.start_date + 'T00:00:00').toLocaleDateString(UI_LOCALE, { month: 'short', day: 'numeric', timeZone: UI_TIMEZONE })}
+                                {new Date(leave.start_date + 'T00:00:00').toLocaleDateString([], { month: 'short', day: 'numeric' })}
                                 {leave.start_date !== leave.end_date && (
-                                    <> – {new Date(leave.end_date + 'T00:00:00').toLocaleDateString(UI_LOCALE, { month: 'short', day: 'numeric', year: 'numeric', timeZone: UI_TIMEZONE })}</>
+                                    <> – {new Date(leave.end_date + 'T00:00:00').toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</>
                                 )}
                                 {' · '}{leave.half_day ? `Half Day (${leave.half_day_period})` : `${leave.days_requested} day(s)`}
                             </p>

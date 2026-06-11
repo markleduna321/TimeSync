@@ -21,11 +21,8 @@ function fmtTime(iso) {
 
 function fmtTimeStr(timeStr) {
     if (!timeStr) return null;
-    // Backend stores clock_in/clock_out as DATETIME interpreted in UTC and
-    // slices off the time-of-day string. The 'Z' suffix forces JS to treat
-    // it as UTC, so toLocaleTimeString converts to the user's local zone
-    // (Asia/Manila) — matching the My Time / Time History views.
-    return new Date('1970-01-01T' + timeStr + 'Z').toLocaleTimeString('en-PH', {
+    // Appending 'Z' forces JS to treat it as UTC. The empty array [] uses the browser's local timezone.
+    return new Date('1970-01-01T' + timeStr + 'Z').toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true,
@@ -75,9 +72,13 @@ function DayCell({ cell, onClick }) {
         );
     }
 
+    // Safely calculate local today string (YYYY-MM-DD) avoiding UTC shift
+    const todayLocal = new Date();
+    const todayStr = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`;
+
     const status = dayData?.status ?? 'upcoming';
     const cfg    = STATUS_CONFIG[status] ?? STATUS_CONFIG.upcoming;
-    const isClickable = status !== 'upcoming' || !!dayData?.leave || (dayData?.date >= new Date().toISOString().slice(0, 10));
+    const isClickable = status !== 'upcoming' || !!dayData?.leave || (dayData?.date >= todayStr);
 
     const hasPendingCorrection =
         dayData?.correction?.status === 'pending' ||
