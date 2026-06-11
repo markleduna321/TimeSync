@@ -19,16 +19,6 @@ function fmtTime(iso) {
     return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
-function fmtTimeStr(timeStr) {
-    if (!timeStr) return null;
-    // Appending 'Z' forces JS to treat it as UTC. The empty array [] uses the browser's local timezone.
-    return new Date('1970-01-01T' + timeStr + 'Z').toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-    });
-}
-
 /**
  * Returns an array of 42 cells (6 rows × 7 cols, Sun–Sat) for the calendar grid.
  * Cells outside the target month have `inMonth: false`.
@@ -87,8 +77,10 @@ function DayCell({ cell, onClick }) {
     const hasPendingLeave    = dayData?.leave?.status === 'pending';
     const leaveApproved      = dayData?.leave?.status === 'approved';
     const leaveColor         = dayData?.leave?.leave_type?.color ?? '#8b5cf6';
-    const clockIn       = dayData?.clock_in_time  ? fmtTimeStr(dayData.clock_in_time)  : fmtTime(dayData?.clock_in);
-    const clockOut      = dayData?.clock_out_time ? fmtTimeStr(dayData.clock_out_time) : fmtTime(dayData?.clock_out);
+    
+    // EXCLUSIVELY rely on the actual ISO timestamp to mirror TimeHistoryTable
+    const clockIn        = fmtTime(dayData?.clock_in);
+    const clockOut       = fmtTime(dayData?.clock_out);
     const undertimeMins  = dayData?.undertime_minutes  ?? 0;
     const overBreakMins  = dayData?.over_break_minutes ?? 0;
     const holiday        = dayData?.holiday ?? null;
@@ -238,7 +230,7 @@ function Legend() {
 
 /* ── Main component ───────────────────────────────────────────────────── */
 export default function AttendanceCalendar({ days, year, month, isLoading, onDayClick }) {
-    if (isLoading) return <CalendarSkeleton />;
+    if (isLoading) return <CalendarSkeleton />
 
     // Build a dateStr → day data map
     const dayMap = {};

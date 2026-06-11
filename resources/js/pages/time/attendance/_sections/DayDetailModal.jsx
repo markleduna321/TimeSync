@@ -28,10 +28,10 @@ function fmtTime(iso) {
     });
 }
 
-function fmtTimeStr(timeStr) {
+// Safely formats time-only strings coming from forms/requests (e.g., "17:00:00")
+function fmtLocalTime(timeStr) {
     if (!timeStr) return '—';
-    // Matches TimeHistoryTable: Appending 'Z' forces UTC, browser converts to local
-    return new Date('1970-01-01T' + timeStr + 'Z').toLocaleTimeString([], {
+    return new Date('1970-01-01T' + timeStr).toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true,
@@ -211,8 +211,6 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
     const LeaveIcon  = leaveCfg?.icon ?? null;
 
     const canFilLeave = canFile && !leave && !isRestDay && day?.date >= today;
-
-    // Can user file anything at all?
     const canFileAny = canFileCorrection || canFileOvertime;
 
     return (
@@ -235,15 +233,15 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                 </span>
                             )}
                             <div className="flex gap-4 text-xs text-slate-500">
-                                <span>In: <strong className="text-slate-700">{day.clock_in_time ? fmtTimeStr(day.clock_in_time) : fmtTime(day.clock_in)}</strong></span>
-                                <span>Out: <strong className="text-slate-700">{day.clock_out_time ? fmtTimeStr(day.clock_out_time) : fmtTime(day.clock_out)}</strong></span>
+                                <span>In: <strong className="text-slate-700">{fmtTime(day.clock_in)}</strong></span>
+                                <span>Out: <strong className="text-slate-700">{fmtTime(day.clock_out)}</strong></span>
                             </div>
                             {(day.lunch_start || day.lunch_start_time) && (
                                 <div className="flex gap-4 text-xs text-slate-500">
                                     <span>Lunch: <strong className="text-slate-700">
-                                        {day.lunch_start_time ? fmtTimeStr(day.lunch_start_time) : fmtTime(day.lunch_start)}
+                                        {fmtTime(day.lunch_start)}
                                         {' – '}
-                                        {day.lunch_end_time ? fmtTimeStr(day.lunch_end_time) : day.lunch_end ? fmtTime(day.lunch_end) : '—'}
+                                        {day.lunch_end ? fmtTime(day.lunch_end) : '—'}
                                     </strong></span>
                                 </div>
                             )}
@@ -289,9 +287,9 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                 {(correction.requested_clock_in || correction.requested_clock_out) && (
                                     <p className="mt-0.5 text-xs opacity-80">
                                         Requested:{' '}
-                                        {correction.requested_clock_in ? fmtTimeStr(correction.requested_clock_in) : '—'}
+                                        {correction.requested_clock_in ? fmtLocalTime(correction.requested_clock_in) : '—'}
                                         {' – '}
-                                        {correction.requested_clock_out ? fmtTimeStr(correction.requested_clock_out) : '—'}
+                                        {correction.requested_clock_out ? fmtLocalTime(correction.requested_clock_out) : '—'}
                                     </p>
                                 )}
                                 {correction.admin_note && (
@@ -316,15 +314,15 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                     <div key={i} className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
                                         <div className="flex items-center gap-1.5">
                                             <span className="text-slate-400">Clock In</span>
-                                            <span className="tabular-nums text-rose-500 line-through">{h.old_clock_in_time ? fmtTimeStr(h.old_clock_in_time) : fmtTime(h.old_clock_in)}</span>
+                                            <span className="tabular-nums text-rose-500 line-through">{fmtTime(h.old_clock_in)}</span>
                                             <span className="text-slate-400">→</span>
-                                            <span className="tabular-nums font-semibold text-emerald-600">{h.new_clock_in_time ? fmtTimeStr(h.new_clock_in_time) : fmtTime(h.new_clock_in)}</span>
+                                            <span className="tabular-nums font-semibold text-emerald-600">{fmtTime(h.new_clock_in)}</span>
                                         </div>
                                         <div className="flex items-center gap-1.5">
                                             <span className="text-slate-400">Clock Out</span>
-                                            <span className="tabular-nums text-rose-500 line-through">{h.old_clock_out_time ? fmtTimeStr(h.old_clock_out_time) : fmtTime(h.old_clock_out)}</span>
+                                            <span className="tabular-nums text-rose-500 line-through">{fmtTime(h.old_clock_out)}</span>
                                             <span className="text-slate-400">→</span>
-                                            <span className="tabular-nums font-semibold text-emerald-600">{h.new_clock_out_time ? fmtTimeStr(h.new_clock_out_time) : fmtTime(h.new_clock_out)}</span>
+                                            <span className="tabular-nums font-semibold text-emerald-600">{fmtTime(h.new_clock_out)}</span>
                                         </div>
                                         {h.changed_by && (
                                             <span className="ml-auto text-[10px] text-slate-400">
@@ -350,7 +348,7 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                             </p>
                             {overtime.requested_clock_in && overtime.requested_clock_out && (
                                 <p className="mt-0.5 text-xs opacity-80">
-                                    {fmtTimeStr(overtime.requested_clock_in)} – {fmtTimeStr(overtime.requested_clock_out)}
+                                    {fmtLocalTime(overtime.requested_clock_in)} – {fmtLocalTime(overtime.requested_clock_out)}
                                 </p>
                             )}
                             {overtime.admin_note && (
