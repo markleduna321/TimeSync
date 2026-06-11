@@ -77,9 +77,11 @@ class AttendanceController extends Controller
         // Normalize to HH:MM — DB may store as "13:00:00" (with seconds)
         $shiftStart = $schedule?->shift_start ? substr($schedule->shift_start, 0, 5) : null;
         $shiftEnd   = $schedule?->shift_end   ? substr($schedule->shift_end,   0, 5) : null;
-        // Timestamps are stored in UTC — use app timezone when extracting HH:MM for comparison
-        $appTz = config('app.timezone', 'UTC');
-        $today      = now()->toDateString();
+        // Timestamps are stored as UTC in the DB. The local timezone for comparison
+        // against schedule times must be the business timezone, not the app timezone
+        // (which is kept as UTC so that ISO strings sent to the frontend are correct).
+        $localTz = env('APP_LOCAL_TIMEZONE', 'Asia/Manila');
+        $today   = now($localTz)->toDateString();
 
         // Break config for over-break computation
         $breakConfig      = $target->breakConfig;
@@ -122,10 +124,10 @@ class AttendanceController extends Controller
             } elseif (! $log || ! $log->clock_in) {
                 $status = 'absent';
             } else {
-                // Timestamps are UTC in DB — convert to app timezone before extracting
-                // HH:MM so the comparison against shift_start/shift_end is correct.
-                $clockInTime  = $log->clock_in  ? $log->clock_in->copy()->setTimezone($appTz)->format('H:i')  : null;
-                $clockOutTime = $log->clock_out ? $log->clock_out->copy()->setTimezone($appTz)->format('H:i') : null;
+                // Parse raw UTC strings and convert to local business timezone
+                // for comparison against shift_start / shift_end (which are local times).
+                $clockInTime  = $clockInRaw  ? Carbon::parse($clockInRaw,  'UTC')->setTimezone($localTz)->format('H:i') : null;
+                $clockOutTime = $clockOutRaw ? Carbon::parse($clockOutRaw, 'UTC')->setTimezone($localTz)->format('H:i') : null;
 
                 // Late: clock-in time is after shift start
                 $status = 'present';
