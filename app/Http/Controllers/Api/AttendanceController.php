@@ -39,22 +39,28 @@ class AttendanceController extends Controller
             $end   = now()->endOfMonth();
         }
 
+        // Helper: safely get a YYYY-MM-DD string whether the model casts `date`
+        // as a Carbon instance or leaves it as a plain string.
+        $toDateStr = fn ($val) => $val instanceof \Carbon\Carbon
+            ? $val->format('Y-m-d')
+            : substr((string) $val, 0, 10);
+
         // Eager-load logs and corrections for the month in 2 queries
         $logs = TimeLog::where('user_id', $target->id)
             ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
             ->get()
-            ->keyBy(fn ($l) => $l->date->format('Y-m-d'));
+            ->keyBy(fn ($l) => $toDateStr($l->date));
 
         $corrections = AttendanceCorrection::with('history.changedBy')
             ->where('user_id', $target->id)
             ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
             ->get()
-            ->keyBy(fn ($c) => $c->date->format('Y-m-d') . '_' . $c->type);
+            ->keyBy(fn ($c) => $toDateStr($c->date) . '_' . $c->type);
 
         // Holidays declared for this month
         $holidayMap = Holiday::whereBetween('date', [$start->toDateString(), $end->toDateString()])
             ->get()
-            ->keyBy(fn ($h) => $h->date->format('Y-m-d'));
+            ->keyBy(fn ($h) => $toDateStr($h->date));
 
         // Load leave applications covering any day in this month.
         $leaveApplications = LeaveApplication::with('leaveType')
@@ -89,8 +95,8 @@ class AttendanceController extends Controller
                        || in_array(strtolower($cursor->englishDayOfWeek), $workDays);
             $isFuture   = $dateStr > $today;
             $log              = $logs[$dateStr] ?? null;
-            $clockInRaw       = $log?->getRawOriginal('clock_in');
-            $clockOutRaw      = $log?->getRawOriginal('clock_out');
+            $clockInRaw       = $log?->getRawOriginal('clock_in');   // "2026-05-10 08:05:00"
+            $clockOutRaw      = $log?->getRawOriginal('clock_out');  // "2026-05-10 17:02:00"
             $correction       = $corrections["{$dateStr}_correction"] ?? null;
             $overtime         = $corrections["{$dateStr}_overtime"]   ?? null;
             $undertimeMinutes = 0;
@@ -105,7 +111,6 @@ class AttendanceController extends Controller
             if ($isFuture) {
                 $status = 'upcoming';
             } elseif ($holiday && (!$log || !$log->clock_in)) {
-                // Declared holiday and employee did not work — never show as absent
                 $status = 'holiday';
             } elseif (! $isWorkDay) {
                 $status = 'rest_day';
@@ -114,17 +119,21 @@ class AttendanceController extends Controller
             } elseif (! $log || ! $log->clock_in) {
                 $status = 'absent';
             } else {
+                // Compare only the HH:MM time portion from the raw DB value
+                // against the schedule times — no timezone conversion needed.
                 $clockInTime  = $clockInRaw  ? substr($clockInRaw,  11, 5) : null; // "08:05"
                 $clockOutTime = $clockOutRaw ? substr($clockOutRaw, 11, 5) : null; // "17:02"
 
-                // Late: simple string comparison works perfectly for HH:MM
+                // Late: clock-in time string is lexicographically after shift start
                 $status = 'present';
                 if ($shiftStart && $clockInTime && $clockInTime > $shiftStart) {
                     $status = 'late';
                 }
 
-                // Undertime: convert both times to total minutes, then subtract
+                // Undertime: clock-out time is before shift end
+                $undertimeMinutes = 0;
                 if ($shiftEnd && $clockOutTime && $clockOutTime < $shiftEnd) {
+                    // Convert both to total minutes for an accurate diff
                     [$sh, $sm] = explode(':', $shiftEnd);
                     [$ch, $cm] = explode(':', $clockOutTime);
                     $undertimeMinutes = (((int)$sh * 60) + (int)$sm) - (((int)$ch * 60) + (int)$cm);
@@ -134,7 +143,6 @@ class AttendanceController extends Controller
             // Over break — actual break/lunch vs configured allowances
             $overBreakMinutes = 0;
             if ($log && $breakConfig) {
-                // Regular breaks — only tracked when breaks are enabled
                 if ($breakConfig->break_allowed) {
                     $actualBreakMins = 0;
                     foreach ($log->breaks ?? [] as $break) {
@@ -145,7 +153,6 @@ class AttendanceController extends Controller
                     $overBreakMinutes += max(0, $actualBreakMins - $allowedBreakMins);
                 }
 
-                // Lunch — always tracked regardless of break_allowed
                 if ($log->lunch_start && $log->lunch_end) {
                     $actualLunchMins = (int) $log->lunch_start->diffInMinutes($log->lunch_end);
                     $overBreakMinutes += max(0, $actualLunchMins - $allowedLunchMins);
