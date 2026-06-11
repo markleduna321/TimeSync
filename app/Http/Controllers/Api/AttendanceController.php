@@ -74,8 +74,9 @@ class AttendanceController extends Controller
 
         $schedule   = $target->schedule;
         $workDays   = $schedule?->work_days ?? []; // ['Mon', 'Tue', ...] or ['monday', ...]
-        $shiftStart = $schedule?->shift_start;     // "08:00"
-        $shiftEnd   = $schedule?->shift_end;       // "17:00"
+        // Normalize to HH:MM — DB may store as "13:00:00" (with seconds)
+        $shiftStart = $schedule?->shift_start ? substr($schedule->shift_start, 0, 5) : null;
+        $shiftEnd   = $schedule?->shift_end   ? substr($schedule->shift_end,   0, 5) : null;
         $today      = now()->toDateString();
 
         // Break config for over-break computation
@@ -119,12 +120,13 @@ class AttendanceController extends Controller
             } elseif (! $log || ! $log->clock_in) {
                 $status = 'absent';
             } else {
-                // Compare only the HH:MM time portion from the raw DB value
-                // against the schedule times — no timezone conversion needed.
-                $clockInTime  = $clockInRaw  ? substr($clockInRaw,  11, 5) : null; // "08:05"
-                $clockOutTime = $clockOutRaw ? substr($clockOutRaw, 11, 5) : null; // "17:02"
+                // Use the Carbon-cast attributes which Laravel automatically converts
+                // to the app timezone — format to HH:MM for a simple string comparison
+                // against the schedule's shift_start / shift_end (also HH:MM).
+                $clockInTime  = $log->clock_in  ? $log->clock_in->format('H:i')  : null;
+                $clockOutTime = $log->clock_out ? $log->clock_out->format('H:i') : null;
 
-                // Late: clock-in time string is lexicographically after shift start
+                // Late: clock-in time is after shift start
                 $status = 'present';
                 if ($shiftStart && $clockInTime && $clockInTime > $shiftStart) {
                     $status = 'late';
@@ -133,7 +135,6 @@ class AttendanceController extends Controller
                 // Undertime: clock-out time is before shift end
                 $undertimeMinutes = 0;
                 if ($shiftEnd && $clockOutTime && $clockOutTime < $shiftEnd) {
-                    // Convert both to total minutes for an accurate diff
                     [$sh, $sm] = explode(':', $shiftEnd);
                     [$ch, $cm] = explode(':', $clockOutTime);
                     $undertimeMinutes = (((int)$sh * 60) + (int)$sm) - (((int)$ch * 60) + (int)$cm);
