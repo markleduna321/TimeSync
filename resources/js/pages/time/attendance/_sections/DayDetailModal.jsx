@@ -244,23 +244,23 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                 </span>
                             )}
                             <div className="flex gap-4 text-xs text-slate-500">
-                                <span>In: <strong className="text-slate-700">{fmtIsoAsLocal(day.clock_in)}</strong></span>
-                                <span>Out: <strong className="text-slate-700">{fmtIsoAsLocal(day.clock_out)}</strong></span>
+                                <span>In: <strong className="text-slate-700">{fmtTime(day.clock_in)}</strong></span>
+                                <span>Out: <strong className="text-slate-700">{fmtTime(day.clock_out)}</strong></span>
                             </div>
                             {(day.lunch_start || day.lunch_start_time) && (
                                 <div className="flex gap-4 text-xs text-slate-500">
                                     <span>Lunch: <strong className="text-slate-700">
-                                        {fmtIsoAsLocal(day.lunch_start)}
+                                        {fmtTime(day.lunch_start)}
                                         {' – '}
-                                        {day.lunch_end ? fmtIsoAsLocal(day.lunch_end) : '—'}
+                                        {day.lunch_end ? fmtTime(day.lunch_end) : '—'}
                                     </strong></span>
                                 </div>
                             )}
                             {day.breaks?.filter((b) => b.start).map((b, i) => (
                                 <div key={i} className="flex gap-4 text-xs text-slate-500">
                                     <span>Break {i + 1}: <strong className="text-slate-700">
-                                        {fmtIsoAsLocal(b.start)}
-                                        {b.end ? ` – ${fmtIsoAsLocal(b.end)}` : ' (ongoing)'}
+                                        {fmtTime(b.start)}
+                                        {b.end ? ` – ${fmtTime(b.end)}` : ' (ongoing)'}
                                     </strong></span>
                                 </div>
                             ))}
@@ -331,13 +331,13 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                     <div key={i} className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
                                         <div className="flex items-center gap-1.5">
                                             <span className="text-slate-400">Clock In</span>
-                                            <span className="tabular-nums text-rose-500 line-through">{fmtIsoAsLocal(h.old_clock_in)}</span>
+                                            <span className="tabular-nums text-rose-500 line-through">{fmtTime(h.old_clock_in)}</span>
                                             <span className="text-slate-400">→</span>
                                             <span className="tabular-nums font-semibold text-emerald-600">{fmtIsoAsLocal(h.new_clock_in)}</span>
                                         </div>
                                         <div className="flex items-center gap-1.5">
                                             <span className="text-slate-400">Clock Out</span>
-                                            <span className="tabular-nums text-rose-500 line-through">{fmtIsoAsLocal(h.old_clock_out)}</span>
+                                            <span className="tabular-nums text-rose-500 line-through">{fmtTime(h.old_clock_out)}</span>
                                             <span className="text-slate-400">→</span>
                                             <span className="tabular-nums font-semibold text-emerald-600">{fmtIsoAsLocal(h.new_clock_out)}</span>
                                         </div>
