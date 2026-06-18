@@ -151,11 +151,12 @@ class AttendanceCorrectionController extends Controller
         if ($request->action === 'approved') {
             if ($correction->type === 'correction') {
                 $dateStr     = $correction->date->format('Y-m-d');
+                $localTz     = env('APP_LOCAL_TIMEZONE', 'Asia/Manila');
                 $existingLog = TimeLog::where('user_id', $correction->user_id)
                     ->where('date', $dateStr)->first();
 
                 $newClockIn  = $correction->requested_clock_in
-                    ? Carbon::parse($dateStr . ' ' . $correction->requested_clock_in)
+                    ? Carbon::parse($dateStr . ' ' . $correction->requested_clock_in, $localTz)
                     : $existingLog?->clock_in;
 
                 // Detect overnight: clock_out time string is earlier than clock_in time string
@@ -165,7 +166,7 @@ class AttendanceCorrectionController extends Controller
                     : $dateStr;
 
                 $newClockOut = $correction->requested_clock_out
-                    ? Carbon::parse($clockOutDateStr . ' ' . $correction->requested_clock_out)
+                    ? Carbon::parse($clockOutDateStr . ' ' . $correction->requested_clock_out, $localTz)
                     : $existingLog?->clock_out;
 
                 TimeLogHistory::create([
@@ -198,13 +199,14 @@ class AttendanceCorrectionController extends Controller
                 );
             } elseif ($correction->type === 'overtime') {
                 $dateStr = $correction->date->format('Y-m-d');
-                $start   = Carbon::parse($dateStr . ' ' . $correction->requested_clock_in);
+                $localTz = env('APP_LOCAL_TIMEZONE', 'Asia/Manila');
+                $start   = Carbon::parse($dateStr . ' ' . $correction->requested_clock_in, $localTz);
 
                 // Detect overnight: end time string earlier than start time string means next day
                 $endDateStr = ($correction->requested_clock_out < $correction->requested_clock_in)
                     ? Carbon::parse($dateStr)->addDay()->format('Y-m-d')
                     : $dateStr;
-                $end = Carbon::parse($endDateStr . ' ' . $correction->requested_clock_out);
+                $end = Carbon::parse($endDateStr . ' ' . $correction->requested_clock_out, $localTz);
 
                 OvertimeRecord::create([
                     'user_id'       => $correction->user_id,

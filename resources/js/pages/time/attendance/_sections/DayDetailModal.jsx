@@ -271,6 +271,11 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                     {fmtMinutes(day.total_worked_minutes)}
                                 </span>
                             )}
+                            {!correctionApproved && day.status === 'late' && (day.late_minutes ?? 0) > 0 && (
+                                <span className="rounded-full bg-amber-50 px-3 py-1 text-sm font-bold text-amber-600 tabular-nums">
+                                    +{fmtMinutes(day.late_minutes)} Late
+                                </span>
+                            )}
                             {!correctionApproved && day.undertime_minutes > 0 && (
                                 <span className="rounded-full bg-orange-50 px-3 py-1 text-sm font-bold text-orange-600 tabular-nums">
                                     -{fmtMinutes(day.undertime_minutes)} UT
@@ -333,13 +338,13 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                             <span className="text-slate-400">Clock In</span>
                                             <span className="tabular-nums text-rose-500 line-through">{fmtTime(h.old_clock_in)}</span>
                                             <span className="text-slate-400">→</span>
-                                            <span className="tabular-nums font-semibold text-emerald-600">{fmtIsoAsLocal(h.new_clock_in)}</span>
+                                            <span className="tabular-nums font-semibold text-emerald-600">{fmtTime(h.new_clock_in)}</span>
                                         </div>
                                         <div className="flex items-center gap-1.5">
                                             <span className="text-slate-400">Clock Out</span>
                                             <span className="tabular-nums text-rose-500 line-through">{fmtTime(h.old_clock_out)}</span>
                                             <span className="text-slate-400">→</span>
-                                            <span className="tabular-nums font-semibold text-emerald-600">{fmtIsoAsLocal(h.new_clock_out)}</span>
+                                            <span className="tabular-nums font-semibold text-emerald-600">{fmtTime(h.new_clock_out)}</span>
                                         </div>
                                         {h.changed_by && (
                                             <span className="ml-auto text-[10px] text-slate-400">

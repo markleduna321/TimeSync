@@ -83,15 +83,16 @@ function DayCell({ cell, onClick }) {
     const clockOut       = fmtTime(dayData?.clock_out);
     const undertimeMins  = dayData?.undertime_minutes  ?? 0;
     const overBreakMins  = dayData?.over_break_minutes ?? 0;
+    const lateMins       = dayData?.late_minutes       ?? 0;
     const holiday        = dayData?.holiday ?? null;
     const workedOnHoliday = holiday && (status === 'present' || status === 'late');
 
     // Build stacked issue list — suppressed when correction is approved
     const issues = [];
     if (!correctionApproved) {
-        if (status === 'late')    issues.push({ key: 'late', label: 'Late',              cls: 'text-amber-600' });
-        if (undertimeMins > 0)   issues.push({ key: 'ut',   label: `-${undertimeMins}m UT`, cls: 'text-orange-500' });
-        if (overBreakMins > 0)   issues.push({ key: 'ob',   label: `+${overBreakMins}m OB`, cls: 'text-rose-600' });
+        if (status === 'late')    issues.push({ key: 'late', label: `Late +${lateMins}m`,      cls: 'text-amber-600' });
+        if (undertimeMins > 0)   issues.push({ key: 'ut',   label: `-${undertimeMins}m UT`,   cls: 'text-orange-500' });
+        if (overBreakMins > 0)   issues.push({ key: 'ob',   label: `+${overBreakMins}m OB`,   cls: 'text-rose-600' });
     }
 
     return (

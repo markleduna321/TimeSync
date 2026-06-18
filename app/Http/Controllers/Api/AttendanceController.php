@@ -105,6 +105,7 @@ class AttendanceController extends Controller
             $correction       = $corrections["{$dateStr}_correction"] ?? null;
             $overtime         = $corrections["{$dateStr}_overtime"]   ?? null;
             $undertimeMinutes = 0;
+            $lateMinutes      = 0;
             $holiday          = $holidayMap[$dateStr] ?? null;
 
             // Find a leave application that covers this specific date.
@@ -135,8 +136,12 @@ class AttendanceController extends Controller
 
                 // Late: clock-in time is after shift start
                 $status = 'present';
+                $lateMinutes = 0;
                 if ($dayShiftStart && $clockInTime && $clockInTime > $dayShiftStart) {
                     $status = 'late';
+                    [$sh, $sm] = explode(':', $dayShiftStart);
+                    [$ch, $cm] = explode(':', $clockInTime);
+                    $lateMinutes = (((int)$ch * 60) + (int)$cm) - (((int)$sh * 60) + (int)$sm);
                 }
 
                 // Undertime: clock-out time is before shift end
@@ -181,6 +186,7 @@ class AttendanceController extends Controller
                 'lunch_end_time'       => $log?->getRawOriginal('lunch_end')   ? substr($log->getRawOriginal('lunch_end'),   11, 8) : null,
                 'breaks'               => $log?->breaks ?? [],
                 'total_worked_minutes' => $log?->total_worked_minutes,
+                'late_minutes'         => $lateMinutes ?? 0,
                 'undertime_minutes'    => $undertimeMinutes,
                 'over_break_minutes'   => $overBreakMinutes,
                 'correction'           => $correction,
