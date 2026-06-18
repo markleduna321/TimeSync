@@ -49,10 +49,9 @@ function fmtTime(iso) {
 }
 function fmtTimeStr(timeStr) {
     if (!timeStr) return '—';
-    // Backend stores requested_clock_in/out as TIME in UTC. Append 'Z' so
-    // JS treats the literal as UTC, then toLocaleTimeString converts to
-    // the user's local zone (Asia/Manila) — matching ClockWidget.
-    return new Date('1970-01-01T' + timeStr + 'Z').toLocaleTimeString(UI_LOCALE, {
+    // requested_clock_in/out are stored as Manila local time strings (HH:MM:SS).
+    // Parsing without 'Z' keeps the value as-is (no UTC offset applied).
+    return new Date('1970-01-01T' + timeStr).toLocaleTimeString(UI_LOCALE, {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true,
