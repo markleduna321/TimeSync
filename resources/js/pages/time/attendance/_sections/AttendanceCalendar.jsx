@@ -16,7 +16,10 @@ const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function fmtTime(iso) {
     if (!iso) return null;
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    // Extract raw HH:MM from the ISO string to avoid UTC→local timezone shift.
+    const hhmm = typeof iso === 'string' ? iso.substring(11, 16) : null;
+    if (!hhmm) return null;
+    return new Date('1970-01-01T' + hhmm).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
 /**
