@@ -157,6 +157,59 @@ class PayslipComputationService
         return round(($dailyRate / 8.0) * 1.69 * ($minutes / 60.0), 2);
     }
 
+    /**
+     * Night Shift Differential — DOLE Art. 86: +10% of the regular hourly rate
+     * for each hour of work performed between 10:00 PM and 6:00 AM.
+     *
+     * @param float  $dailyRate  Employee's daily rate
+     * @param int    $ndMinutes  Minutes worked within the 22:00–06:00 window
+     */
+    public function computeNightDiffPay(float $dailyRate, int $ndMinutes): float
+    {
+        if ($ndMinutes <= 0) return 0.0;
+        // Premium = 10% of the regular hourly rate per ND hour
+        return round(($dailyRate / 8.0) * 0.10 * ($ndMinutes / 60.0), 2);
+    }
+
+    /**
+     * Calculate the number of minutes a work span falls within the DOLE night
+     * differential window (22:00–06:00). The window crosses midnight, so we check
+     * the [date 22:00, date+1 06:00] interval for each calendar date spanned by
+     * the clock-in/out pair. We start one day before clock-in to catch early-morning
+     * clock-ins (e.g. 02:00) that belong to the previous evening's window.
+     *
+     * @param Carbon $clockIn   Full datetime, any timezone
+     * @param Carbon $clockOut  Full datetime, any timezone
+     * @param string $localTz   Business timezone (e.g. 'Asia/Manila')
+     */
+    public function computeNightDiffMinutes(Carbon $clockIn, Carbon $clockOut, string $localTz): int
+    {
+        if ($clockIn->gte($clockOut)) return 0;
+
+        $in  = $clockIn->copy()->setTimezone($localTz);
+        $out = $clockOut->copy()->setTimezone($localTz);
+
+        $total   = 0;
+        $cursor  = $in->copy()->startOfDay()->subDay();   // start 1 day before to catch early-morning windows
+        $lastDay = $out->copy()->startOfDay();
+
+        while ($cursor->lte($lastDay)) {
+            $ndStart = $cursor->copy()->setTime(22, 0, 0);
+            $ndEnd   = $cursor->copy()->addDay()->setTime(6, 0, 0);
+
+            $overlapStart = max($in->timestamp,  $ndStart->timestamp);
+            $overlapEnd   = min($out->timestamp, $ndEnd->timestamp);
+
+            if ($overlapEnd > $overlapStart) {
+                $total += (int) round(($overlapEnd - $overlapStart) / 60);
+            }
+
+            $cursor->addDay();
+        }
+
+        return $total;
+    }
+
     public function computeHolidayExtra(float $dailyRate, string $holidayType, bool $worked): float
     {
         if ($holidayType === 'regular' && !$worked) return round($dailyRate, 2);
@@ -261,6 +314,7 @@ class PayslipComputationService
         $holidayPayExtra = $overtimePay = 0.0;
         $otMinutes = $restDayMinutes = $restDayOtMinutes = 0;
         $restDayPay = $restDayOtPay = 0.0;
+        $ndMinutes = 0;
 
         foreach (CarbonPeriod::create($periodStart, $periodEnd) as $cursor) {
             $dateStr   = $cursor->toDateString();
@@ -347,14 +401,19 @@ class PayslipComputationService
             $clockInTime  = $clockInRaw  ? Carbon::parse($clockInRaw,  'UTC')->setTimezone($localTz)->format('H:i') : null;
             $clockOutTime = $clockOutRaw ? Carbon::parse($clockOutRaw, 'UTC')->setTimezone($localTz)->format('H:i') : null;
 
-            if ($clockInTime && $clockInTime > $shiftStart) {
-                [$sh, $sm] = explode(':', $shiftStart);
+            // Per-day effective shift overrides (set by admin when approving a correction).
+            // These take precedence over the employee's permanent schedule.
+            $dayShiftStart = $log->effective_shift_start ? substr($log->effective_shift_start, 0, 5) : $shiftStart;
+            $dayShiftEnd   = $log->effective_shift_end   ? substr($log->effective_shift_end,   0, 5) : $shiftEnd;
+
+            if ($clockInTime && $clockInTime > $dayShiftStart) {
+                [$sh, $sm] = explode(':', $dayShiftStart);
                 [$ch, $cm] = explode(':', $clockInTime);
                 $lateMinutes += (((int)$ch * 60) + (int)$cm) - (((int)$sh * 60) + (int)$sm);
             }
 
-            if ($clockOutTime && $clockOutTime < $shiftEnd) {
-                [$sh, $sm] = explode(':', $shiftEnd);
+            if ($clockOutTime && $clockOutTime < $dayShiftEnd) {
+                [$sh, $sm] = explode(':', $dayShiftEnd);
                 [$ch, $cm] = explode(':', $clockOutTime);
                 $undertimeMins += (((int)$sh * 60) + (int)$sm) - (((int)$ch * 60) + (int)$cm);
             }
@@ -363,6 +422,16 @@ class PayslipComputationService
                 $otMins = (int)$log->overtime_minutes;
                 $otMinutes += $otMins;
                 $overtimePay += $this->computeOvertimePay($dailyRate, $otMins, (bool)$holiday);
+            }
+
+            // Night Shift Differential (DOLE Art. 86) — 10% premium for 22:00–06:00 work
+            if ($clockInRaw && $clockOutRaw) {
+                $ndMins = $this->computeNightDiffMinutes(
+                    Carbon::parse($clockInRaw,  'UTC'),
+                    Carbon::parse($clockOutRaw, 'UTC'),
+                    $localTz
+                );
+                $ndMinutes += $ndMins;
             }
 
             // Over break — regular breaks (if enabled) + lunch overrun
@@ -453,6 +522,10 @@ class PayslipComputationService
         }
         if ($restDayOtPay > 0) {
             $earnings[] = ['code' => 'RDOT',        'description' => 'Rest Day OT Pay (RDOT +69%)', 'sort_order' => $sort++, 'amount' => $restDayOtPay, 'is_taxable' => true];
+        }
+        $nightDiffPay = $this->computeNightDiffPay($dailyRate, $ndMinutes);
+        if ($nightDiffPay > 0) {
+            $earnings[] = ['code' => 'NIGHT_DIFF', 'description' => 'Night Shift Differential (10%)', 'sort_order' => $sort++, 'amount' => $nightDiffPay, 'is_taxable' => true];
         }
 
         foreach ($allowances as $ua) {
@@ -599,6 +672,7 @@ class PayslipComputationService
                 'ot_minutes'          => $otMinutes,
                 'rest_day_minutes'    => $restDayMinutes,
                 'rest_day_ot_minutes' => $restDayOtMinutes,
+                'nd_minutes'          => $ndMinutes,
             ],
         ];
     }

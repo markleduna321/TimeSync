@@ -109,15 +109,24 @@ function HistoryPanel({ history }) {
 /* ── Review action cell ───────────────────────────────────────────────── */
 function ReviewActions({ record }) {
     const [adminNote, setAdminNote] = useState('');
+    const [effectiveStart, setEffectiveStart] = useState('');
+    const [effectiveEnd, setEffectiveEnd] = useState('');
     const [reviewCorrection, { isLoading }] = useReviewCorrectionMutation();
 
     async function handleReview(action) {
         try {
-            await reviewCorrection({ id: record.id, action, admin_note: adminNote || undefined }).unwrap();
+            const payload = { id: record.id, action, admin_note: adminNote || undefined };
+            if (record.type === 'correction' && effectiveStart && effectiveEnd) {
+                payload.effective_shift_start = effectiveStart;
+                payload.effective_shift_end   = effectiveEnd;
+            }
+            await reviewCorrection(payload).unwrap();
             const requestLabel = record.type === 'overtime' ? 'Overtime request' : 'Correction request';
             const actionLabel = action === 'approved' ? 'approved' : 'rejected';
             message.success(`${requestLabel} ${actionLabel}.`);
             setAdminNote('');
+            setEffectiveStart('');
+            setEffectiveEnd('');
         } catch (err) {
             const fallback = 'Unable to review request. Please try again.';
             message.error(err?.data?.message || fallback);
@@ -128,6 +137,31 @@ function ReviewActions({ record }) {
 
     return (
         <div className="flex flex-col gap-1.5">
+            {record.type === 'correction' && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-2">
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                        Effective shift for this day (optional)
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                        <input
+                            type="time"
+                            value={effectiveStart}
+                            onChange={(e) => setEffectiveStart(e.target.value)}
+                            className="rounded border border-amber-200 bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                        />
+                        <span className="text-xs text-slate-400">→</span>
+                        <input
+                            type="time"
+                            value={effectiveEnd}
+                            onChange={(e) => setEffectiveEnd(e.target.value)}
+                            className="rounded border border-amber-200 bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                        />
+                    </div>
+                    <p className="mt-1 text-[10px] text-amber-600">
+                        Leave blank to use the employee's regular schedule.
+                    </p>
+                </div>
+            )}
             <input
                 type="text"
                 value={adminNote}

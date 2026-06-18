@@ -17,8 +17,10 @@ class AttendanceCorrectionResource extends JsonResource
             'proof_url'           => $this->proof_path
                 ? route('attendance.corrections.proof', $this->id)
                 : null,
-            'requested_clock_in'  => $this->requested_clock_in,
-            'requested_clock_out' => $this->requested_clock_out,
+            'requested_clock_in'    => $this->requested_clock_in,
+            'requested_clock_out'   => $this->requested_clock_out,
+            'effective_shift_start' => $this->effective_shift_start,
+            'effective_shift_end'   => $this->effective_shift_end,
             'type'                => $this->type,
             'status'              => $this->status,
             'admin_note'          => $this->admin_note,

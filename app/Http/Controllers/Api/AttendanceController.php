@@ -129,16 +129,20 @@ class AttendanceController extends Controller
                 $clockInTime  = $clockInRaw  ? Carbon::parse($clockInRaw,  'UTC')->setTimezone($localTz)->format('H:i') : null;
                 $clockOutTime = $clockOutRaw ? Carbon::parse($clockOutRaw, 'UTC')->setTimezone($localTz)->format('H:i') : null;
 
+                // Per-day effective shift overrides (set by admin when approving a correction).
+                $dayShiftStart = $log->effective_shift_start ? substr($log->effective_shift_start, 0, 5) : $shiftStart;
+                $dayShiftEnd   = $log->effective_shift_end   ? substr($log->effective_shift_end,   0, 5) : $shiftEnd;
+
                 // Late: clock-in time is after shift start
                 $status = 'present';
-                if ($shiftStart && $clockInTime && $clockInTime > $shiftStart) {
+                if ($dayShiftStart && $clockInTime && $clockInTime > $dayShiftStart) {
                     $status = 'late';
                 }
 
                 // Undertime: clock-out time is before shift end
                 $undertimeMinutes = 0;
-                if ($shiftEnd && $clockOutTime && $clockOutTime < $shiftEnd) {
-                    [$sh, $sm] = explode(':', $shiftEnd);
+                if ($dayShiftEnd && $clockOutTime && $clockOutTime < $dayShiftEnd) {
+                    [$sh, $sm] = explode(':', $dayShiftEnd);
                     [$ch, $cm] = explode(':', $clockOutTime);
                     $undertimeMinutes = (((int)$sh * 60) + (int)$sm) - (((int)$ch * 60) + (int)$cm);
                 }

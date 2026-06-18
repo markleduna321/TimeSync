@@ -37,6 +37,7 @@ class PayslipResource extends JsonResource
             'ot_minutes'          => $this->ot_minutes,
             'rest_day_minutes'    => $this->rest_day_minutes,
             'rest_day_ot_minutes' => $this->rest_day_ot_minutes,
+            'nd_minutes'          => $this->nd_minutes,
             'status'            => $this->status,
             'cutoff_type'       => $this->cutoff_type,
             'method'            => $this->method ?? 'days_worked',

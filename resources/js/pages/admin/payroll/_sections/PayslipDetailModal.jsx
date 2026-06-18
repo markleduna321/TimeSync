@@ -98,6 +98,12 @@ export default function PayslipDetailModal({ open, onClose, payslipId }) {
                                     <p className="font-medium text-orange-600 mt-0.5">{p.undertime_minutes} min</p>
                                 </div>
                             )}
+                            {p.nd_minutes > 0 && (
+                                <div>
+                                    <p className="text-xs text-slate-400 uppercase tracking-wide">Night Diff</p>
+                                    <p className="font-medium text-blue-600 mt-0.5">{p.nd_minutes} min</p>
+                                </div>
+                            )}
                         </div>
                     )}
 

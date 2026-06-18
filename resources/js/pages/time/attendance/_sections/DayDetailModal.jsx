@@ -159,10 +159,13 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
 
     async function handleSubmit() {
         setErrors({});
+        const isOvernight = !!(form.requestedIn && form.requestedOut && form.requestedOut <= form.requestedIn);
+
         const fd = new FormData();
-        fd.append('date',   day.date);
-        fd.append('type',   formType);
-        fd.append('reason', form.reason);
+        fd.append('date',         day.date);
+        fd.append('type',         formType);
+        fd.append('reason',       form.reason);
+        fd.append('is_overnight', isOvernight ? '1' : '0');
         if (file) fd.append('proof', file);
         if (form.requestedIn)  fd.append('requested_clock_in',  form.requestedIn);
         if (form.requestedOut) fd.append('requested_clock_out', form.requestedOut);
@@ -295,6 +298,12 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                 {correction.admin_note && (
                                     <p className="mt-1.5 text-xs opacity-75">
                                         <strong>Admin note:</strong> {correction.admin_note}
+                                    </p>
+                                )}
+                                {(correction.effective_shift_start && correction.effective_shift_end) && (
+                                    <p className="mt-1 text-xs opacity-75">
+                                        <strong>Effective shift:</strong>{' '}
+                                        {correction.effective_shift_start} – {correction.effective_shift_end}
                                     </p>
                                 )}
                                 {correction.created_at && (
@@ -525,8 +534,13 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                 {errors.requestedIn && <p className="mt-1 text-xs text-rose-600">{errors.requestedIn}</p>}
                             </div>
                             <div>
-                                <label className="mb-1 block text-xs font-medium text-slate-600">
+                                <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-600">
                                     {formType === 'overtime' ? <>Overtime End <span className="text-rose-500">*</span></> : 'Requested Clock Out'}
+                                    {form.requestedIn && form.requestedOut && form.requestedOut <= form.requestedIn && (
+                                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                                            next day
+                                        </span>
+                                    )}
                                 </label>
                                 <input
                                     type="time"

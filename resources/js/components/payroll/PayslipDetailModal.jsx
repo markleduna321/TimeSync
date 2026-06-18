@@ -268,6 +268,7 @@ export default function PayslipDetailModal({ open, onClose, payslipId }) {
                                         <AttRow label="Overtime"       value={fmtMinutes(p.ot_minutes)}          cls="text-indigo-600" />
                                         <AttRow label="Rest Day Work"  value={fmtMinutes(p.rest_day_minutes)}    cls="text-violet-600" />
                                         <AttRow label="Rest Day OT"    value={fmtMinutes(p.rest_day_ot_minutes)} cls="text-violet-600" />
+                                        <AttRow label="Night Diff"     value={fmtMinutes(p.nd_minutes)}          cls="text-blue-600" />
                                     </div>
                                 </div>
                                 )}

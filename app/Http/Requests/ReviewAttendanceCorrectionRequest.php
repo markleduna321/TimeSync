@@ -14,8 +14,13 @@ class ReviewAttendanceCorrectionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'action'     => ['required', 'in:approved,rejected'],
-            'admin_note' => ['nullable', 'string', 'max:500'],
+            'action'               => ['required', 'in:approved,rejected'],
+            'admin_note'           => ['nullable', 'string', 'max:500'],
+            // Optional temporary shift override for corrections.
+            // If both are provided, late/undertime will be evaluated against
+            // these times instead of the employee's permanent schedule.
+            'effective_shift_start' => ['nullable', 'regex:/^\d{2}:\d{2}$/'],
+            'effective_shift_end'   => ['nullable', 'regex:/^\d{2}:\d{2}$/'],
         ];
     }
 }

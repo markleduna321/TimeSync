@@ -19,6 +19,8 @@ class AttendanceCorrection extends Model
         'proof_path',
         'requested_clock_in',
         'requested_clock_out',
+        'effective_shift_start',
+        'effective_shift_end',
         'status',
         'reviewed_by',
         'reviewed_at',

@@ -140,10 +140,12 @@ class AttendanceCorrectionController extends Controller
         }
 
         $correction->update([
-            'status'      => $request->action,
-            'reviewed_by' => auth()->id(),
-            'reviewed_at' => now(),
-            'admin_note'  => $request->admin_note,
+            'status'                => $request->action,
+            'reviewed_by'           => auth()->id(),
+            'reviewed_at'           => now(),
+            'admin_note'            => $request->admin_note,
+            'effective_shift_start' => $request->effective_shift_start ?: null,
+            'effective_shift_end'   => $request->effective_shift_end   ?: null,
         ]);
 
         if ($request->action === 'approved') {
@@ -155,8 +157,15 @@ class AttendanceCorrectionController extends Controller
                 $newClockIn  = $correction->requested_clock_in
                     ? Carbon::parse($dateStr . ' ' . $correction->requested_clock_in)
                     : $existingLog?->clock_in;
+
+                // Detect overnight: clock_out time string is earlier than clock_in time string
+                $clockOutDateStr = ($correction->requested_clock_out && $correction->requested_clock_in
+                    && $correction->requested_clock_out < $correction->requested_clock_in)
+                    ? Carbon::parse($dateStr)->addDay()->format('Y-m-d')
+                    : $dateStr;
+
                 $newClockOut = $correction->requested_clock_out
-                    ? Carbon::parse($dateStr . ' ' . $correction->requested_clock_out)
+                    ? Carbon::parse($clockOutDateStr . ' ' . $correction->requested_clock_out)
                     : $existingLog?->clock_out;
 
                 TimeLogHistory::create([
@@ -178,17 +187,28 @@ class AttendanceCorrectionController extends Controller
                 if ($correction->requested_clock_out) {
                     $fields['clock_out'] = $newClockOut;
                 }
+                // Copy any admin-set effective shift override so that late/undertime
+                // is re-evaluated against the temporary schedule, not the permanent one.
+                $fields['effective_shift_start'] = $correction->effective_shift_start;
+                $fields['effective_shift_end']   = $correction->effective_shift_end;
+
                 TimeLog::updateOrCreate(
                     ['user_id' => $correction->user_id, 'date' => $dateStr],
                     $fields
                 );
             } elseif ($correction->type === 'overtime') {
-                $start = Carbon::parse($correction->requested_clock_in);
-                $end   = Carbon::parse($correction->requested_clock_out);
+                $dateStr = $correction->date->format('Y-m-d');
+                $start   = Carbon::parse($dateStr . ' ' . $correction->requested_clock_in);
+
+                // Detect overnight: end time string earlier than start time string means next day
+                $endDateStr = ($correction->requested_clock_out < $correction->requested_clock_in)
+                    ? Carbon::parse($dateStr)->addDay()->format('Y-m-d')
+                    : $dateStr;
+                $end = Carbon::parse($endDateStr . ' ' . $correction->requested_clock_out);
 
                 OvertimeRecord::create([
                     'user_id'       => $correction->user_id,
-                    'date'          => $correction->date->format('Y-m-d'),
+                    'date'          => $dateStr,
                     'start_time'    => $correction->requested_clock_in,
                     'end_time'      => $correction->requested_clock_out,
                     'total_minutes' => (int) $start->diffInMinutes($end),

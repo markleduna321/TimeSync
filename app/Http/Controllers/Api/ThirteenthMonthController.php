@@ -103,6 +103,7 @@ class ThirteenthMonthController extends Controller
                 'ot_minutes'          => 0,
                 'rest_day_minutes'    => 0,
                 'rest_day_ot_minutes' => 0,
+                'nd_minutes'          => 0,
                 'taxable_income'      => $taxable,
                 'status'              => 'draft',
                 'cutoff_type'         => '13th_month',
