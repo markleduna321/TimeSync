@@ -248,9 +248,12 @@ class PayslipComputationService
             // Clock-in in evening sector (≥ shiftStart) — normal late
             return max(0, $ci - $ss);
         }
-        // Clock-in in early-morning sector (< shiftEnd or between shiftEnd and shiftStart)
-        // Both cases: late by the wrap-around distance
-        return (1440 - $ss) + $ci;
+        if ($ci < $se) {
+            // Clock-in in early-morning sector (< shiftEnd) — late by wrap-around distance
+            return (1440 - $ss) + $ci;
+        }
+        // Dead zone: shiftEnd ≤ ci < shiftStart — employee arrived early before their night shift
+        return 0;
     }
 
     /**

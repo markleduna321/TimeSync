@@ -97,7 +97,8 @@ class AttendanceController extends Controller
             $ciM = $toMins($ci); $ssM = $toMins($ss); $seM = $toMins($se);
             if ($seM >= $ssM) return max(0, $ciM - $ssM);          // day shift
             if ($ciM >= $ssM) return max(0, $ciM - $ssM);          // overnight: evening sector
-            return (1440 - $ssM) + $ciM;                           // overnight: early-morning sector
+            if ($ciM < $seM)  return (1440 - $ssM) + $ciM;         // overnight: early-morning sector
+            return 0;                                               // dead zone: arrived early, no late
         };
 
         $calcUT = function(string $co, string $ss, string $se) use ($toMins): int {
