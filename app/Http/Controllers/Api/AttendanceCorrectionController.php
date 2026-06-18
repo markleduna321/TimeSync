@@ -156,7 +156,7 @@ class AttendanceCorrectionController extends Controller
                     ->where('date', $dateStr)->first();
 
                 $newClockIn  = $correction->requested_clock_in
-                    ? Carbon::parse($dateStr . ' ' . $correction->requested_clock_in, $localTz)
+                    ? Carbon::parse($dateStr . ' ' . $correction->requested_clock_in, $localTz)->utc()
                     : $existingLog?->clock_in;
 
                 // Detect overnight: clock_out time string is earlier than clock_in time string
@@ -166,20 +166,8 @@ class AttendanceCorrectionController extends Controller
                     : $dateStr;
 
                 $newClockOut = $correction->requested_clock_out
-                    ? Carbon::parse($clockOutDateStr . ' ' . $correction->requested_clock_out, $localTz)
+                    ? Carbon::parse($clockOutDateStr . ' ' . $correction->requested_clock_out, $localTz)->utc()
                     : $existingLog?->clock_out;
-
-                TimeLogHistory::create([
-                    'user_id'       => $correction->user_id,
-                    'date'          => $dateStr,
-                    'time_log_id'   => $existingLog?->id,
-                    'old_clock_in'  => $existingLog?->clock_in,
-                    'old_clock_out' => $existingLog?->clock_out,
-                    'new_clock_in'  => $newClockIn,
-                    'new_clock_out' => $newClockOut,
-                    'correction_id' => $correction->id,
-                    'changed_by'    => auth()->id(),
-                ]);
 
                 $fields = ['status' => 'clocked_out'];
                 if ($correction->requested_clock_in) {
@@ -193,10 +181,23 @@ class AttendanceCorrectionController extends Controller
                 $fields['effective_shift_start'] = $correction->effective_shift_start;
                 $fields['effective_shift_end']   = $correction->effective_shift_end;
 
-                TimeLog::updateOrCreate(
+                // Upsert the time_log FIRST so we always have a real ID for the history row.
+                $timeLog = TimeLog::updateOrCreate(
                     ['user_id' => $correction->user_id, 'date' => $dateStr],
                     $fields
                 );
+
+                TimeLogHistory::create([
+                    'user_id'       => $correction->user_id,
+                    'date'          => $dateStr,
+                    'time_log_id'   => $timeLog->id,
+                    'old_clock_in'  => $existingLog?->clock_in,
+                    'old_clock_out' => $existingLog?->clock_out,
+                    'new_clock_in'  => $newClockIn,
+                    'new_clock_out' => $newClockOut,
+                    'correction_id' => $correction->id,
+                    'changed_by'    => auth()->id(),
+                ]);
             } elseif ($correction->type === 'overtime') {
                 $dateStr = $correction->date->format('Y-m-d');
                 $localTz = env('APP_LOCAL_TIMEZONE', 'Asia/Manila');
@@ -224,7 +225,7 @@ class AttendanceCorrectionController extends Controller
         // Notify the original filer of the decision.
         $correction->user->notify(new CorrectionReviewedNotification($correction, auth()->user()->name));
 
-        return new AttendanceCorrectionResource($correction->fresh()->load(['user', 'reviewer']));
+        return new AttendanceCorrectionResource($correction->fresh()->load(['user', 'reviewer', 'history.changedBy']));
     }
 
     /**

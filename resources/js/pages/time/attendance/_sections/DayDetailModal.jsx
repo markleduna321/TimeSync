@@ -38,14 +38,6 @@ function fmtLocalTime(timeStr) {
     });
 }
 
-// Display ISO datetimes (stored as UTC) as if they were local-time values.
-// Needed because corrections store HH:MM as UTC (no tz conversion on write),
-// so we extract the raw HH:MM portion and render it directly.
-function fmtIsoAsLocal(iso) {
-    if (!iso) return '—';
-    return fmtLocalTime(iso.substring(11, 16));
-}
-
 function fmtDate(dateStr) {
     if (!dateStr) return '';
     return new Date(dateStr + 'T00:00:00').toLocaleDateString([], {
