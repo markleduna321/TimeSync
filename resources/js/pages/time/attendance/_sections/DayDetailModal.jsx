@@ -244,23 +244,23 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                 </span>
                             )}
                             <div className="flex gap-4 text-xs text-slate-500">
-                                <span>In: <strong className="text-slate-700">{fmtTime(day.clock_in)}</strong></span>
-                                <span>Out: <strong className="text-slate-700">{fmtTime(day.clock_out)}</strong></span>
+                                <span>In: <strong className="text-slate-700">{fmtIsoAsLocal(day.clock_in)}</strong></span>
+                                <span>Out: <strong className="text-slate-700">{fmtIsoAsLocal(day.clock_out)}</strong></span>
                             </div>
                             {(day.lunch_start || day.lunch_start_time) && (
                                 <div className="flex gap-4 text-xs text-slate-500">
                                     <span>Lunch: <strong className="text-slate-700">
-                                        {fmtTime(day.lunch_start)}
+                                        {fmtIsoAsLocal(day.lunch_start)}
                                         {' – '}
-                                        {day.lunch_end ? fmtTime(day.lunch_end) : '—'}
+                                        {day.lunch_end ? fmtIsoAsLocal(day.lunch_end) : '—'}
                                     </strong></span>
                                 </div>
                             )}
                             {day.breaks?.filter((b) => b.start).map((b, i) => (
                                 <div key={i} className="flex gap-4 text-xs text-slate-500">
                                     <span>Break {i + 1}: <strong className="text-slate-700">
-                                        {fmtTime(b.start)}
-                                        {b.end ? ` – ${fmtTime(b.end)}` : ' (ongoing)'}
+                                        {fmtIsoAsLocal(b.start)}
+                                        {b.end ? ` – ${fmtIsoAsLocal(b.end)}` : ' (ongoing)'}
                                     </strong></span>
                                 </div>
                             ))}
