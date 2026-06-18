@@ -90,6 +90,24 @@ class AttendanceController extends Controller
             : 0;
         $allowedLunchMins = $breakConfig ? $breakConfig->lunch_duration_minutes : 60;
 
+        // Overnight-safe late/undertime helpers (mirrors PayslipComputationService logic).
+        $toMins = fn(string $hhmm): int => (int)explode(':', $hhmm)[0] * 60 + (int)explode(':', $hhmm)[1];
+
+        $calcLate = function(string $ci, string $ss, string $se) use ($toMins): int {
+            $ciM = $toMins($ci); $ssM = $toMins($ss); $seM = $toMins($se);
+            if ($seM >= $ssM) return max(0, $ciM - $ssM);          // day shift
+            if ($ciM >= $ssM) return max(0, $ciM - $ssM);          // overnight: evening sector
+            return (1440 - $ssM) + $ciM;                           // overnight: early-morning sector
+        };
+
+        $calcUT = function(string $co, string $ss, string $se) use ($toMins): int {
+            $coM = $toMins($co); $ssM = $toMins($ss); $seM = $toMins($se);
+            if ($seM >= $ssM) return max(0, $seM - $coM);          // day shift
+            if ($coM < $seM)  return $seM - $coM;                  // overnight: early-morning, before shiftEnd
+            if ($coM >= $ssM) return (1440 + $seM) - $coM;         // overnight: evening, before midnight
+            return 0;                                               // after shiftEnd, before shiftStart = no UT
+        };
+
         $days = [];
         $cursor = $start->copy();
 
@@ -134,22 +152,18 @@ class AttendanceController extends Controller
                 $dayShiftStart = $log->effective_shift_start ? substr($log->effective_shift_start, 0, 5) : $shiftStart;
                 $dayShiftEnd   = $log->effective_shift_end   ? substr($log->effective_shift_end,   0, 5) : $shiftEnd;
 
-                // Late: clock-in time is after shift start
+                // Late / undertime — use modular helpers to handle overnight shifts correctly.
                 $status = 'present';
                 $lateMinutes = 0;
-                if ($dayShiftStart && $clockInTime && $clockInTime > $dayShiftStart) {
-                    $status = 'late';
-                    [$sh, $sm] = explode(':', $dayShiftStart);
-                    [$ch, $cm] = explode(':', $clockInTime);
-                    $lateMinutes = (((int)$ch * 60) + (int)$cm) - (((int)$sh * 60) + (int)$sm);
+                if ($dayShiftStart && $clockInTime) {
+                    $lateMinutes = $calcLate($clockInTime, $dayShiftStart, $dayShiftEnd ?? '17:00');
+                    if ($lateMinutes > 0) $status = 'late';
                 }
 
                 // Undertime: clock-out time is before shift end
                 $undertimeMinutes = 0;
-                if ($dayShiftEnd && $clockOutTime && $clockOutTime < $dayShiftEnd) {
-                    [$sh, $sm] = explode(':', $dayShiftEnd);
-                    [$ch, $cm] = explode(':', $clockOutTime);
-                    $undertimeMinutes = (((int)$sh * 60) + (int)$sm) - (((int)$ch * 60) + (int)$cm);
+                if ($dayShiftEnd && $clockOutTime) {
+                    $undertimeMinutes = $calcUT($clockOutTime, $dayShiftStart ?? '08:00', $dayShiftEnd);
                 }
             }
 

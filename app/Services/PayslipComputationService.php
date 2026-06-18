@@ -161,13 +161,15 @@ class PayslipComputationService
      * Night Shift Differential — DOLE Art. 86: +10% of the regular hourly rate
      * for each hour of work performed between 10:00 PM and 6:00 AM.
      *
+     * BIR ruling: NSD premium is part of gross compensation and IS taxable.
+     *
      * @param float  $dailyRate  Employee's daily rate
-     * @param int    $ndMinutes  Minutes worked within the 22:00–06:00 window
+     * @param int    $ndMinutes  Minutes worked within the 22:00–06:00 window (excluding breaks/lunch)
      */
     public function computeNightDiffPay(float $dailyRate, int $ndMinutes): float
     {
         if ($ndMinutes <= 0) return 0.0;
-        // Premium = 10% of the regular hourly rate per ND hour
+        // Premium = 10% of the regular hourly rate per ND hour (taxable, per BIR)
         return round(($dailyRate / 8.0) * 0.10 * ($ndMinutes / 60.0), 2);
     }
 
@@ -178,11 +180,12 @@ class PayslipComputationService
      * the clock-in/out pair. We start one day before clock-in to catch early-morning
      * clock-ins (e.g. 02:00) that belong to the previous evening's window.
      *
-     * @param Carbon $clockIn   Full datetime, any timezone
-     * @param Carbon $clockOut  Full datetime, any timezone
-     * @param string $localTz   Business timezone (e.g. 'Asia/Manila')
+     * @param Carbon   $clockIn    Full datetime, any timezone
+     * @param Carbon   $clockOut   Full datetime, any timezone
+     * @param string   $localTz    Business timezone (e.g. 'Asia/Manila')
+     * @param array    $exclusions Array of [Carbon $start, Carbon $end] pairs (lunch, breaks) to exclude
      */
-    public function computeNightDiffMinutes(Carbon $clockIn, Carbon $clockOut, string $localTz): int
+    public function computeNightDiffMinutes(Carbon $clockIn, Carbon $clockOut, string $localTz, array $exclusions = []): int
     {
         if ($clockIn->gte($clockOut)) return 0;
 
@@ -207,9 +210,84 @@ class PayslipComputationService
             $cursor->addDay();
         }
 
-        return $total;
+        // Subtract any lunch/break time that fell within the ND window
+        foreach ($exclusions as [$exStart, $exEnd]) {
+            if (!$exStart || !$exEnd) continue;
+            $total -= $this->computeNightDiffMinutes($exStart, $exEnd, $localTz); // no exclusions = no recursion
+        }
+
+        return max(0, $total);
     }
 
+    // ─── Overtime-aware late/undertime helpers ────────────────────────────────
+    // Simple HH:MM → minutes-since-midnight conversion.
+    private function toMins(string $hhmm): int
+    {
+        [$h, $m] = explode(':', $hhmm);
+        return (int)$h * 60 + (int)$m;
+    }
+
+    /**
+     * Minutes late for a given clock-in time against a shift start/end.
+     * Handles both regular (08:00–17:00) and overnight (22:00–06:00) shifts
+     * by using modular 1440-minute arithmetic instead of HH:MM string comparison.
+     */
+    private function calcLateMinutes(string $ciTime, string $shiftStart, string $shiftEnd): int
+    {
+        $ci = $this->toMins($ciTime);
+        $ss = $this->toMins($shiftStart);
+        $se = $this->toMins($shiftEnd);
+
+        if ($se >= $ss) {
+            // Day shift — straight comparison
+            return max(0, $ci - $ss);
+        }
+
+        // Overnight shift (se < ss): shift crosses midnight
+        if ($ci >= $ss) {
+            // Clock-in in evening sector (≥ shiftStart) — normal late
+            return max(0, $ci - $ss);
+        }
+        // Clock-in in early-morning sector (< shiftEnd or between shiftEnd and shiftStart)
+        // Both cases: late by the wrap-around distance
+        return (1440 - $ss) + $ci;
+    }
+
+    /**
+     * Minutes undertime for a given clock-out time against a shift start/end.
+     * Handles both regular and overnight shifts.
+     */
+    private function calcUndertimeMinutes(string $coTime, string $shiftStart, string $shiftEnd): int
+    {
+        $co = $this->toMins($coTime);
+        $ss = $this->toMins($shiftStart);
+        $se = $this->toMins($shiftEnd);
+
+        if ($se >= $ss) {
+            // Day shift — straight comparison
+            return max(0, $se - $co);
+        }
+
+        // Overnight shift (se < ss)
+        if ($co < $se) {
+            // Clock-out in early-morning sector (< shiftEnd) — normal undertime
+            return $se - $co;
+        }
+        if ($co >= $ss) {
+            // Clock-out still in evening sector (≥ shiftStart) — left before midnight
+            return (1440 + $se) - $co;
+        }
+        // Clock-out between shiftEnd and shiftStart (after end of shift) — no undertime
+        return 0;
+    }
+
+    /**
+     * Returns only the PREMIUM portion of holiday pay (not the base daily wage).
+     * The caller is responsible for the base daily rate already included via daysWorked.
+     * Regular holiday not worked  → +1× daily rate (Art. 94: paid even if absent)
+     * Regular holiday worked      → +1× daily rate (total = 200%, base already counted)
+     * Special non-working worked  → +30% of daily rate
+     */
     public function computeHolidayExtra(float $dailyRate, string $holidayType, bool $worked): float
     {
         if ($holidayType === 'regular' && !$worked) return round($dailyRate, 2);
@@ -244,6 +322,12 @@ class PayslipComputationService
         $shiftEnd    = substr($schedule?->shift_end   ?? '17:00', 0, 5);
         $localTz     = env('APP_LOCAL_TIMEZONE', 'Asia/Manila');
         $daysPerWeek = count($workDays);
+        if ($daysPerWeek === 0) {
+            // Fallback: employee has no schedule configured. Log and default to 5-day week
+            // so the payslip is generated rather than silently producing ₱0 basic pay.
+            \Log::warning("PayslipComputation: Employee [{$employee->name}] has no work_days configured; defaulting to 5 days/week.");
+            $daysPerWeek = 5;
+        }
         $dailyRate   = $this->computeDailyRate($monthlySalary, $daysPerWeek);
 
         // Break config for over-break deduction
@@ -406,16 +490,14 @@ class PayslipComputationService
             $dayShiftStart = $log->effective_shift_start ? substr($log->effective_shift_start, 0, 5) : $shiftStart;
             $dayShiftEnd   = $log->effective_shift_end   ? substr($log->effective_shift_end,   0, 5) : $shiftEnd;
 
-            if ($clockInTime && $clockInTime > $dayShiftStart) {
-                [$sh, $sm] = explode(':', $dayShiftStart);
-                [$ch, $cm] = explode(':', $clockInTime);
-                $lateMinutes += (((int)$ch * 60) + (int)$cm) - (((int)$sh * 60) + (int)$sm);
+            // Late / undertime — use modular helpers to handle overnight shifts correctly.
+            if ($clockInTime) {
+                $late = $this->calcLateMinutes($clockInTime, $dayShiftStart, $dayShiftEnd);
+                $lateMinutes += $late;
             }
-
-            if ($clockOutTime && $clockOutTime < $dayShiftEnd) {
-                [$sh, $sm] = explode(':', $dayShiftEnd);
-                [$ch, $cm] = explode(':', $clockOutTime);
-                $undertimeMins += (((int)$sh * 60) + (int)$sm) - (((int)$ch * 60) + (int)$cm);
+            if ($clockOutTime) {
+                $ut = $this->calcUndertimeMinutes($clockOutTime, $dayShiftStart, $dayShiftEnd);
+                $undertimeMins += $ut;
             }
 
             if ($log->overtime_minutes ?? 0) {
@@ -424,12 +506,26 @@ class PayslipComputationService
                 $overtimePay += $this->computeOvertimePay($dailyRate, $otMins, (bool)$holiday);
             }
 
-            // Night Shift Differential (DOLE Art. 86) — 10% premium for 22:00–06:00 work
+            // Night Shift Differential (DOLE Art. 86) — 10% premium for 22:00–06:00 work.
+            // Lunch and break time within the ND window are excluded (not compensable ND).
             if ($clockInRaw && $clockOutRaw) {
+                $ndExclusions = [];
+                if ($log->lunch_start && $log->lunch_end) {
+                    $ndExclusions[] = [
+                        Carbon::parse($log->getRawOriginal('lunch_start'), 'UTC'),
+                        Carbon::parse($log->getRawOriginal('lunch_end'),   'UTC'),
+                    ];
+                }
+                foreach ($log->breaks ?? [] as $b) {
+                    if (!empty($b['start']) && !empty($b['end'])) {
+                        $ndExclusions[] = [Carbon::parse($b['start']), Carbon::parse($b['end'])];
+                    }
+                }
                 $ndMins = $this->computeNightDiffMinutes(
                     Carbon::parse($clockInRaw,  'UTC'),
                     Carbon::parse($clockOutRaw, 'UTC'),
-                    $localTz
+                    $localTz,
+                    $ndExclusions
                 );
                 $ndMinutes += $ndMins;
             }
