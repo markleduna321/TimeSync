@@ -38,6 +38,14 @@ function fmtLocalTime(timeStr) {
     });
 }
 
+// Display ISO datetimes (stored as UTC) as if they were local-time values.
+// Needed because corrections store HH:MM as UTC (no tz conversion on write),
+// so we extract the raw HH:MM portion and render it directly.
+function fmtIsoAsLocal(iso) {
+    if (!iso) return '—';
+    return fmtLocalTime(iso.substring(11, 16));
+}
+
 function fmtDate(dateStr) {
     if (!dateStr) return '';
     return new Date(dateStr + 'T00:00:00').toLocaleDateString([], {
@@ -323,15 +331,15 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                     <div key={i} className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
                                         <div className="flex items-center gap-1.5">
                                             <span className="text-slate-400">Clock In</span>
-                                            <span className="tabular-nums text-rose-500 line-through">{fmtTime(h.old_clock_in)}</span>
+                                            <span className="tabular-nums text-rose-500 line-through">{fmtIsoAsLocal(h.old_clock_in)}</span>
                                             <span className="text-slate-400">→</span>
-                                            <span className="tabular-nums font-semibold text-emerald-600">{fmtTime(h.new_clock_in)}</span>
+                                            <span className="tabular-nums font-semibold text-emerald-600">{fmtIsoAsLocal(h.new_clock_in)}</span>
                                         </div>
                                         <div className="flex items-center gap-1.5">
                                             <span className="text-slate-400">Clock Out</span>
-                                            <span className="tabular-nums text-rose-500 line-through">{fmtTime(h.old_clock_out)}</span>
+                                            <span className="tabular-nums text-rose-500 line-through">{fmtIsoAsLocal(h.old_clock_out)}</span>
                                             <span className="text-slate-400">→</span>
-                                            <span className="tabular-nums font-semibold text-emerald-600">{fmtTime(h.new_clock_out)}</span>
+                                            <span className="tabular-nums font-semibold text-emerald-600">{fmtIsoAsLocal(h.new_clock_out)}</span>
                                         </div>
                                         {h.changed_by && (
                                             <span className="ml-auto text-[10px] text-slate-400">
