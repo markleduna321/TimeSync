@@ -425,11 +425,11 @@ class PayslipComputationService
                     }
                 } elseif ($log && ($log->overtime_minutes ?? 0) > 0) {
                     // Rest day OT filed via correction request (no clock-in, only overtime_minutes set).
-                    // Counts as standard OT pay, not rest-day pay, since there is no clock record
-                    // to determine how many hours were regular vs. overtime.
-                    $otMins        = (int)$log->overtime_minutes;
-                    $otMinutes    += $otMins;
-                    $overtimePay  += $this->computeOvertimePay($dailyRate, $otMins);
+                    // Treat as RDOT (1.69× rate) since the correction was explicitly filed as
+                    // overtime on a rest day (DOLE Art. 93).
+                    $otMins            = (int)$log->overtime_minutes;
+                    $restDayOtMinutes += $otMins;
+                    $restDayOtPay     += $this->computeRestDayOtPay($dailyRate, $otMins);
                 }
                 continue;
             }
