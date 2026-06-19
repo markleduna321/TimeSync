@@ -67,6 +67,10 @@ check('22:30 late (30 min)',         $calcLate->invoke($svc, '22:30', '22:00', '
 // (1440 - 1320) + 30 = 150
 check('00:30 late overnight (150)',  $calcLate->invoke($svc, '00:30', '22:00', '06:00'), 150);
 check('05:45 late overnight (465)',  $calcLate->invoke($svc, '05:45', '22:00', '06:00'), 465);
+// Dead zone for 22:00–06:00: times between 06:00 and 22:00 are early arrivals, no late
+check('07:00 dead zone (0 late)',    $calcLate->invoke($svc, '07:00', '22:00', '06:00'), 0);
+check('14:00 dead zone (0 late)',    $calcLate->invoke($svc, '14:00', '22:00', '06:00'), 0);
+check('21:59 dead zone (0 late)',    $calcLate->invoke($svc, '21:59', '22:00', '06:00'), 0);
 
 echo "\n=== calcUndertimeMinutes (overnight 22:00–06:00) ===\n";
 check('06:00 on time',                    $calcUT->invoke($svc, '06:00', '22:00', '06:00'), 0);

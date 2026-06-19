@@ -209,16 +209,29 @@ class AttendanceCorrectionController extends Controller
                     : $dateStr;
                 $end = Carbon::parse($endDateStr . ' ' . $correction->requested_clock_out, $localTz);
 
+                $otMinutesToAdd = (int) $start->diffInMinutes($end);
+
                 OvertimeRecord::create([
                     'user_id'       => $correction->user_id,
                     'date'          => $dateStr,
                     'start_time'    => $correction->requested_clock_in,
                     'end_time'      => $correction->requested_clock_out,
-                    'total_minutes' => (int) $start->diffInMinutes($end),
+                    'total_minutes' => $otMinutesToAdd,
                     'correction_id' => $correction->id,
                     'approved_by'   => auth()->id(),
                     'approved_at'   => now(),
                 ]);
+
+                // Write OT minutes back to time_logs so PayslipComputationService
+                // can find them. Accumulates if multiple OT corrections exist for
+                // the same date. Creates a minimal log row for rest-day OT requests
+                // where no clock-in exists.
+                $existingOtLog = TimeLog::where('user_id', $correction->user_id)
+                    ->where('date', $dateStr)->first();
+                TimeLog::updateOrCreate(
+                    ['user_id' => $correction->user_id, 'date' => $dateStr],
+                    ['overtime_minutes' => ($existingOtLog?->overtime_minutes ?? 0) + $otMinutesToAdd]
+                );
             }
         }
 

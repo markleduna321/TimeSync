@@ -412,7 +412,7 @@ class PayslipComputationService
             $worked  = $log && $log->clock_in;
 
             if (!$isWorkDay && !$holiday) {
-                // Pure rest day — track if employee actually worked
+                // Pure rest day — track if employee actually worked (clock-in based)
                 if ($worked) {
                     $workedMins = (int)($log->total_worked_minutes ?? 0);
                     if ($workedMins > 0) {
@@ -423,6 +423,13 @@ class PayslipComputationService
                         $restDayPay    += $this->computeRestDayPay($dailyRate, $rdRegular);
                         $restDayOtPay  += $this->computeRestDayOtPay($dailyRate, $rdOt);
                     }
+                } elseif ($log && ($log->overtime_minutes ?? 0) > 0) {
+                    // Rest day OT filed via correction request (no clock-in, only overtime_minutes set).
+                    // Counts as standard OT pay, not rest-day pay, since there is no clock record
+                    // to determine how many hours were regular vs. overtime.
+                    $otMins        = (int)$log->overtime_minutes;
+                    $otMinutes    += $otMins;
+                    $overtimePay  += $this->computeOvertimePay($dailyRate, $otMins);
                 }
                 continue;
             }
