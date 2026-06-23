@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\DeleteAttendanceCorrectionRequest;
 use App\Http\Requests\ReviewAttendanceCorrectionRequest;
 use App\Http\Requests\StoreAttendanceCorrectionRequest;
 use App\Http\Resources\AttendanceCorrectionResource;
@@ -262,6 +263,72 @@ class AttendanceCorrectionController extends Controller
         abort_unless($correction->proof_path && Storage::disk('local')->exists($correction->proof_path), 404);
 
         return Storage::disk('local')->download($correction->proof_path);
+    }
+
+    /**
+     * Soft-delete a correction so the employee can re-file.
+     * If the correction was already approved, its side-effects are reversed:
+     *   - clock correction → time_log reverted to pre-correction values via TimeLogHistory
+     *   - overtime correction → OvertimeRecord deleted, overtime_minutes decremented
+     *
+     * DELETE /api/attendance/corrections/{correction}
+     */
+    public function destroy(DeleteAttendanceCorrectionRequest $request, AttendanceCorrection $correction): JsonResponse
+    {
+        $this->authorize('delete', $correction);
+
+        // ── Revert approved side-effects ──────────────────────────────────────
+        if ($correction->status === 'approved') {
+            if ($correction->type === 'correction') {
+                $history = TimeLogHistory::where('correction_id', $correction->id)->first();
+                if ($history) {
+                    $timeLog = TimeLog::find($history->time_log_id);
+                    if ($timeLog) {
+                        $hadNoOriginalClock = $history->old_clock_in === null && $history->old_clock_out === null;
+                        if ($hadNoOriginalClock && ($timeLog->overtime_minutes ?? 0) === 0) {
+                            // Correction created the log from scratch with no OT — delete it.
+                            $timeLog->delete();
+                        } else {
+                            // Restore original clock times; clear any admin-set shift override.
+                            $timeLog->update([
+                                'clock_in'              => $hadNoOriginalClock ? null : $history->old_clock_in,
+                                'clock_out'             => $hadNoOriginalClock ? null : $history->old_clock_out,
+                                'effective_shift_start' => null,
+                                'effective_shift_end'   => null,
+                            ]);
+                        }
+                    }
+                }
+            } elseif ($correction->type === 'overtime') {
+                $otRecord = OvertimeRecord::where('correction_id', $correction->id)->first();
+                if ($otRecord) {
+                    $timeLog = TimeLog::where('user_id', $correction->user_id)
+                        ->where('date', $correction->date->format('Y-m-d'))
+                        ->first();
+
+                    if ($timeLog) {
+                        $newOtMins = max(0, (int)($timeLog->overtime_minutes ?? 0) - $otRecord->total_minutes);
+                        if ($newOtMins === 0 && ! $timeLog->clock_in) {
+                            // Correction-only log (rest-day OT, no clock-in) — delete the stub row.
+                            $timeLog->delete();
+                        } else {
+                            $timeLog->update(['overtime_minutes' => $newOtMins]);
+                        }
+                    }
+
+                    $otRecord->delete();
+                }
+            }
+        }
+
+        $correction->update([
+            'deleted_by'     => auth()->id(),
+            'deleted_reason' => $request->deleted_reason,
+        ]);
+
+        $correction->delete();
+
+        return response()->json(['message' => 'Correction removed. The employee may now re-file.']);
     }
 
     /**

@@ -75,5 +75,14 @@ class AttendanceCorrectionPolicy
 
         return false;
     }
+
+    /**
+     * Only super_admin and admin can soft-delete (remove) a correction so the
+     * employee can re-file.
+     */
+    public function delete(User $authUser, AttendanceCorrection $correction): bool
+    {
+        return $authUser->hasAnyRole(['super_admin', 'admin']);
+    }
 }
 

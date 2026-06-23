@@ -20,6 +20,7 @@ export default function AttendancePage() {
     const authUser   = props.auth?.user;
     const userRoles  = authUser?.roles ?? [];
     const isManager  = userRoles.some((r) => MANAGER_ROLES.includes(r));
+    const isAdmin    = userRoles.some((r) => ['super_admin', 'admin'].includes(r));
 
     const now = new Date();
     const [year,  setYear]  = useState(now.getFullYear());
@@ -138,6 +139,7 @@ export default function AttendancePage() {
                 open={modalOpen}
                 onClose={() => setModalOpen(false)}
                 canFile={canFile}
+                isAdmin={isAdmin}
             />
 
             {/* Correction queue — managers only */}

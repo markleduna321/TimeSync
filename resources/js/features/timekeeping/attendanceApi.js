@@ -63,6 +63,22 @@ export const attendanceApi = createApi({
                 { type: 'Correction', id: 'LIST' },
             ],
         }),
+
+        /**
+         * Soft-delete a correction (admin/super_admin only) so the employee can re-file.
+         * { id, deleted_reason: string }
+         */
+        removeCorrection: builder.mutation({
+            query: ({ id, deleted_reason }) => ({
+                url: `/attendance/corrections/${id}`,
+                method: 'DELETE',
+                body: { deleted_reason },
+            }),
+            invalidatesTags: [
+                'Attendance',
+                { type: 'Correction', id: 'LIST' },
+            ],
+        }),
     }),
 });
 
@@ -71,4 +87,5 @@ export const {
     useGetCorrectionsQuery,
     useFileCorrectionMutation,
     useReviewCorrectionMutation,
+    useRemoveCorrectionMutation,
 } = attendanceApi;

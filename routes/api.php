@@ -92,6 +92,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/attendance/corrections',              [AttendanceCorrectionController::class, 'index']);
     Route::post('/attendance/corrections',             [AttendanceCorrectionController::class, 'store']);
     Route::patch('/attendance/corrections/{correction}', [AttendanceCorrectionController::class, 'review']);
+    Route::delete('/attendance/corrections/{correction}', [AttendanceCorrectionController::class, 'destroy']);
 
     // --- Schedules ---
     Route::get('/schedule/me',       [ScheduleController::class, 'mySchedule']);

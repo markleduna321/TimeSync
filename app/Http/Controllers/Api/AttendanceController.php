@@ -57,6 +57,27 @@ class AttendanceController extends Controller
             ->get()
             ->keyBy(fn ($c) => $toDateStr($c->date) . '_' . $c->type);
 
+        // Soft-deleted (removed) corrections — keyed by date_type, each entry is an array of records.
+        $removedCorrectionMap = AttendanceCorrection::withTrashed()
+            ->whereNotNull('deleted_at')
+            ->with('deletedBy')
+            ->where('user_id', $target->id)
+            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            ->get()
+            ->groupBy(fn ($c) => $toDateStr($c->date) . '_' . $c->type)
+            ->map(fn ($group) => $group->map(fn ($c) => [
+                'id'                  => $c->id,
+                'type'                => $c->type,
+                'status'              => $c->status,
+                'reason'              => $c->reason,
+                'requested_clock_in'  => $c->requested_clock_in,
+                'requested_clock_out' => $c->requested_clock_out,
+                'created_at'          => $c->created_at?->toISOString(),
+                'deleted_at'          => $c->deleted_at?->toISOString(),
+                'deleted_reason'      => $c->deleted_reason,
+                'deleted_by_name'     => $c->deletedBy?->name,
+            ])->values()->all());
+
         // Holidays declared for this month
         $holidayMap = Holiday::whereBetween('date', [$start->toDateString(), $end->toDateString()])
             ->get()
@@ -123,6 +144,8 @@ class AttendanceController extends Controller
             $clockOutRaw      = $log?->getRawOriginal('clock_out');  // "2026-05-10 17:02:00"
             $correction       = $corrections["{$dateStr}_correction"] ?? null;
             $overtime         = $corrections["{$dateStr}_overtime"]   ?? null;
+            $removedCorr      = $removedCorrectionMap["{$dateStr}_correction"] ?? null;
+            $removedOt        = $removedCorrectionMap["{$dateStr}_overtime"]   ?? null;
             $undertimeMinutes = 0;
             $lateMinutes      = 0;
             $holiday          = $holidayMap[$dateStr] ?? null;
@@ -206,6 +229,8 @@ class AttendanceController extends Controller
                 'over_break_minutes'   => $overBreakMinutes,
                 'correction'           => $correction,
                 'overtime'             => $overtime,
+                'removed_corrections'  => $removedCorr ?: null,
+                'removed_overtime'     => $removedOt   ?: null,
                 'leave'                => $leave,
                 'holiday'              => $holiday ? [
                     'id'   => $holiday->id,

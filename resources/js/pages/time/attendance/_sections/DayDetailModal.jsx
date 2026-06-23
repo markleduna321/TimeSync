@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Modal, message } from 'antd';
-import { Upload, X, FileText, CheckCircle, XCircle, Clock, CalendarDays } from 'lucide-react';
-import { useFileCorrectionMutation } from '@/features/timekeeping/attendanceApi';
+import { Upload, X, FileText, CheckCircle, XCircle, Clock, CalendarDays, Trash2, History } from 'lucide-react';
+import { useFileCorrectionMutation, useRemoveCorrectionMutation } from '@/features/timekeeping/attendanceApi';
 import { useCancelLeaveApplicationMutation } from '@/features/leave/leaveApi';
 import LeaveApplicationModal from './LeaveApplicationModal';
 
@@ -48,6 +48,57 @@ function fmtDate(dateStr) {
 function fmtMinutes(mins) {
     if (!mins) return '—';
     return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m`;
+}
+
+/* ── Removed records history ──────────────────────────────────────────── */
+const REMOVED_STATUS_LABEL = { pending: 'Pending', approved: 'Approved', rejected: 'Rejected' };
+
+function RemovedRecordsHistory({ records, label }) {
+    const [expanded, setExpanded] = useState(false);
+    if (!records?.length) return null;
+    return (
+        <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 space-y-2">
+            <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="flex w-full items-center gap-2 text-left focus:outline-none"
+                aria-expanded={expanded}
+            >
+                <History size={11} className="text-slate-400 shrink-0" />
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    {label} — Removed ({records.length})
+                </span>
+                <span className="ml-auto text-[10px] text-slate-400">{expanded ? '▲' : '▼'}</span>
+            </button>
+            {expanded && records.map((r, i) => (
+                <div key={r.id ?? i} className="space-y-1 border-t border-slate-100 pt-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-semibold text-slate-500">
+                            Was {REMOVED_STATUS_LABEL[r.status] ?? r.status}
+                        </span>
+                        {r.created_at && (
+                            <span className="text-[10px] text-slate-400">
+                                · filed {new Date(r.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                            </span>
+                        )}
+                    </div>
+                    {r.reason && (
+                        <p className="text-[10px] text-slate-500 line-clamp-2">
+                            <span className="font-medium">Reason filed:</span> {r.reason}
+                        </p>
+                    )}
+                    <p className="text-[10px] text-slate-500">
+                        <span className="font-medium text-rose-500">Removed</span>
+                        {r.deleted_by_name && <> by <strong>{r.deleted_by_name}</strong></>}
+                        {r.deleted_at && <> · {new Date(r.deleted_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</>}
+                    </p>
+                    {r.deleted_reason && (
+                        <p className="text-[10px] text-slate-400 italic line-clamp-2">"{r.deleted_reason}"</p>
+                    )}
+                </div>
+            ))}
+        </div>
+    );
 }
 
 /* ── File upload button ───────────────────────────────────────────────── */
@@ -113,10 +164,11 @@ function FileUploadArea({ file, onFileChange, error }) {
 }
 
 /* ── Main modal ───────────────────────────────────────────────────────── */
-export default function DayDetailModal({ day, open, onClose, canFile = true }) {
-    const [fileCorrection, { isLoading: submitting }] = useFileCorrectionMutation();
-    const [cancelLeave, { isLoading: cancelling }]    = useCancelLeaveApplicationMutation();
-    const [leaveModalOpen, setLeaveModalOpen]         = useState(false);
+export default function DayDetailModal({ day, open, onClose, canFile = true, isAdmin = false }) {
+    const [fileCorrection,  { isLoading: submitting }]  = useFileCorrectionMutation();
+    const [removeCorrection, { isLoading: removing }]   = useRemoveCorrectionMutation();
+    const [cancelLeave, { isLoading: cancelling }]      = useCancelLeaveApplicationMutation();
+    const [leaveModalOpen, setLeaveModalOpen]           = useState(false);
 
     // Get true local "today" string
     const todayLocal = new Date();
@@ -132,16 +184,24 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
         if (isRestDay || !canFileCorrection) return 'overtime';
         return 'correction';
     });
-    const [form, setForm]     = useState({ reason: '', requestedIn: '', requestedOut: '' });
-    const [file, setFile]     = useState(null);
-    const [errors, setErrors] = useState({});
-    const [success, setSuccess] = useState(false);
+    const [form, setForm]         = useState({ reason: '', requestedIn: '', requestedOut: '' });
+    const [file, setFile]         = useState(null);
+    const [errors, setErrors]     = useState({});
+    const [success, setSuccess]   = useState(false);
+
+    // Admin remove state
+    const [removingType, setRemovingType]   = useState(null); // 'correction' | 'overtime' | null
+    const [removeReason, setRemoveReason]   = useState('');
+    const [removeError, setRemoveError]     = useState('');
 
     function resetForm() {
         setForm({ reason: '', requestedIn: '', requestedOut: '' });
         setFile(null);
         setErrors({});
         setSuccess(false);
+        setRemovingType(null);
+        setRemoveReason('');
+        setRemoveError('');
     }
 
     function handleTypeChange(newType) {
@@ -155,6 +215,22 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
     function handleClose() {
         resetForm();
         onClose();
+    }
+
+    async function handleRemove(correctionId) {
+        setRemoveError('');
+        if (!removeReason.trim() || removeReason.trim().length < 5) {
+            setRemoveError('Please provide at least 5 characters for the reason.');
+            return;
+        }
+        try {
+            await removeCorrection({ id: correctionId, deleted_reason: removeReason.trim() }).unwrap();
+            message.success('Correction removed. The employee may now re-file.');
+            resetForm();
+            onClose();
+        } catch (err) {
+            setRemoveError(err?.data?.message ?? 'Failed to remove correction.');
+        }
     }
 
     async function handleSubmit() {
@@ -287,7 +363,7 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                     <div className="space-y-2">
                         <div className={`flex items-start gap-3 rounded-xl border p-4 ${corrCfg.cls} border-current/20`}>
                             <CorrIcon size={16} className="mt-0.5 shrink-0" />
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                                 <p className="text-xs font-bold">Correction — {corrCfg.label}</p>
                                 <p className="mt-0.5 text-xs leading-relaxed opacity-90 line-clamp-3">
                                     {correction.reason}
@@ -317,7 +393,63 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                     </p>
                                 )}
                             </div>
+                            {/* Admin remove trigger */}
+                            {isAdmin && removingType !== 'correction' && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setRemovingType('correction'); setRemoveReason(''); setRemoveError(''); }}
+                                    aria-label="Remove correction"
+                                    title="Remove so employee can re-file"
+                                    className="shrink-0 rounded-md p-1 text-current opacity-50 hover:opacity-100 hover:text-rose-600 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            )}
                         </div>
+
+                        {/* Inline remove form — admin only */}
+                        {isAdmin && removingType === 'correction' && (
+                            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 space-y-3">
+                                <p className="text-xs font-semibold text-rose-700">Remove this correction?</p>
+                                <p className="text-xs text-rose-600 opacity-80">
+                                    The record will be archived and the employee will be able to file again.
+                                </p>
+                                <div>
+                                    <label className="mb-1 block text-xs font-medium text-rose-700">
+                                        Reason for removal <span className="text-rose-500">*</span>
+                                    </label>
+                                    <textarea
+                                        rows={2}
+                                        value={removeReason}
+                                        onChange={(e) => setRemoveReason(e.target.value)}
+                                        placeholder="e.g. Filed on wrong date, employee re-submitting…"
+                                        className={[
+                                            'w-full resize-none rounded-lg border px-3 py-2 text-sm text-slate-800 placeholder-slate-400',
+                                            'focus:outline-none focus:ring-2 focus:ring-rose-400 transition-colors',
+                                            removeError ? 'border-rose-400 bg-white' : 'border-rose-200 bg-white',
+                                        ].join(' ')}
+                                    />
+                                    {removeError && <p className="mt-1 text-xs text-rose-600">{removeError}</p>}
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setRemovingType(null); setRemoveReason(''); setRemoveError(''); }}
+                                        className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-100 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemove(correction.id)}
+                                        disabled={removing}
+                                        className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400"
+                                    >
+                                        {removing ? 'Removing…' : 'Confirm Remove'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                         {/* Time-log history — shown when correction was approved and history exists */}
                         {correction.status === 'approved' && correction.history?.length > 0 && (
                             <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 space-y-2">
@@ -348,35 +480,103 @@ export default function DayDetailModal({ day, open, onClose, canFile = true }) {
                                 ))}
                             </div>
                         )}
+                        <RemovedRecordsHistory records={day.removed_corrections} label="Correction" />
                     </div>
+                )}
+                {/* Standalone removed-correction history when no active correction exists */}
+                {!correction && day?.removed_corrections?.length > 0 && (
+                    <RemovedRecordsHistory records={day.removed_corrections} label="Correction" />
                 )}
 
                 {/* Existing overtime status card */}
                 {overtime && otCfg && (
-                    <div className={`flex items-start gap-3 rounded-xl border p-4 ${otCfg.cls} border-current/20`}>
-                        <OtIcon size={16} className="mt-0.5 shrink-0" />
-                        <div className="min-w-0">
-                            <p className="text-xs font-bold">Overtime — {otCfg.label}</p>
-                            <p className="mt-0.5 text-xs leading-relaxed opacity-90 line-clamp-3">
-                                {overtime.reason}
-                            </p>
-                            {overtime.requested_clock_in && overtime.requested_clock_out && (
-                                <p className="mt-0.5 text-xs opacity-80">
-                                    {fmtLocalTime(overtime.requested_clock_in)} – {fmtLocalTime(overtime.requested_clock_out)}
+                    <div className="space-y-2">
+                        <div className={`flex items-start gap-3 rounded-xl border p-4 ${otCfg.cls} border-current/20`}>
+                            <OtIcon size={16} className="mt-0.5 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold">Overtime — {otCfg.label}</p>
+                                <p className="mt-0.5 text-xs leading-relaxed opacity-90 line-clamp-3">
+                                    {overtime.reason}
                                 </p>
-                            )}
-                            {overtime.admin_note && (
-                                <p className="mt-1.5 text-xs opacity-75">
-                                    <strong>Admin note:</strong> {overtime.admin_note}
-                                </p>
-                            )}
-                            {overtime.created_at && (
-                                <p className="mt-1.5 text-[10px] opacity-60">
-                                    Filed {new Date(overtime.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                                </p>
+                                {overtime.requested_clock_in && overtime.requested_clock_out && (
+                                    <p className="mt-0.5 text-xs opacity-80">
+                                        {fmtLocalTime(overtime.requested_clock_in)} – {fmtLocalTime(overtime.requested_clock_out)}
+                                    </p>
+                                )}
+                                {overtime.admin_note && (
+                                    <p className="mt-1.5 text-xs opacity-75">
+                                        <strong>Admin note:</strong> {overtime.admin_note}
+                                    </p>
+                                )}
+                                {overtime.created_at && (
+                                    <p className="mt-1.5 text-[10px] opacity-60">
+                                        Filed {new Date(overtime.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                                    </p>
+                                )}
+                            </div>
+                            {/* Admin remove trigger */}
+                            {isAdmin && removingType !== 'overtime' && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setRemovingType('overtime'); setRemoveReason(''); setRemoveError(''); }}
+                                    aria-label="Remove overtime request"
+                                    title="Remove so employee can re-file"
+                                    className="shrink-0 rounded-md p-1 text-current opacity-50 hover:opacity-100 hover:text-rose-600 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
                             )}
                         </div>
+
+                        {/* Inline remove form — admin only */}
+                        {isAdmin && removingType === 'overtime' && (
+                            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 space-y-3">
+                                <p className="text-xs font-semibold text-rose-700">Remove this overtime request?</p>
+                                <p className="text-xs text-rose-600 opacity-80">
+                                    The record will be archived and the employee will be able to file again.
+                                </p>
+                                <div>
+                                    <label className="mb-1 block text-xs font-medium text-rose-700">
+                                        Reason for removal <span className="text-rose-500">*</span>
+                                    </label>
+                                    <textarea
+                                        rows={2}
+                                        value={removeReason}
+                                        onChange={(e) => setRemoveReason(e.target.value)}
+                                        placeholder="e.g. Incorrect hours, employee will re-file…"
+                                        className={[
+                                            'w-full resize-none rounded-lg border px-3 py-2 text-sm text-slate-800 placeholder-slate-400',
+                                            'focus:outline-none focus:ring-2 focus:ring-rose-400 transition-colors',
+                                            removeError ? 'border-rose-400 bg-white' : 'border-rose-200 bg-white',
+                                        ].join(' ')}
+                                    />
+                                    {removeError && <p className="mt-1 text-xs text-rose-600">{removeError}</p>}
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setRemovingType(null); setRemoveReason(''); setRemoveError(''); }}
+                                        className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-100 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemove(overtime.id)}
+                                        disabled={removing}
+                                        className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400"
+                                    >
+                                        {removing ? 'Removing…' : 'Confirm Remove'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        <RemovedRecordsHistory records={day.removed_overtime} label="Overtime" />
                     </div>
+                )}
+                {/* Standalone removed-overtime history when no active overtime exists */}
+                {!overtime && day?.removed_overtime?.length > 0 && (
+                    <RemovedRecordsHistory records={day.removed_overtime} label="Overtime" />
                 )}
 
                 {/* ── Leave Application section ─────────────────────────────── */}

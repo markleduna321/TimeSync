@@ -26,6 +26,12 @@ class AttendanceCorrectionResource extends JsonResource
             'admin_note'          => $this->admin_note,
             'reviewed_at'         => $this->reviewed_at?->toISOString(),
             'created_at'          => $this->created_at?->toISOString(),
+            'deleted_at'          => $this->deleted_at?->toISOString(),
+            'deleted_reason'      => $this->deleted_reason,
+            'deleted_by'          => $this->whenLoaded('deletedBy', fn () => $this->deletedBy ? [
+                'id'   => $this->deletedBy->id,
+                'name' => $this->deletedBy->name,
+            ] : null),
             'user'                => $this->whenLoaded('user', fn () => [
                 'id'    => $this->user->id,
                 'name'  => $this->user->name,
