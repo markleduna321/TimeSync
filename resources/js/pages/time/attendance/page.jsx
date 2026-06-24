@@ -140,6 +140,8 @@ export default function AttendancePage() {
                 onClose={() => setModalOpen(false)}
                 canFile={canFile}
                 isAdmin={isAdmin}
+                isManager={isManager}
+                targetUserId={selectedUserId}
             />
 
             {/* Correction queue — managers only */}

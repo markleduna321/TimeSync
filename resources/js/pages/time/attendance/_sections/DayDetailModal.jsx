@@ -4,6 +4,8 @@ import { Upload, X, FileText, CheckCircle, XCircle, Clock, CalendarDays, Trash2,
 import { useFileCorrectionMutation, useRemoveCorrectionMutation } from '@/features/timekeeping/attendanceApi';
 import { useCancelLeaveApplicationMutation } from '@/features/leave/leaveApi';
 import LeaveApplicationModal from './LeaveApplicationModal';
+import ShiftOverridePanel from './ShiftOverridePanel';
+import TrainingEntryPanel from './TrainingEntryPanel';
 
 /* ── Status config ────────────────────────────────────────────────────── */
 const STATUS_CONFIG = {
@@ -164,7 +166,7 @@ function FileUploadArea({ file, onFileChange, error }) {
 }
 
 /* ── Main modal ───────────────────────────────────────────────────────── */
-export default function DayDetailModal({ day, open, onClose, canFile = true, isAdmin = false }) {
+export default function DayDetailModal({ day, open, onClose, canFile = true, isAdmin = false, isManager = false, targetUserId = null }) {
     const [fileCorrection,  { isLoading: submitting }]  = useFileCorrectionMutation();
     const [removeCorrection, { isLoading: removing }]   = useRemoveCorrectionMutation();
     const [cancelLeave, { isLoading: cancelling }]      = useCancelLeaveApplicationMutation();
@@ -643,6 +645,22 @@ export default function DayDetailModal({ day, open, onClose, canFile = true, isA
                         handleClose();
                     }}
                 />
+
+                {/* ── Manager panels: Shift Override + Training ────────── */}
+                {isManager && day.date >= today && (
+                    <div className="space-y-3 border-t border-slate-100 pt-3">
+                        <ShiftOverridePanel
+                            day={day}
+                            targetUserId={targetUserId}
+                            onClose={handleClose}
+                        />
+                        <TrainingEntryPanel
+                            day={day}
+                            targetUserId={targetUserId}
+                            onClose={handleClose}
+                        />
+                    </div>
+                )}
 
                 {/* Success message after filing */}
                 {success && (

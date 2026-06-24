@@ -6,7 +6,9 @@ use App\Models\Holiday;
 use App\Models\LeaveApplication;
 use App\Models\Payslip;
 use App\Models\PayslipLine;
+use App\Models\ScheduleOverride;
 use App\Models\TimeLog;
+use App\Models\TrainingEntry;
 use App\Models\UserAllowance;
 use App\Models\UserDeduction;
 use App\Models\UserGovernmentDeductionSetting;
@@ -390,6 +392,21 @@ class PayslipComputationService
             }
         }
 
+        // Schedule overrides — admin-set prospective shift overrides for specific dates.
+        $overrideMap = ScheduleOverride::where('user_id', $employee->id)
+            ->whereBetween('date', [$periodStart->toDateString(), $periodEnd->toDateString()])
+            ->get()
+            ->keyBy(fn ($o) => $toDateStr($o->date));
+
+        // Training entries for this period — compensated at hourly rate (daily_rate / 8).
+        // Build a per-day map for the carve-out logic in the day loop, and sum total hours
+        // for the TRAINING_PAY earnings line.
+        $trainingCollection = TrainingEntry::where('user_id', $employee->id)
+            ->whereBetween('date', [$periodStart->toDateString(), $periodEnd->toDateString()])
+            ->get();
+        $trainingMap        = $trainingCollection->keyBy(fn ($t) => $toDateStr($t->date));
+        $totalTrainingHours = (float) $trainingCollection->sum('hours');
+
         $daysScheduled = 0;
         $daysWorked    = 0.0;
         $daysAbsent    = 0.0;
@@ -402,6 +419,7 @@ class PayslipComputationService
         $otMinutes = $restDayMinutes = $restDayOtMinutes = 0;
         $restDayPay = $restDayOtPay = 0.0;
         $ndMinutes = 0;
+        $trainingDays = 0; // scheduled work days with a training entry (paid hourly, not as full day)
 
         foreach (CarbonPeriod::create($periodStart, $periodEnd) as $cursor) {
             $dateStr   = $cursor->toDateString();
@@ -410,6 +428,22 @@ class PayslipComputationService
             $holiday = $holidays[$dateStr] ?? null;
             $log     = $logs[$dateStr] ?? null;
             $worked  = $log && $log->clock_in;
+
+            // Apply schedule override for this date.
+            $override = $overrideMap[$dateStr] ?? null;
+            $training = $trainingMap[$dateStr] ?? null;
+            if ($override?->promotes_to_workday) {
+                $isWorkDay = true;
+            }
+
+            // Training day on a scheduled work day: compensated at hourly rate via TRAINING_PAY.
+            // Not counted as daysWorked (days_worked method) and deducted as absent equivalent
+            // under flat_rate so the employee receives only the trained hours' worth of pay.
+            if ($training && $isWorkDay) {
+                $daysScheduled++;
+                $trainingDays++;
+                continue;
+            }
 
             if (!$isWorkDay && !$holiday) {
                 // Pure rest day — pay is ONLY triggered by an approved OT correction
@@ -496,8 +530,12 @@ class PayslipComputationService
 
             // Per-day effective shift overrides (set by admin when approving a correction).
             // These take precedence over the employee's permanent schedule.
-            $dayShiftStart = $log->effective_shift_start ? substr($log->effective_shift_start, 0, 5) : $shiftStart;
-            $dayShiftEnd   = $log->effective_shift_end   ? substr($log->effective_shift_end,   0, 5) : $shiftEnd;
+            $dayShiftStart = $log->effective_shift_start
+                ? substr($log->effective_shift_start, 0, 5)
+                : ($override ? substr($override->shift_start, 0, 5) : $shiftStart);
+            $dayShiftEnd   = $log->effective_shift_end
+                ? substr($log->effective_shift_end,   0, 5)
+                : ($override ? substr($override->shift_end,   0, 5) : $shiftEnd);
 
             // Late / undertime — use modular helpers to handle overnight shifts correctly.
             if ($clockInTime) {
@@ -564,7 +602,9 @@ class PayslipComputationService
         //   rest-day pay, and government contributions all apply in BOTH methods.
         if ($method === 'flat_rate') {
             $baseHalf        = round($monthlySalary / 2, 2);
-            $absentDeduction = round($daysAbsent * $dailyRate, 2);
+            // Training days are excluded from daysWorked but deducted like absences so
+            // the flat-rate base only covers the trained hours (topped up by TRAINING_PAY).
+            $absentDeduction = round(($daysAbsent + $trainingDays) * $dailyRate, 2);
             $basicPay        = round($baseHalf - $absentDeduction, 2);
         } else {
             $basicPay = round($daysWorked * $dailyRate, 2);
@@ -631,6 +671,11 @@ class PayslipComputationService
         $nightDiffPay = $this->computeNightDiffPay($dailyRate, $ndMinutes);
         if ($nightDiffPay > 0) {
             $earnings[] = ['code' => 'NIGHT_DIFF', 'description' => 'Night Shift Differential (10%)', 'sort_order' => $sort++, 'amount' => $nightDiffPay, 'is_taxable' => true];
+        }
+
+        if ($totalTrainingHours > 0) {
+            $trainingPay = round(($dailyRate / 8.0) * $totalTrainingHours, 2);
+            $earnings[] = ['code' => 'TRAINING_PAY', 'description' => 'Training Pay', 'sort_order' => $sort++, 'amount' => $trainingPay, 'is_taxable' => true];
         }
 
         foreach ($allowances as $ua) {
@@ -767,7 +812,8 @@ class PayslipComputationService
                 'days_scheduled'      => $daysScheduled,
                 'days_worked'         => $daysWorked,
                 'days_absent'         => $daysAbsent,
-                'paid_leave_days'     => $paidLeaveDays,
+                'training_days'        => $trainingDays,
+                'paid_leave_days'      => $paidLeaveDays,
                 'unpaid_leave_days'   => $unpaidLeaveDays,
                 'holiday_days'        => $holidayDays,
                 'holiday_days_worked' => $holidayDaysWorked,

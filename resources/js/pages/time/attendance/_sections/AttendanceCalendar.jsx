@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, CalendarClock, GraduationCap } from 'lucide-react';
 
 /* ── Status config ────────────────────────────────────────────────────── */
 const STATUS_CONFIG = {
@@ -10,6 +10,7 @@ const STATUS_CONFIG = {
     upcoming: { bg: 'bg-white',       border: 'border-slate-100',   dot: 'bg-slate-200',   label: 'Upcoming' },
     on_leave: { bg: 'bg-violet-50',   border: 'border-violet-200',  dot: 'bg-violet-500',  label: 'On Leave' },
     holiday:  { bg: 'bg-sky-50',      border: 'border-sky-200',     dot: 'bg-sky-500',     label: 'Holiday'  },
+    training: { bg: 'bg-teal-50',     border: 'border-teal-200',    dot: 'bg-teal-500',    label: 'Training' },
 };
 
 const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -77,6 +78,8 @@ function DayCell({ cell, onClick }) {
     const hasPendingLeave    = dayData?.leave?.status === 'pending';
     const leaveApproved      = dayData?.leave?.status === 'approved';
     const leaveColor         = dayData?.leave?.leave_type?.color ?? '#8b5cf6';
+    const hasShiftOverride   = !!dayData?.shift_override;
+    const hasTraining        = !!dayData?.training;
     
     // EXCLUSIVELY rely on the actual ISO timestamp to mirror TimeHistoryTable
     const clockIn        = fmtTime(dayData?.clock_in);
@@ -137,6 +140,28 @@ function DayCell({ cell, onClick }) {
                     title="Leave pending review"
                     aria-label="Leave pending review"
                 />
+            )}
+
+            {/* Shift override indicator */}
+            {hasShiftOverride && (
+                <span
+                    className="absolute bottom-1.5 left-1.5"
+                    title={`Shift override: ${dayData.shift_override.shift_start}\u2013${dayData.shift_override.shift_end}`}
+                    aria-label="Shift override set"
+                >
+                    <CalendarClock size={10} className="text-indigo-400" />
+                </span>
+            )}
+
+            {/* Training entry indicator */}
+            {hasTraining && (
+                <span
+                    className="absolute bottom-1.5 right-1.5"
+                    title={`Training: ${dayData.training.hours}h \u2013 ${dayData.training.description}`}
+                    aria-label="Training entry"
+                >
+                    <GraduationCap size={10} className="text-teal-500" />
+                </span>
             )}
 
             {/* Status dot + label */}

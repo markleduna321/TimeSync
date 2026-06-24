@@ -78,6 +78,8 @@ class AttendanceDayResource extends JsonResource
                 ] : null,
             ] : null,
             'holiday'              => $this->resource['holiday'] ?? null,
+            'shift_override'       => $this->resource['shift_override'] ?? null,
+            'training'             => $this->resource['training'] ?? null,
         ];
     }
 }

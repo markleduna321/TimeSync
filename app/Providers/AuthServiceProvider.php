@@ -12,8 +12,10 @@ use App\Models\DeductionType;
 use App\Models\Holiday;
 use App\Models\Payslip;
 use App\Models\Schedule;
+use App\Models\ScheduleOverride;
 use App\Models\Team;
 use App\Models\TimeLog;
+use App\Models\TrainingEntry;
 use App\Models\User;
 use App\Models\UserAllowance;
 use App\Models\UserBreakConfig;
@@ -29,8 +31,10 @@ use App\Policies\DeductionTypePolicy;
 use App\Policies\HolidayPolicy;
 use App\Policies\PayslipPolicy;
 use App\Policies\SchedulePolicy;
+use App\Policies\ScheduleOverridePolicy;
 use App\Policies\TeamPolicy;
 use App\Policies\TimeLogPolicy;
+use App\Policies\TrainingEntryPolicy;
 use App\Policies\UserAllowancePolicy;
 use App\Policies\UserDocumentPolicy;
 use App\Policies\UserExperiencePolicy;
@@ -56,8 +60,10 @@ class AuthServiceProvider extends ServiceProvider
         UserAllowance::class        => UserAllowancePolicy::class,
         TimeLog::class              => TimeLogPolicy::class,
         Schedule::class             => SchedulePolicy::class,
+        ScheduleOverride::class     => ScheduleOverridePolicy::class,
         UserBreakConfig::class      => BreakConfigPolicy::class,
         Team::class                 => TeamPolicy::class,
+        TrainingEntry::class        => TrainingEntryPolicy::class,
         UserDocument::class         => UserDocumentPolicy::class,
         UserExperience::class       => UserExperiencePolicy::class,
         UserProfile::class          => UserProfilePolicy::class,

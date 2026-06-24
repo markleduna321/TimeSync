@@ -20,7 +20,9 @@ use App\Http\Controllers\Api\PayslipController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScheduleController;
+use App\Http\Controllers\Api\ScheduleOverrideController;
 use App\Http\Controllers\Api\TeamController;
+use App\Http\Controllers\Api\TrainingEntryController;
 use App\Http\Controllers\Api\ThirteenthMonthController;
 use App\Http\Controllers\Api\TimesheetController;
 use App\Http\Controllers\Api\TimeLogController;
@@ -98,6 +100,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/schedule/me',       [ScheduleController::class, 'mySchedule']);
     Route::get('/schedules',         [ScheduleController::class, 'index']);
     Route::put('/schedules/{user}',  [ScheduleController::class, 'upsert']);
+
+    // --- Schedule Overrides (manager+) ---
+    Route::put('/schedule-overrides/{user}',        [ScheduleOverrideController::class, 'upsert']);
+    Route::delete('/schedule-overrides/{override}', [ScheduleOverrideController::class, 'destroy']);
+
+    // --- Training Entries (manager+) ---
+    Route::put('/training-entries/{user}',          [TrainingEntryController::class, 'upsert']);
+    Route::delete('/training-entries/{entry}',      [TrainingEntryController::class, 'destroy']);
 
     // --- Break Configs ---
     Route::get('/break-config/me',         [BreakConfigController::class, 'mine']);

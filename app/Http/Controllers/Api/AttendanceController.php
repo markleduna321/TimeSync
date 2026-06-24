@@ -8,7 +8,9 @@ use App\Models\AttendanceCorrection;
 use App\Models\Holiday;
 use App\Models\LeaveApplication;
 use App\Models\Schedule;
+use App\Models\ScheduleOverride;
 use App\Models\TimeLog;
+use App\Models\TrainingEntry;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -93,6 +95,18 @@ class AttendanceController extends Controller
             })
             ->get();
 
+        // Schedule overrides — admin-set prospective shift overrides for specific dates.
+        $overrideMap = ScheduleOverride::where('user_id', $target->id)
+            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            ->get()
+            ->keyBy(fn ($o) => $toDateStr($o->date));
+
+        // Training entries for this month.
+        $trainingMap = TrainingEntry::where('user_id', $target->id)
+            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            ->get()
+            ->keyBy(fn ($t) => $toDateStr($t->date));
+
         $schedule   = $target->schedule;
         $workDays   = $schedule?->work_days ?? []; // ['Mon', 'Tue', ...] or ['monday', ...]
         // Normalize to HH:MM — DB may store as "13:00:00" (with seconds)
@@ -149,6 +163,13 @@ class AttendanceController extends Controller
             $undertimeMinutes = 0;
             $lateMinutes      = 0;
             $holiday          = $holidayMap[$dateStr] ?? null;
+            $override         = $overrideMap[$dateStr] ?? null;
+            $training         = $trainingMap[$dateStr] ?? null;
+
+            // Promote rest day to work day if an admin override is set.
+            if ($override?->promotes_to_workday) {
+                $isWorkDay = true;
+            }
 
             // Find a leave application that covers this specific date.
             $leave = $leaveApplications->first(function ($app) use ($dateStr) {
@@ -164,6 +185,8 @@ class AttendanceController extends Controller
                 $status = 'rest_day';
             } elseif ($leave && $leave->status === 'approved') {
                 $status = 'on_leave';
+            } elseif ($training && $isWorkDay) {
+                $status = 'training';
             } elseif (! $log || ! $log->clock_in) {
                 $status = 'absent';
             } else {
@@ -173,8 +196,12 @@ class AttendanceController extends Controller
                 $clockOutTime = $clockOutRaw ? Carbon::parse($clockOutRaw, 'UTC')->setTimezone($localTz)->format('H:i') : null;
 
                 // Per-day effective shift overrides (set by admin when approving a correction).
-                $dayShiftStart = $log->effective_shift_start ? substr($log->effective_shift_start, 0, 5) : $shiftStart;
-                $dayShiftEnd   = $log->effective_shift_end   ? substr($log->effective_shift_end,   0, 5) : $shiftEnd;
+                $dayShiftStart = $log->effective_shift_start
+                    ? substr($log->effective_shift_start, 0, 5)
+                    : ($override ? substr($override->shift_start, 0, 5) : $shiftStart);
+                $dayShiftEnd   = $log->effective_shift_end
+                    ? substr($log->effective_shift_end,   0, 5)
+                    : ($override ? substr($override->shift_end,   0, 5) : $shiftEnd);
 
                 // Late / undertime — use modular helpers to handle overnight shifts correctly.
                 $status = 'present';
@@ -236,6 +263,17 @@ class AttendanceController extends Controller
                     'id'   => $holiday->id,
                     'name' => $holiday->name,
                     'type' => $holiday->type,
+                ] : null,
+                'shift_override'       => $override ? [
+                    'shift_start'         => substr($override->shift_start, 0, 5),
+                    'shift_end'           => substr($override->shift_end,   0, 5),
+                    'promotes_to_workday' => $override->promotes_to_workday,
+                    'note'                => $override->note,
+                ] : null,
+                'training'             => $training ? [
+                    'id'          => $training->id,
+                    'hours'       => (float) $training->hours,
+                    'description' => $training->description,
                 ] : null,
             ];
 

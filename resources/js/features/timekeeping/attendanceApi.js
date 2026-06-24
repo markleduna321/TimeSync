@@ -4,7 +4,7 @@ import { baseQueryWithCsrf } from '@/features/csrfBaseQuery';
 export const attendanceApi = createApi({
     reducerPath: 'attendanceApi',
     baseQuery: baseQueryWithCsrf('/api'),
-    tagTypes: ['Attendance', 'Correction'],
+    tagTypes: ['Attendance', 'Correction', 'ScheduleOverride', 'TrainingEntry'],
     endpoints: (builder) => ({
         /**
          * Fetch the full calendar data for a month.
@@ -79,6 +79,54 @@ export const attendanceApi = createApi({
                 { type: 'Correction', id: 'LIST' },
             ],
         }),
+
+        /**
+         * Create or update a shift override for a specific employee on a date.
+         * { userId, user_id, date, shift_start, shift_end, promotes_to_workday?, note? }
+         */
+        upsertScheduleOverride: builder.mutation({
+            query: ({ userId, ...body }) => ({
+                url: `/schedule-overrides/${userId}`,
+                method: 'PUT',
+                body,
+            }),
+            invalidatesTags: ['Attendance'],
+        }),
+
+        /**
+         * Remove a shift override by its record ID.
+         */
+        deleteScheduleOverride: builder.mutation({
+            query: (id) => ({
+                url: `/schedule-overrides/${id}`,
+                method: 'DELETE',
+            }),
+            invalidatesTags: ['Attendance'],
+        }),
+
+        /**
+         * Create or update a training entry for a specific employee on a date.
+         * { userId, date, hours, description }
+         */
+        upsertTrainingEntry: builder.mutation({
+            query: ({ userId, ...body }) => ({
+                url: `/training-entries/${userId}`,
+                method: 'PUT',
+                body,
+            }),
+            invalidatesTags: ['Attendance'],
+        }),
+
+        /**
+         * Remove a training entry by its record ID.
+         */
+        deleteTrainingEntry: builder.mutation({
+            query: (id) => ({
+                url: `/training-entries/${id}`,
+                method: 'DELETE',
+            }),
+            invalidatesTags: ['Attendance'],
+        }),
     }),
 });
 
@@ -88,4 +136,8 @@ export const {
     useFileCorrectionMutation,
     useReviewCorrectionMutation,
     useRemoveCorrectionMutation,
+    useUpsertScheduleOverrideMutation,
+    useDeleteScheduleOverrideMutation,
+    useUpsertTrainingEntryMutation,
+    useDeleteTrainingEntryMutation,
 } = attendanceApi;
