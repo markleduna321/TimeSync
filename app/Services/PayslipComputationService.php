@@ -412,22 +412,11 @@ class PayslipComputationService
             $worked  = $log && $log->clock_in;
 
             if (!$isWorkDay && !$holiday) {
-                // Pure rest day — track if employee actually worked (clock-in based)
-                if ($worked) {
-                    $workedMins = (int)($log->total_worked_minutes ?? 0);
-                    if ($workedMins > 0) {
-                        $rdRegular     = min($workedMins, 480);
-                        $rdOt          = max(0, $workedMins - 480);
-                        $restDayMinutes   += $rdRegular;
-                        $restDayOtMinutes += $rdOt;
-                        $restDayPay    += $this->computeRestDayPay($dailyRate, $rdRegular);
-                        $restDayOtPay  += $this->computeRestDayOtPay($dailyRate, $rdOt);
-                    }
-                } elseif ($log && ($log->overtime_minutes ?? 0) > 0) {
-                    // Rest day OT filed via correction request (no clock-in, only overtime_minutes set).
-                    // Treat as RDOT (1.69× rate) since the correction was explicitly filed as
-                    // overtime on a rest day (DOLE Art. 93).
-                    $otMins            = (int)$log->overtime_minutes;
+                // Pure rest day — pay is ONLY triggered by an approved OT correction
+                // (overtime_minutes > 0 on the time_log). Clocking in alone does NOT
+                // generate rest-day pay; the employee must file and receive approval first.
+                $otMins = (int)($log?->overtime_minutes ?? 0);
+                if ($otMins > 0) {
                     $restDayOtMinutes += $otMins;
                     $restDayOtPay     += $this->computeRestDayOtPay($dailyRate, $otMins);
                 }
@@ -436,18 +425,28 @@ class PayslipComputationService
 
             if (!$isWorkDay && $holiday) {
                 // Holiday that falls on the employee's rest day.
-                // Under Flat Rate, basic_pay already covers the half-month, so
-                // do NOT add an extra holiday pay on top.
-                // Under Days-Worked, we still need to add the holiday's daily
-                // rate (employee is paid for the holiday even though it is
-                // their rest day, per Labor Code Art. 94).
-                if ($method === 'days_worked') {
-                    if (!$worked) {
-                        $holidayPayExtra += $this->computeHolidayExtra($dailyRate, $holiday->type, false);
-                    } else {
-                        $daysWorked++;
-                        $holidayPayExtra += $this->computeHolidayExtra($dailyRate, $holiday->type, true);
+                //
+                // Regular holiday guarantee (Art. 94): employee receives their daily
+                // rate regardless of whether they worked — this is unconditional.
+                // Under flat-rate, the half-month rate already covers this, so we
+                // only add the extra under days-worked.
+                if ($holiday->type === 'regular' && $method === 'days_worked') {
+                    $holidayPayExtra += $this->computeHolidayExtra($dailyRate, 'regular', false);
+                }
+
+                // Additional compensation requires an approved OT correction
+                // (overtime_minutes set on the time_log). Clocking in alone is NOT
+                // sufficient — the employee must file an overtime request.
+                $otMins = (int)($log?->overtime_minutes ?? 0);
+                if ($otMins > 0) {
+                    // Special holiday: add the +30% premium for working (regular holiday
+                    // premium is already covered by the guarantee above).
+                    if ($holiday->type === 'special' && $method === 'days_worked') {
+                        $holidayPayExtra += $this->computeHolidayExtra($dailyRate, 'special', true);
                     }
+                    // All approved OT on a rest-day holiday is compensated at RDOT rate.
+                    $restDayOtMinutes += $otMins;
+                    $restDayOtPay     += $this->computeRestDayOtPay($dailyRate, $otMins);
                 }
                 continue;
             }

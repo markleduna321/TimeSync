@@ -250,14 +250,10 @@ export default function PayslipDetailModal({ open, onClose, payslipId }) {
                                                 cls="text-rose-500"
                                             />
                                         )}
-                                        {(p.holiday_days > 0 || p.holiday_days_worked > 0) && (
+                                        {p.holiday_days_worked > 0 && (
                                             <AttRow
                                                 label="Holiday Days"
-                                                value={
-                                                    p.holiday_days_worked > 0
-                                                        ? `${p.holiday_days_worked} on-duty · ${p.holiday_days} off`
-                                                        : `${p.holiday_days} day${p.holiday_days !== 1 ? 's' : ''}`
-                                                }
+                                                value={`${p.holiday_days_worked} on-duty`}
                                                 cls="text-sky-700"
                                             />
                                         )}
