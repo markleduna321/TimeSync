@@ -1,1 +1,0 @@
-import{$ as n}from"./app-DQkDOfzJ.js";const e="__rc_react_root__";function u(r,o){const t=o[e]||n(o);t.render(r),o[e]=t}async function _(r){return Promise.resolve().then(()=>{var o;(o=r[e])==null||o.unmount(),delete r[e]})}export{u as r,_ as u};

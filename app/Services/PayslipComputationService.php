@@ -301,6 +301,30 @@ class PayslipComputationService
         return 0.0;
     }
 
+    /**
+     * Holiday pay premium prorated to actual minutes worked on the holiday date.
+     * Use this instead of computeHolidayExtra() for cross-midnight (partial-day) scenarios.
+     *
+     * Regular holiday worked  → +100% of hourly rate × minutes
+     * Special holiday worked  → +30%  of hourly rate × minutes
+     * Not worked              → 0.0  (the daily guarantee is handled at the day level)
+     *
+     * @param float  $dailyRate   Employee's daily rate
+     * @param string $holidayType 'regular' or 'special'
+     * @param bool   $worked      Whether the employee was present during these minutes
+     * @param int    $minutes     Minutes physically worked on the holiday date
+     */
+    public function computeHolidayExtraMinutes(float $dailyRate, string $holidayType, bool $worked, int $minutes): float
+    {
+        if ($minutes <= 0 || !$worked) return 0.0;
+        $multiplier = match ($holidayType) {
+            'regular' => 1.0,
+            'special' => 0.30,
+            default   => 0.0,
+        };
+        return round(($dailyRate / 8.0) * $multiplier * ($minutes / 60.0), 2);
+    }
+
     public function computeThirteenthMonth(float $sumOfBasicPays): float
     {
         return round($sumOfBasicPays / 12.0, 2);
@@ -347,9 +371,20 @@ class PayslipComputationService
             ? $val->format('Y-m-d')
             : substr((string) $val, 0, 10);
 
-        $logs = TimeLog::where('user_id', $employee->id)
+        // Group logs by date. In the rare case of multiple logs for the same date
+        // (split shifts), take the earliest clock-in as the primary log for time-based
+        // calculations and aggregate overtime_minutes across all sessions so none are
+        // silently discarded as keyBy() would do.
+        $logsGrouped = TimeLog::where('user_id', $employee->id)
             ->whereBetween('date', [$periodStart->toDateString(), $periodEnd->toDateString()])
-            ->get()->keyBy(fn($l) => $toDateStr($l->date));
+            ->get()
+            ->groupBy(fn ($l) => $toDateStr($l->date));
+
+        $logs = $logsGrouped->map(function ($group) {
+            $primary = $group->sortBy(fn ($l) => $l->getRawOriginal('clock_in') ?? '')->first();
+            $primary->overtime_minutes = $group->sum('overtime_minutes');
+            return $primary;
+        });
 
         $holidays = Holiday::whereBetween('date', [$periodStart->toDateString(), $periodEnd->toDateString()])
             ->get()->keyBy(fn($h) => $toDateStr($h->date));
@@ -517,16 +552,55 @@ class PayslipComputationService
             }
 
             $daysWorked += 1.0;
-            if ($holiday) {
-                $holidayDaysWorked++;
-                $holidayPayExtra += $this->computeHolidayExtra($dailyRate, $holiday->type, true);
-            }
 
-            // Parse raw UTC values and convert to local timezone for HH:MM comparison
-            $clockInRaw  = $log->getRawOriginal('clock_in');
-            $clockOutRaw = $log->getRawOriginal('clock_out');
+            // Parse raw UTC values and convert to local timezone for HH:MM comparison.
+            $clockInRaw   = $log->getRawOriginal('clock_in');
+            $clockOutRaw  = $log->getRawOriginal('clock_out');
             $clockInTime  = $clockInRaw  ? Carbon::parse($clockInRaw,  'UTC')->setTimezone($localTz)->format('H:i') : null;
             $clockOutTime = $clockOutRaw ? Carbon::parse($clockOutRaw, 'UTC')->setTimezone($localTz)->format('H:i') : null;
+
+            // ── Cross-midnight holiday split ─────────────────────────────────────────
+            // Overnight shifts cross a calendar date boundary. If the start date and end
+            // date have different holiday statuses, each portion must be compensated at
+            // its own day's applicable rate:
+            //   pre-midnight  → today's holiday status  ($dateStr)
+            //   post-midnight → next calendar day's status ($dateStr + 1 day)
+            //
+            // Rest-day premium is intentionally NOT applied to the post-midnight portion.
+            // The employee is completing their scheduled shift — they were not called in
+            // on a separate rest-day engagement. (Rest-day + holiday premium only fires
+            // when time_log.date itself is the rest day, handled in the !$isWorkDay branch.)
+            $clockInLocal  = $clockInRaw  ? Carbon::parse($clockInRaw,  'UTC')->setTimezone($localTz) : null;
+            $clockOutLocal = $clockOutRaw ? Carbon::parse($clockOutRaw, 'UTC')->setTimezone($localTz) : null;
+            $crossesMidnight = $clockInLocal && $clockOutLocal
+                && !$clockInLocal->isSameDay($clockOutLocal);
+
+            if ($crossesMidnight) {
+                // Split point: 00:00:00 of the next calendar day (local time)
+                $midnightLocal    = $clockInLocal->copy()->startOfDay()->addDay();
+                $preMidnightMins  = (int) round($clockInLocal->diffInMinutes($midnightLocal));
+                $postMidnightMins = (int) round($midnightLocal->diffInMinutes($clockOutLocal));
+                $postMidnightDate = $clockOutLocal->toDateString();
+                $nextDayHoliday   = $holidays[$postMidnightDate] ?? null;
+
+                if ($holiday || $nextDayHoliday) {
+                    $holidayDaysWorked++;
+                }
+                if ($holiday) {
+                    // Prorate today's holiday premium to pre-midnight hours only.
+                    $holidayPayExtra += $this->computeHolidayExtraMinutes($dailyRate, $holiday->type, true, $preMidnightMins);
+                }
+                if ($nextDayHoliday) {
+                    // Post-midnight hours fall on a holiday — no rest-day multiplier.
+                    $holidayPayExtra += $this->computeHolidayExtraMinutes($dailyRate, $nextDayHoliday->type, true, $postMidnightMins);
+                }
+            } else {
+                // Non-cross-midnight shift: standard full-day holiday premium.
+                if ($holiday) {
+                    $holidayDaysWorked++;
+                    $holidayPayExtra += $this->computeHolidayExtra($dailyRate, $holiday->type, true);
+                }
+            }
 
             // Per-day effective shift overrides (set by admin when approving a correction).
             // These take precedence over the employee's permanent schedule.

@@ -4,7 +4,7 @@ import { useCreateTeamMutation, useUpdateTeamMutation } from '@/features/teams/t
 
 const DEFAULT_FORM = { name: '', description: '', leader_id: null, manager_id: null, member_ids: [] };
 
-export default function TeamFormModal({ open, onClose, editingTeam, teamLeadUsers, managerUsers, allUsers }) {
+export default function TeamFormModal({ open, onClose, editingTeam, teamLeadUsers, managerUsers, allUsers, isManagerMode }) {
     const [form, setForm]     = useState(DEFAULT_FORM);
     const [errors, setErrors] = useState({});
 
@@ -56,7 +56,7 @@ export default function TeamFormModal({ open, onClose, editingTeam, teamLeadUser
     return (
         <Modal
             open={open}
-            title={<span className="font-semibold text-slate-800">{editingTeam ? 'Edit Team' : 'New Team'}</span>}
+            title={<span className="font-semibold text-slate-800">{editingTeam ? (isManagerMode ? `Manage: ${editingTeam.name}` : 'Edit Team') : 'New Team'}</span>}
             onCancel={onClose}
             onOk={handleSubmit}
             okText={editingTeam ? 'Save Changes' : 'Create Team'}
@@ -65,7 +65,8 @@ export default function TeamFormModal({ open, onClose, editingTeam, teamLeadUser
             destroyOnHidden
         >
             <div className="mt-4 space-y-4">
-                {/* Name */}
+                {/* Name — hidden for manager mode */}
+                {!isManagerMode && (
                 <div>
                     <label className="block text-sm font-medium text-slate-700" htmlFor="t-name">
                         Team Name <span className="text-rose-500">*</span>
@@ -83,8 +84,10 @@ export default function TeamFormModal({ open, onClose, editingTeam, teamLeadUser
                     />
                     {errors.name && <p className="mt-1 text-xs text-rose-600">{errors.name[0]}</p>}
                 </div>
+                )}
 
-                {/* Description */}
+                {/* Description — hidden for manager mode */}
+                {!isManagerMode && (
                 <div>
                     <label className="block text-sm font-medium text-slate-700" htmlFor="t-desc">
                         Description
@@ -100,6 +103,7 @@ export default function TeamFormModal({ open, onClose, editingTeam, teamLeadUser
                     />
                     {errors.description && <p className="mt-1 text-xs text-rose-600">{errors.description[0]}</p>}
                 </div>
+                )}
 
                 {/* Team Lead — only users with team_lead role */}
                 <div>
@@ -127,7 +131,8 @@ export default function TeamFormModal({ open, onClose, editingTeam, teamLeadUser
                     {errors.leader_id && <p className="mt-1 text-xs text-rose-600">{errors.leader_id[0]}</p>}
                 </div>
 
-                {/* Manager — only users with manager role */}
+                {/* Manager — hidden for manager mode */}
+                {!isManagerMode && (
                 <div>
                     <label className="block text-sm font-medium text-slate-700" htmlFor="t-manager">
                         Manager
@@ -153,6 +158,7 @@ export default function TeamFormModal({ open, onClose, editingTeam, teamLeadUser
                     )}
                     {errors.manager_id && <p className="mt-1 text-xs text-rose-600">{errors.manager_id[0]}</p>}
                 </div>
+                )}
 
                 {/* Members — all users */}
                 <div>

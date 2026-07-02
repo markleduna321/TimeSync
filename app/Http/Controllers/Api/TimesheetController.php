@@ -21,7 +21,7 @@ class TimesheetController extends Controller
     {
         $caller = $request->user();
 
-        if ($caller->hasAnyRole(['super_admin', 'admin', 'manager'])) {
+        if ($caller->hasAnyRole(['super_admin', 'admin'])) {
             $query = User::select('id', 'first_name', 'middle_name', 'last_name', 'email')
                 ->orderBy('first_name')->orderBy('last_name');
 
@@ -31,6 +31,19 @@ class TimesheetController extends Controller
             }
 
             $users = $query->get();
+        } elseif ($caller->hasRole('manager')) {
+            // Managers may only view timesheets of members in their own teams.
+            $memberIds = $caller->managedTeams()
+                ->with('members:id')
+                ->get()
+                ->flatMap(fn ($t) => $t->members->pluck('id'))
+                ->unique()
+                ->values();
+
+            $users = User::select('id', 'first_name', 'middle_name', 'last_name', 'email')
+                ->whereIn('id', $memberIds)
+                ->orderBy('first_name')->orderBy('last_name')
+                ->get();
         } elseif ($caller->hasRole('team_lead')) {
             $memberIds = $caller->ledTeams()
                 ->with('members:id')

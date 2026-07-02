@@ -9,12 +9,15 @@ import TeamTable from "./_sections/TeamTable";
 import TeamFormModal from "./_sections/TeamFormModal";
 import TeamMembersModal from "./_sections/TeamMembersModal";
 
-const MANAGE_ROLES = ["super_admin", "admin", "manager"];
+const ADMIN_ROLES   = ["super_admin", "admin"];
+const MANAGER_ROLES = ["manager"];
 
 export default function TeamsPage() {
     const { props }  = usePage();
-    const userRoles  = props.auth?.user?.roles ?? [];
-    const canManage  = userRoles.some((r) => MANAGE_ROLES.includes(r));
+    const authUser   = props.auth?.user;
+    const userRoles  = authUser?.roles ?? [];
+    const canCreate     = userRoles.some((r) => ADMIN_ROLES.includes(r));
+    const canManageOwn  = !canCreate && userRoles.some((r) => MANAGER_ROLES.includes(r));
 
     const [page, setPage]               = useState(1);
     const [modalOpen, setModalOpen]     = useState(false);
@@ -23,7 +26,7 @@ export default function TeamsPage() {
     const [viewOpen, setViewOpen]       = useState(false);
 
     const { data, isLoading }          = useGetTeamsQuery({ page });
-    const { data: usersData }          = useGetUsersQuery({ per_page: 200 }, { skip: !canManage });
+    const { data: usersData }          = useGetUsersQuery({ per_page: 200 }, { skip: !canCreate && !canManageOwn });
     const [deleteTeam, { isLoading: deleting }] = useDeleteTeamMutation();
 
     const teams = data?.data ?? [];
@@ -43,6 +46,8 @@ export default function TeamsPage() {
     }
 
     function openEdit(team) {
+        // Manager can only edit their own team
+        if (canManageOwn && team.manager_id !== authUser?.id) return;
         setEditingTeam(team);
         setModalOpen(true);
     }
@@ -73,7 +78,7 @@ export default function TeamsPage() {
                         Organise employees under team leads and managers.
                     </p>
                 </div>
-                {canManage && (
+                {canCreate && (
                     <button
                         onClick={openCreate}
                         className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
@@ -95,12 +100,14 @@ export default function TeamsPage() {
                     onEdit={openEdit}
                     onDelete={confirmDelete}
                     onView={openView}
-                    canManage={canManage}
+                    canCreate={canCreate}
+                    canManageOwn={canManageOwn}
+                    authUserId={authUser?.id}
                 />
             </div>
 
             {/* Create / Edit modal */}
-            {canManage && (
+            {(canCreate || canManageOwn) && (
                 <TeamFormModal
                     open={modalOpen}
                     onClose={() => setModalOpen(false)}
@@ -108,6 +115,7 @@ export default function TeamsPage() {
                     teamLeadUsers={teamLeadUsers}
                     managerUsers={managerUsers}
                     allUsers={users}
+                    isManagerMode={canManageOwn}
                 />
             )}
 

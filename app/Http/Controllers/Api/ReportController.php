@@ -18,7 +18,7 @@ class ReportController extends Controller
     private function authorizeAdmin(Request $request): void
     {
         abort_unless(
-            $request->user()?->hasAnyRole(['super_admin', 'admin', 'manager']),
+            $request->user()?->hasAnyRole(['super_admin', 'admin']),
             403,
             'Unauthorized.'
         );

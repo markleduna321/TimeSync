@@ -7,7 +7,7 @@ function getInitials(name) {
     return name.split(" ").slice(0, 2).map((w) => w[0].toUpperCase()).join("");
 }
 
-export default function TeamTable({ teams, meta, isLoading, page, onPageChange, onEdit, onDelete, onView, canManage }) {
+export default function TeamTable({ teams, meta, isLoading, page, onPageChange, onEdit, onDelete, onView, canCreate, canManageOwn, authUserId }) {
     const columns = [
         {
             title: "Team",
@@ -69,8 +69,11 @@ export default function TeamTable({ teams, meta, isLoading, page, onPageChange, 
         {
             title: "",
             key: "actions",
-            width: canManage ? 100 : 52,
-            render: (_, record) => (
+            width: (canCreate || canManageOwn) ? 100 : 52,
+            render: (_, record) => {
+                const canEditRow   = canCreate || (canManageOwn && record.manager_id === authUserId);
+                const canDeleteRow = canCreate;
+                return (
                 <div className="flex items-center gap-1">
                     <Tooltip title="View Members">
                         <button
@@ -81,30 +84,31 @@ export default function TeamTable({ teams, meta, isLoading, page, onPageChange, 
                             <Eye size={14} />
                         </button>
                     </Tooltip>
-                    {canManage && (
-                        <>
-                            <Tooltip title="Edit">
-                                <button
-                                    onClick={() => onEdit(record)}
-                                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    aria-label={`Edit ${record.name}`}
-                                >
-                                    <Pencil size={14} />
-                                </button>
-                            </Tooltip>
-                            <Tooltip title="Delete">
-                                <button
-                                    onClick={() => onDelete(record)}
-                                    className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-500"
-                                    aria-label={`Delete ${record.name}`}
-                                >
-                                    <Trash2 size={14} />
-                                </button>
-                            </Tooltip>
-                        </>
+                    {canEditRow && (
+                        <Tooltip title="Edit">
+                            <button
+                                onClick={() => onEdit(record)}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                aria-label={`Edit ${record.name}`}
+                            >
+                                <Pencil size={14} />
+                            </button>
+                        </Tooltip>
+                    )}
+                    {canDeleteRow && (
+                        <Tooltip title="Delete">
+                            <button
+                                onClick={() => onDelete(record)}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                aria-label={`Delete ${record.name}`}
+                            >
+                                <Trash2 size={14} />
+                            </button>
+                        </Tooltip>
                     )}
                 </div>
-            ),
+                );
+            },
         },
     ];
 

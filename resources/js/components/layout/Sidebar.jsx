@@ -66,7 +66,7 @@ const NAV_SECTIONS = [
                 label: 'Payroll',
                 href: '/admin/payroll',
                 icon: DollarSign,
-                roles: ['super_admin', 'admin', 'manager'],
+                roles: ['super_admin', 'admin'],
             },
             {
                 label: 'Holidays',
@@ -102,7 +102,7 @@ const NAV_SECTIONS = [
                 label: 'Reports',
                 href: '/admin/reports',
                 icon: BarChart2,
-                roles: ['super_admin', 'admin', 'manager'],
+                roles: ['super_admin', 'admin'],
             },
             {
                 label: 'Leave Monetization',
