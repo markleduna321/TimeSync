@@ -4,7 +4,7 @@ import { baseQueryWithCsrf } from '@/features/csrfBaseQuery';
 export const dashboardApi = createApi({
     reducerPath: 'dashboardApi',
     baseQuery: baseQueryWithCsrf('/api'),
-    tagTypes: ['AdminKpis', 'AdminActivity'],
+    tagTypes: ['AdminKpis', 'AdminActivity', 'EmployeeKpis'],
     endpoints: (builder) => ({
 
         getAdminKpis: builder.query({
@@ -19,7 +19,7 @@ export const dashboardApi = createApi({
 
         getEmployeeKpis: builder.query({
             query: () => '/dashboard/employee-kpis',
-            providesTags: [{ type: 'AdminKpis', id: 'EMPLOYEE' }],
+            providesTags: [{ type: 'EmployeeKpis', id: 'SUMMARY' }],
         }),
 
     }),

@@ -154,9 +154,15 @@ class DashboardController extends Controller
             : null;
 
         // -- Team online: teammates who have an open clock_in today --
-        $teamMemberIds = $user->teams()
-            ->with('members:id')
-            ->get()
+        // Merge all three relationship paths so managers/team leads see their
+        // teams even if they are not in the member pivot themselves.
+        $memberTeams  = $user->teams()->with('members:id')->get();
+        $managedTeams = $user->managedTeams()->with('members:id')->get();
+        $ledTeams     = $user->ledTeams()->with('members:id')->get();
+
+        $teamMemberIds = $memberTeams
+            ->merge($managedTeams)
+            ->merge($ledTeams)
             ->flatMap(fn ($t) => $t->members->pluck('id'))
             ->unique()
             ->reject(fn ($id) => $id === $user->id)
