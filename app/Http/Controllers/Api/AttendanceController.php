@@ -60,9 +60,10 @@ class AttendanceController extends Controller
             ->keyBy(fn ($c) => $toDateStr($c->date) . '_' . $c->type);
 
         // Soft-deleted (removed) corrections — keyed by date_type, each entry is an array of records.
+        // history.changedBy is eager-loaded so approved removals can show the time-log diff in the UI.
         $removedCorrectionMap = AttendanceCorrection::withTrashed()
             ->whereNotNull('deleted_at')
-            ->with('deletedBy')
+            ->with(['deletedBy', 'history.changedBy'])
             ->where('user_id', $target->id)
             ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
             ->get()
@@ -78,6 +79,14 @@ class AttendanceController extends Controller
                 'deleted_at'          => $c->deleted_at?->toISOString(),
                 'deleted_reason'      => $c->deleted_reason,
                 'deleted_by_name'     => $c->deletedBy?->name,
+                'history'             => $c->history->map(fn ($h) => [
+                    'old_clock_in'  => $h->old_clock_in?->toISOString(),
+                    'old_clock_out' => $h->old_clock_out?->toISOString(),
+                    'new_clock_in'  => $h->new_clock_in?->toISOString(),
+                    'new_clock_out' => $h->new_clock_out?->toISOString(),
+                    'changed_by'    => $h->changedBy?->name,
+                    'changed_at'    => $h->changed_at?->toISOString(),
+                ])->all(),
             ])->values()->all());
 
         // Holidays declared for this month

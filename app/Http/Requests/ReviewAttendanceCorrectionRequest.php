@@ -19,8 +19,9 @@ class ReviewAttendanceCorrectionRequest extends FormRequest
             // Optional temporary shift override for corrections.
             // If both are provided, late/undertime will be evaluated against
             // these times instead of the employee's permanent schedule.
-            'effective_shift_start' => ['nullable', 'regex:/^\d{2}:\d{2}$/'],
-            'effective_shift_end'   => ['nullable', 'regex:/^\d{2}:\d{2}$/'],
+            // Both must be supplied together or not at all (required_with enforces pairing).
+            'effective_shift_start' => ['nullable', 'date_format:H:i', 'required_with:effective_shift_end'],
+            'effective_shift_end'   => ['nullable', 'date_format:H:i', 'required_with:effective_shift_start'],
         ];
     }
 }

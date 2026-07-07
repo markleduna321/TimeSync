@@ -181,7 +181,7 @@ function DayCell({ cell, onClick }) {
                 {/* When employee worked on a holiday, show the premium rate */}
                 {workedOnHoliday && (
                     <span className="text-[10px] font-semibold text-sky-500">
-                        {holiday.type === 'regular' ? '+200%' : '+130%'} Holiday
+                        {holiday.type === 'regular' ? '200%' : '130%'} Day
                     </span>
                 )}
                 {clockIn && (
@@ -249,6 +249,15 @@ function Legend() {
             <div className="flex items-center gap-1.5">
                 <span className="text-[10px] font-semibold text-rose-600">OB</span>
                 <span className="text-xs text-slate-500">Over Break</span>
+            </div>
+            <div className="w-px h-3 bg-slate-200" />
+            <div className="flex items-center gap-1.5">
+                <GraduationCap size={11} className="text-teal-500" />
+                <span className="text-xs text-slate-500">Training</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+                <CalendarClock size={11} className="text-indigo-400" />
+                <span className="text-xs text-slate-500">Shift Override</span>
             </div>
         </div>
     );

@@ -25,6 +25,8 @@ class AttendanceDayResource extends JsonResource
             'reason'               => $entry->reason,
             'requested_clock_in'   => $entry->requested_clock_in,
             'requested_clock_out'  => $entry->requested_clock_out,
+            'effective_shift_start' => $entry->effective_shift_start,
+            'effective_shift_end'   => $entry->effective_shift_end,
             'admin_note'           => $entry->admin_note,
             'created_at'           => $entry->created_at?->toISOString(),
             'history'              => $entry->relationLoaded('history')
@@ -59,6 +61,7 @@ class AttendanceDayResource extends JsonResource
             'total_worked_minutes' => $this->resource['total_worked_minutes'],
             'undertime_minutes'    => $this->resource['undertime_minutes']  ?? 0,
             'over_break_minutes'   => $this->resource['over_break_minutes'] ?? 0,
+            'late_minutes'         => $this->resource['late_minutes']        ?? 0,
             'correction'           => $formatEntry($correction),
             'overtime'             => $formatEntry($overtime),
             'leave'                => $leave ? [

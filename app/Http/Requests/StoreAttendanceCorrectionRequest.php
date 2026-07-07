@@ -17,7 +17,14 @@ class StoreAttendanceCorrectionRequest extends FormRequest
         $isOvertime = $this->input('type') === 'overtime';
 
         return [
-            'date'                 => ['required', 'date', 'before_or_equal:today'],
+            'date'                 => [
+                'required', 'date', 'before_or_equal:today',
+                // Exclude soft-deleted rows so employees can re-file after a correction is removed.
+                Rule::unique('attendance_corrections')
+                    ->where('user_id', auth()->id())
+                    ->where('type', $this->input('type', 'correction'))
+                    ->whereNull('deleted_at'),
+            ],
             'type'                 => ['nullable', 'in:correction,overtime'],
             'reason'               => ['required', 'string', 'min:10', 'max:1000'],
             'proof'                => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],

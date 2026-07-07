@@ -97,6 +97,26 @@ function RemovedRecordsHistory({ records, label }) {
                     {r.deleted_reason && (
                         <p className="text-[10px] text-slate-400 italic line-clamp-2">"{r.deleted_reason}"</p>
                     )}
+                    {/* Time-log diff — shown when an approved correction was subsequently removed */}
+                    {r.status === 'approved' && r.history?.length > 0 && r.history.map((h, hi) => (
+                        <div key={hi} className="flex flex-wrap items-center gap-3 rounded bg-slate-100 px-2 py-1.5 mt-1 text-[10px] text-slate-600">
+                            <div className="flex items-center gap-1">
+                                <span className="text-slate-400">In</span>
+                                <span className="tabular-nums text-rose-400 line-through">{fmtTime(h.old_clock_in)}</span>
+                                <span className="text-slate-400">→</span>
+                                <span className="tabular-nums font-semibold text-emerald-600">{fmtTime(h.new_clock_in)}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <span className="text-slate-400">Out</span>
+                                <span className="tabular-nums text-rose-400 line-through">{fmtTime(h.old_clock_out)}</span>
+                                <span className="text-slate-400">→</span>
+                                <span className="tabular-nums font-semibold text-emerald-600">{fmtTime(h.new_clock_out)}</span>
+                            </div>
+                            {h.changed_by && (
+                                <span className="ml-auto text-slate-400">by <strong className="text-slate-500">{h.changed_by}</strong></span>
+                            )}
+                        </div>
+                    ))}
                 </div>
             ))}
         </div>
@@ -317,6 +337,20 @@ export default function DayDetailModal({ day, open, onClose, canFile = true, isA
                                 <span>In: <strong className="text-slate-700">{fmtTime(day.clock_in)}</strong></span>
                                 <span>Out: <strong className="text-slate-700">{fmtTime(day.clock_out)}</strong></span>
                             </div>
+                            {/* Active shift for this day — correction override takes priority over schedule override */}
+                            {(correctionApproved && correction?.effective_shift_start && correction?.effective_shift_end) ? (
+                                <div className="flex gap-4 text-xs text-slate-500">
+                                    <span>Shift: <strong className="text-slate-700">
+                                        {fmtLocalTime(correction.effective_shift_start)} – {fmtLocalTime(correction.effective_shift_end)}
+                                    </strong> <span className="text-indigo-400">(override)</span></span>
+                                </div>
+                            ) : day?.shift_override ? (
+                                <div className="flex gap-4 text-xs text-slate-500">
+                                    <span>Shift: <strong className="text-slate-700">
+                                        {fmtLocalTime(day.shift_override.shift_start)} – {fmtLocalTime(day.shift_override.shift_end)}
+                                    </strong> <span className="text-indigo-400">(override)</span></span>
+                                </div>
+                            ) : null}
                             {(day.lunch_start || day.lunch_start_time) && (
                                 <div className="flex gap-4 text-xs text-slate-500">
                                     <span>Lunch: <strong className="text-slate-700">
@@ -386,7 +420,7 @@ export default function DayDetailModal({ day, open, onClose, canFile = true, isA
                                 {(correction.effective_shift_start && correction.effective_shift_end) && (
                                     <p className="mt-1 text-xs opacity-75">
                                         <strong>Effective shift:</strong>{' '}
-                                        {correction.effective_shift_start} – {correction.effective_shift_end}
+                                        {fmtLocalTime(correction.effective_shift_start)} – {fmtLocalTime(correction.effective_shift_end)}
                                     </p>
                                 )}
                                 {correction.created_at && (
