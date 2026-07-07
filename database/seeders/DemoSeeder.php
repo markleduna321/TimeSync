@@ -459,7 +459,7 @@ class DemoSeeder extends Seeder
             if ($cutoffType === 'second') {
                 $sssAmt        = $this->computeSSS($salary);
                 $philHealthAmt = round($salary * 0.025, 2);     // 2.5% employee share
-                $pagIbigAmt    = min(round($salary * 0.02, 2), 100); // 2% capped ₱100
+                $pagIbigAmt    = min(round($salary * 0.02, 2), 200); // 2% capped ₱200 (2025 MFS cap ₱10,000)
                 $withholdingAmt = $this->computeWithholding($salary);
             }
 

@@ -21,7 +21,7 @@ use Carbon\CarbonPeriod;
  * References:
  * - SSS: Circular 2023-005 (contribution table)
  * - PhilHealth: PhilHealth Circular 2024-0005 (5% total; employee 2.5%)
- * - Pag-IBIG: RA 9679 (employee share capped 100/month)
+ * - Pag-IBIG: RA 9679 + HDMF 2025 update (employee share capped 200/month; MFS cap ₱10,000 × 2%)
  * - Withholding Tax: TRAIN Law (RA 10963)
  * - 1st cutoff: semi-monthly BIR table (annual / 24)
  * - 2nd cutoff: cumulative monthly adjustment (Monthly table - 1st cutoff WHT)
@@ -86,7 +86,7 @@ class PayslipComputationService
     public function computePagIbig(float $monthlySalary): float
     {
         $rate = $monthlySalary <= 1500.0 ? 0.01 : 0.02;
-        return round(min(100.0, $monthlySalary * $rate), 2);
+        return round(min(200.0, $monthlySalary * $rate), 2);
     }
 
     public function computeWithholdingTaxSemiMonthly(float $taxableIncome): float
