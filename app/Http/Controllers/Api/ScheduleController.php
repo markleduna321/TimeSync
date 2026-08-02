@@ -69,10 +69,19 @@ class ScheduleController extends Controller
             $this->authorize('create', Schedule::class);
         }
 
-        // 1. Grab validated data EXCEPT the 'is_overnight' flag
         $scheduleData = $request->safe()->except(['is_overnight']);
 
-        // 2. Merge with user_id and save
+        if (isset($scheduleData['time_by_day']) && is_array($scheduleData['time_by_day'])) {
+            $normalized = [];
+            foreach ($scheduleData['time_by_day'] as $day => $slot) {
+                if (!is_array($slot)) {
+                    continue;
+                }
+                $normalized[$day] = array_filter($slot, fn ($value) => $value !== null && $value !== '');
+            }
+            $scheduleData['time_by_day'] = $normalized;
+        }
+
         $schedule->fill(array_merge($scheduleData, ['user_id' => $user->id]));
         $schedule->save();
 

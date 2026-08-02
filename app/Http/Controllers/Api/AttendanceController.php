@@ -121,6 +121,7 @@ class AttendanceController extends Controller
         // Normalize to HH:MM — DB may store as "13:00:00" (with seconds)
         $shiftStart = $schedule?->shift_start ? substr($schedule->shift_start, 0, 5) : null;
         $shiftEnd   = $schedule?->shift_end   ? substr($schedule->shift_end,   0, 5) : null;
+        $timeByDay  = $schedule?->time_by_day ?? [];
         // Timestamps are stored as UTC in the DB. The local timezone for comparison
         // against schedule times must be the business timezone, not the app timezone
         // (which is kept as UTC so that ISO strings sent to the frontend are correct).
@@ -161,6 +162,10 @@ class AttendanceController extends Controller
             // Support both storage formats: 'Mon' (UI) and 'monday' (seeder)
             $isWorkDay  = in_array($cursor->format('D'), $workDays)
                        || in_array(strtolower($cursor->englishDayOfWeek), $workDays);
+            $dayKey = $cursor->format('D');
+            $dayTimeOverride = $timeByDay[$dayKey] ?? null;
+            $dayShiftStart = $dayTimeOverride['shift_start'] ?? $shiftStart;
+            $dayShiftEnd   = $dayTimeOverride['shift_end'] ?? $shiftEnd;
             $isFuture   = $dateStr > $today;
             $log              = $logs[$dateStr] ?? null;
             $clockInRaw       = $log?->getRawOriginal('clock_in');   // "2026-05-10 08:05:00"
@@ -175,8 +180,10 @@ class AttendanceController extends Controller
             $override         = $overrideMap[$dateStr] ?? null;
             $training         = $trainingMap[$dateStr] ?? null;
 
-            // Promote rest day to work day if an admin override is set.
-            if ($override?->promotes_to_workday) {
+            // Apply day-status overrides from admin actions.
+            if ($override?->demotes_to_restday) {
+                $isWorkDay = false;
+            } elseif ($override?->promotes_to_workday) {
                 $isWorkDay = true;
             }
 
@@ -207,10 +214,10 @@ class AttendanceController extends Controller
                 // Per-day effective shift overrides (set by admin when approving a correction).
                 $dayShiftStart = $log->effective_shift_start
                     ? substr($log->effective_shift_start, 0, 5)
-                    : ($override ? substr($override->shift_start, 0, 5) : $shiftStart);
+                    : ($override?->shift_start ? substr($override->shift_start, 0, 5) : $dayShiftStart);
                 $dayShiftEnd   = $log->effective_shift_end
                     ? substr($log->effective_shift_end,   0, 5)
-                    : ($override ? substr($override->shift_end,   0, 5) : $shiftEnd);
+                    : ($override?->shift_end   ? substr($override->shift_end,   0, 5) : $dayShiftEnd);
 
                 // Late / undertime — use modular helpers to handle overnight shifts correctly.
                 $status = 'present';
@@ -274,10 +281,15 @@ class AttendanceController extends Controller
                     'type' => $holiday->type,
                 ] : null,
                 'shift_override'       => $override ? [
-                    'shift_start'         => substr($override->shift_start, 0, 5),
-                    'shift_end'           => substr($override->shift_end,   0, 5),
+                    'shift_start'         => $override->shift_start ? substr($override->shift_start, 0, 5) : null,
+                    'shift_end'           => $override->shift_end ? substr($override->shift_end,   0, 5) : null,
                     'promotes_to_workday' => $override->promotes_to_workday,
+                    'demotes_to_restday'  => $override->demotes_to_restday,
                     'note'                => $override->note,
+                ] : null,
+                'effective_schedule_shift' => $dayShiftStart && $dayShiftEnd ? [
+                    'shift_start' => substr($dayShiftStart, 0, 5),
+                    'shift_end'   => substr($dayShiftEnd, 0, 5),
                 ] : null,
                 'training'             => $training ? [
                     'id'          => $training->id,

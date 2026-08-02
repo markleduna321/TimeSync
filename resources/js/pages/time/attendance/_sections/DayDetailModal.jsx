@@ -5,6 +5,7 @@ import { useFileCorrectionMutation, useRemoveCorrectionMutation } from '@/featur
 import { useCancelLeaveApplicationMutation } from '@/features/leave/leaveApi';
 import LeaveApplicationModal from './LeaveApplicationModal';
 import ShiftOverridePanel from './ShiftOverridePanel';
+import RestDayOverridePanel from './RestDayOverridePanel';
 import TrainingEntryPanel from './TrainingEntryPanel';
 
 /* ── Status config ────────────────────────────────────────────────────── */
@@ -368,6 +369,12 @@ export default function DayDetailModal({ day, open, onClose, canFile = true, isA
                                     </strong></span>
                                 </div>
                             ))}
+                            {day?.shift_override?.swap_date && (
+                                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                                    <span className="font-semibold">Swap target:</span>{' '}
+                                    {new Date(day.shift_override.swap_date + 'T00:00:00').toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </div>
+                            )}
                         </div>
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
                             {day.total_worked_minutes != null && (
@@ -680,19 +687,30 @@ export default function DayDetailModal({ day, open, onClose, canFile = true, isA
                     }}
                 />
 
-                {/* ── Manager panels: Shift Override + Training ────────── */}
-                {isManager && day.date >= today && (
+                {/* ── Manager panels: Rest-day + Shift Override + Training ────────── */}
+                {(isAdmin || (isManager && day.date >= today)) && (
                     <div className="space-y-3 border-t border-slate-100 pt-3">
-                        <ShiftOverridePanel
-                            day={day}
-                            targetUserId={targetUserId}
-                            onClose={handleClose}
-                        />
-                        <TrainingEntryPanel
-                            day={day}
-                            targetUserId={targetUserId}
-                            onClose={handleClose}
-                        />
+                        {isAdmin && (
+                            <RestDayOverridePanel
+                                day={day}
+                                targetUserId={targetUserId}
+                                onClose={handleClose}
+                            />
+                        )}
+                        {isManager && day.date >= today && (
+                            <>
+                                <ShiftOverridePanel
+                                    day={day}
+                                    targetUserId={targetUserId}
+                                    onClose={handleClose}
+                                />
+                                <TrainingEntryPanel
+                                    day={day}
+                                    targetUserId={targetUserId}
+                                    onClose={handleClose}
+                                />
+                            </>
+                        )}
                     </div>
                 )}
 

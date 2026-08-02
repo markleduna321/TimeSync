@@ -13,13 +13,16 @@ class ScheduleOverride extends Model
         'shift_start',
         'shift_end',
         'promotes_to_workday',
+        'demotes_to_restday',
+        'swap_date',
         'note',
         'created_by',
     ];
 
     protected $casts = [
-        'date'               => 'date:Y-m-d',
-        'promotes_to_workday'=> 'boolean',
+        'date'                => 'date:Y-m-d',
+        'promotes_to_workday' => 'boolean',
+        'demotes_to_restday'  => 'boolean',
     ];
 
     public function user(): BelongsTo

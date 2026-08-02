@@ -26,12 +26,54 @@ class ScheduleOverrideController extends Controller
             ->where('date', $validated['date'])
             ->first();
 
+        $currentFlags = [
+            'promotes_to_workday' => (bool) ($validated['promotes_to_workday'] ?? false),
+            'demotes_to_restday'  => (bool) ($validated['demotes_to_restday'] ?? false),
+        ];
+
+        if (!empty($validated['swap_date'])) {
+            $swapDate = (string) $validated['swap_date'];
+            $swapTarget = ScheduleOverride::where('user_id', $user->id)
+                ->where('date', $swapDate)
+                ->first();
+
+            $oppositeFlags = [
+                'promotes_to_workday' => $currentFlags['demotes_to_restday'],
+                'demotes_to_restday'  => $currentFlags['promotes_to_workday'],
+            ];
+
+            if ($swapTarget) {
+                $swapTarget->update([
+                    'shift_start'         => null,
+                    'shift_end'           => null,
+                    'promotes_to_workday' => $oppositeFlags['promotes_to_workday'],
+                    'demotes_to_restday'  => $oppositeFlags['demotes_to_restday'],
+                    'swap_date'           => $validated['date'],
+                    'note'                => $validated['note'] ?? null,
+                ]);
+            } else {
+                ScheduleOverride::create([
+                    'user_id'             => $user->id,
+                    'date'                => $swapDate,
+                    'shift_start'         => null,
+                    'shift_end'           => null,
+                    'promotes_to_workday' => $oppositeFlags['promotes_to_workday'],
+                    'demotes_to_restday'  => $oppositeFlags['demotes_to_restday'],
+                    'swap_date'           => $validated['date'],
+                    'note'                => $validated['note'] ?? null,
+                    'created_by'          => auth()->id(),
+                ]);
+            }
+        }
+
         if ($existing) {
             $existing->update([
-                'shift_start'          => $validated['shift_start'],
-                'shift_end'            => $validated['shift_end'],
-                'promotes_to_workday'  => $validated['promotes_to_workday'] ?? false,
-                'note'                 => $validated['note'] ?? null,
+                'shift_start'         => $validated['shift_start'] ?? null,
+                'shift_end'           => $validated['shift_end'] ?? null,
+                'promotes_to_workday' => $currentFlags['promotes_to_workday'],
+                'demotes_to_restday'  => $currentFlags['demotes_to_restday'],
+                'swap_date'           => $validated['swap_date'] ?? null,
+                'note'                => $validated['note'] ?? null,
             ]);
 
             return (new ScheduleOverrideResource($existing))
@@ -40,13 +82,15 @@ class ScheduleOverrideController extends Controller
         }
 
         $override = ScheduleOverride::create([
-            'user_id'              => $user->id,
-            'date'                 => $validated['date'],
-            'shift_start'          => $validated['shift_start'],
-            'shift_end'            => $validated['shift_end'],
-            'promotes_to_workday'  => $validated['promotes_to_workday'] ?? false,
-            'note'                 => $validated['note'] ?? null,
-            'created_by'           => auth()->id(),
+            'user_id'             => $user->id,
+            'date'                => $validated['date'],
+            'shift_start'         => $validated['shift_start'] ?? null,
+            'shift_end'           => $validated['shift_end'] ?? null,
+            'promotes_to_workday' => $currentFlags['promotes_to_workday'],
+            'demotes_to_restday'  => $currentFlags['demotes_to_restday'],
+            'swap_date'           => $validated['swap_date'] ?? null,
+            'note'                => $validated['note'] ?? null,
+            'created_by'          => auth()->id(),
         ]);
 
         return (new ScheduleOverrideResource($override))

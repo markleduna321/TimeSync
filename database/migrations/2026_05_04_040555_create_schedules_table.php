@@ -18,6 +18,7 @@ return new class extends Migration
             $table->json('work_days');                          // ["Mon","Tue","Wed","Thu","Fri"]
             $table->time('shift_start');                        // "08:00"
             $table->time('shift_end');                          // "17:00"
+            $table->json('time_by_day')->nullable();           // {"Mon": {"shift_start": "08:00", "shift_end": "17:00"}}
             $table->timestamps();
         });
     }

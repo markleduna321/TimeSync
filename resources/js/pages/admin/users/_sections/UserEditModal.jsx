@@ -58,7 +58,12 @@ const DAY_COLORS = {
     Sun: 'bg-rose-100 text-rose-700 border-rose-300',
 };
 
-const DEFAULT_SCHED = { work_days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], shift_start: '08:00', shift_end: '17:00' };
+const DEFAULT_SCHED = {
+    work_days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+    shift_start: '08:00',
+    shift_end: '17:00',
+    time_by_day: {},
+};
 const DEFAULT_DED   = { deduction_type_id: '', amount: '', effective_from: '', effective_until: '', description: '' };
 const DEFAULT_ALL   = { allowance_type_id: '', amount: '', effective_from: '', effective_to: '', description: '' };
 
@@ -788,41 +793,51 @@ function RolesTab({ user }) {
     );
 }
 
-/* ─── Schedule Tab ───────────────────────────────────────────────────────── */
-function ScheduleTab({ user }) {
-    const [form, setForm]     = useState(DEFAULT_SCHED);
-    const [errors, setErrors] = useState({});
-    const [saved, setSaved]   = useState(false);
+/* ─── Schedule Edit Modal ────────────────────────────────────────────────── */
+function ScheduleEditModal({ open, onClose, user, onSaved }) {
+    const [form, setForm]             = useState(DEFAULT_SCHED);
+    const [errors, setErrors]         = useState({});
+    const [saved, setSaved]           = useState(false);
+    const [useCustomTimes, setUseCustomTimes] = useState(false);
 
     const [upsertSchedule, { isLoading }] = useUpsertScheduleMutation();
 
-    // 1. Calculate if it crosses midnight
     const isOvernight = Boolean(
-        form.shift_start && 
-        form.shift_end && 
-        form.shift_start > form.shift_end
+        form.shift_start && form.shift_end && form.shift_start > form.shift_end,
     );
 
     useEffect(() => {
-        const s = user?.schedule;
-        if (s) {
-            setForm({
-                work_days:   s.work_days   ?? DEFAULT_SCHED.work_days,
-                shift_start: s.shift_start ?? DEFAULT_SCHED.shift_start,
-                shift_end:   s.shift_end   ?? DEFAULT_SCHED.shift_end,
-            });
-        } else {
-            setForm(DEFAULT_SCHED);
-        }
+        if (!open) return;
+        const s         = user?.schedule;
+        const hasCustom = Boolean(s?.time_by_day && Object.keys(s.time_by_day).length > 0);
+        setForm({
+            work_days:   s?.work_days   ?? DEFAULT_SCHED.work_days,
+            shift_start: s?.shift_start ?? DEFAULT_SCHED.shift_start,
+            shift_end:   s?.shift_end   ?? DEFAULT_SCHED.shift_end,
+            time_by_day: s?.time_by_day ?? {},
+        });
+        setUseCustomTimes(hasCustom);
         setErrors({});
         setSaved(false);
-    }, [user?.id]);
+    }, [open, user?.id]);
 
     function toggleDay(day) {
         setErrors((e) => ({ ...e, work_days: undefined }));
         setForm((f) => {
-            const has = f.work_days.includes(day);
-            return { ...f, work_days: has ? f.work_days.filter((d) => d !== day) : [...f.work_days, day] };
+            const has         = f.work_days.includes(day);
+            const newWorkDays = has
+                ? f.work_days.filter((d) => d !== day)
+                : [...f.work_days, day];
+
+            /* Bug-fix: seed time_by_day when adding a day in custom mode */
+            let newTimeByDay = f.time_by_day;
+            if (!has && useCustomTimes && !f.time_by_day?.[day]) {
+                newTimeByDay = {
+                    ...f.time_by_day,
+                    [day]: { shift_start: f.shift_start, shift_end: f.shift_end },
+                };
+            }
+            return { ...f, work_days: newWorkDays, time_by_day: newTimeByDay };
         });
     }
 
@@ -831,157 +846,343 @@ function ScheduleTab({ user }) {
         setForm((f) => ({ ...f, [field]: value }));
     }
 
+    function setDayField(day, field, value) {
+        setForm((f) => ({
+            ...f,
+            time_by_day: {
+                ...f.time_by_day,
+                [day]: { ...(f.time_by_day?.[day] ?? {}), [field]: value },
+            },
+        }));
+    }
+
+    function toggleCustomMode(nextMode) {
+        setUseCustomTimes(nextMode);
+        if (!nextMode) {
+            setForm((f) => ({ ...f, time_by_day: {} }));
+            return;
+        }
+        setForm((f) => {
+            const next = { ...(f.time_by_day ?? {}) };
+            f.work_days.forEach((day) => {
+                if (!next[day]) next[day] = { shift_start: f.shift_start, shift_end: f.shift_end };
+            });
+            return { ...f, time_by_day: next };
+        });
+    }
+
     async function handleSave(e) {
         e.preventDefault();
         setErrors({});
         setSaved(false);
+
+        const payload = {
+            userId:       user.id,
+            work_days:    form.work_days,
+            shift_start:  form.shift_start,
+            shift_end:    form.shift_end,
+            is_overnight: isOvernight,
+            time_by_day:  null,   /* always sent — null clears custom times in DB */
+        };
+
+        if (useCustomTimes) {
+            const timeByDay = {};
+            form.work_days.forEach((day) => {
+                const slot = form.time_by_day?.[day];
+                /* Fall back to global times so no day is ever skipped */
+                timeByDay[day] = {
+                    shift_start: slot?.shift_start || form.shift_start,
+                    shift_end:   slot?.shift_end   || form.shift_end,
+                };
+            });
+            payload.time_by_day = timeByDay;
+        }
+
         try {
-            await upsertSchedule({ 
-                userId: user.id, 
-                work_days: form.work_days, 
-                shift_start: form.shift_start, 
-                shift_end: form.shift_end,
-                // 2. Pass the overnight flag to the backend
-                is_overnight: isOvernight
-            }).unwrap();
+            const result = await upsertSchedule(payload).unwrap();
+            onSaved?.(result?.data ?? result);
             setSaved(true);
-            setTimeout(() => setSaved(false), 3000);
+            setTimeout(() => { setSaved(false); onClose(); }, 1200);
         } catch (err) {
-            if (err?.status === 422) setErrors(err.data?.errors ?? {});
+            if (err?.status === 422) {
+                setErrors(err.data?.errors ?? {});
+            } else {
+                setErrors({ general: err?.data?.message ?? 'Save failed. Please try again.' });
+            }
         }
     }
 
+    const previewDays = form.work_days.map((day) => {
+        const slot  = useCustomTimes ? (form.time_by_day?.[day] ?? {}) : {};
+        const start = slot.shift_start ?? form.shift_start;
+        const end   = slot.shift_end   ?? form.shift_end;
+        return `${day}: ${start} → ${end}`;
+    });
+
     return (
-        <form onSubmit={handleSave} className="space-y-5 pt-1">
-            {/* Work Days */}
-            <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">Work Days</label>
-                <div className="flex flex-wrap gap-2">
-                    {ALL_DAYS.map((day) => {
-                        const selected = form.work_days.includes(day);
-                        return (
-                            <button key={day} type="button" onClick={() => toggleDay(day)}
-                                aria-pressed={selected}
-                                className={[
-                                    'rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500',
-                                    selected ? DAY_COLORS[day] : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600',
-                                ].join(' ')}>
-                                {day}
-                            </button>
-                        );
-                    })}
-                </div>
-                {errors.work_days && <p className="mt-1 text-xs text-red-500">{errors.work_days[0]}</p>}
-                {form.work_days.length === 0 && !errors.work_days && (
-                    <p className="mt-1 text-xs text-amber-500">Select at least one day.</p>
+        <Modal open={open} onCancel={onClose} title="Edit Schedule" footer={null} width={540} destroyOnClose>
+            <form onSubmit={handleSave} className="space-y-5 pt-1 pb-2">
+
+                {errors.general && (
+                    <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5">
+                        <span className="text-sm text-rose-600">{errors.general}</span>
+                    </div>
                 )}
-            </div>
 
-            {/* Shift Hours */}
-            <div className="grid grid-cols-2 gap-4">
+                {/* ── Shift type segmented control ── */}
                 <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-700">Shift Start</label>
-                    <input type="time" value={form.shift_start} onChange={(e) => setField('shift_start', e.target.value)}
-                        className={`w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.shift_start ? 'border-red-400' : 'border-slate-300'}`} />
-                    {errors.shift_start && <p className="mt-1 text-xs text-red-500">{errors.shift_start[0]}</p>}
-                </div>
-                <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-700">Shift End</label>
-                    <input type="time" value={form.shift_end} onChange={(e) => setField('shift_end', e.target.value)}
-                        className={`w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.shift_end ? 'border-red-400' : 'border-slate-300'}`} />
-                    {errors.shift_end && <p className="mt-1 text-xs text-red-500">{errors.shift_end[0]}</p>}
-                </div>
-            </div>
-
-            {/* Preview */}
-            {form.work_days.length > 0 && (
-                <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
-                    <p className="text-xs text-slate-500">Preview</p>
-                    <p className="mt-0.5 text-sm font-medium text-slate-700 flex items-center gap-2">
-                        {form.work_days.join(', ')} &nbsp;·&nbsp; {form.shift_start} → {form.shift_end}
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Shift Type</p>
+                    <div className="flex w-full rounded-xl border border-slate-200 bg-slate-100 p-1">
+                        <button type="button" onClick={() => toggleCustomMode(false)}
+                            className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-all focus:outline-none ${
+                                !useCustomTimes ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            }`}>
+                            Same time every day
+                        </button>
+                        <button type="button" onClick={() => toggleCustomMode(true)}
+                            className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-all focus:outline-none ${
+                                useCustomTimes ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            }`}>
+                            Different per day
+                        </button>
+                    </div>
+                    <p className="mt-1.5 text-xs text-slate-500">
+                        {useCustomTimes ? 'Set a unique shift for each selected workday.' : 'All selected workdays share the same shift.'}
                     </p>
-                    {/* 3. Helpful UI indicator for overnight shifts */}
-                    {isOvernight && (
-                        <p className="mt-1 text-xs font-medium text-indigo-600 bg-indigo-50 inline-block px-2 py-0.5 rounded">
-                            🌙 Overnight Shift (Ends following day)
-                        </p>
+                </div>
+
+                {/* ── Work days ── */}
+                <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Work Days</p>
+                    <div className="grid grid-cols-7 gap-1.5">
+                        {ALL_DAYS.map((day) => {
+                            const selected = form.work_days.includes(day);
+                            return (
+                                <button key={day} type="button" onClick={() => toggleDay(day)} aria-pressed={selected}
+                                    className={[
+                                        'rounded-xl py-2.5 text-center text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400',
+                                        selected ? DAY_COLORS[day] : 'border border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600',
+                                    ].join(' ')}>
+                                    {day}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {errors.work_days && <p className="mt-1.5 text-xs text-red-500">{errors.work_days[0]}</p>}
+                    {form.work_days.length === 0 && !errors.work_days && (
+                        <p className="mt-1.5 text-xs text-amber-500">Select at least one work day.</p>
                     )}
                 </div>
-            )}
 
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
-                {saved && <SavedBadge />}
-                <button type="submit" disabled={isLoading}
-                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-60">
-                    {isLoading && <Spin size="small" />}
-                    Save Schedule
-                </button>
-            </div>
-        </form>
+                {/* ── Time inputs ── */}
+                {!useCustomTimes ? (
+                    <div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Shift Hours</p>
+                        <div className="flex items-end gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <div className="flex-1">
+                                <p className="mb-1 text-xs font-medium text-slate-500">Start</p>
+                                <input type="time" value={form.shift_start}
+                                    onChange={(e) => setField('shift_start', e.target.value)}
+                                    className={`w-full rounded-lg border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                                        errors.shift_start ? 'border-red-400' : 'border-slate-200'
+                                    }`} />
+                            </div>
+                            <p className="mb-2.5 shrink-0 text-lg font-light text-slate-300">→</p>
+                            <div className="flex-1">
+                                <p className="mb-1 text-xs font-medium text-slate-500">End</p>
+                                <input type="time" value={form.shift_end}
+                                    onChange={(e) => setField('shift_end', e.target.value)}
+                                    className={`w-full rounded-lg border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                                        errors.shift_end ? 'border-red-400' : 'border-slate-200'
+                                    }`} />
+                            </div>
+                        </div>
+                        {errors.shift_start && <p className="mt-1.5 text-xs text-red-500">{errors.shift_start[0]}</p>}
+                        {errors.shift_end   && <p className="mt-1 text-xs text-red-500">{errors.shift_end[0]}</p>}
+                        {isOvernight && (
+                            <p className="mt-2 inline-flex items-center gap-1 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-600">
+                                🌙 Overnight — ends the following day
+                            </p>
+                        )}
+                    </div>
+                ) : (
+                    <div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Shift Hours per Day</p>
+                        {form.work_days.length === 0 ? (
+                            <p className="text-xs text-slate-400">Select work days above first.</p>
+                        ) : (
+                            <div className="overflow-hidden rounded-xl border border-slate-200">
+                                {form.work_days.map((day, idx) => {
+                                    const slot     = form.time_by_day?.[day] ?? {};
+                                    const onight   = slot.shift_start && slot.shift_end && slot.shift_start > slot.shift_end;
+                                    const isLast   = idx === form.work_days.length - 1;
+                                    return (
+                                        <div key={day} className={`flex items-center gap-2.5 px-3 py-2 ${
+                                            !isLast ? 'border-b border-slate-100' : ''
+                                        } ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>
+                                            <span className={`w-10 shrink-0 rounded-lg py-1 text-center text-xs font-bold ${
+                                                DAY_COLORS[day]
+                                            }`}>{day}</span>
+                                            <input type="time" value={slot.shift_start ?? ''}
+                                                onChange={(e) => setDayField(day, 'shift_start', e.target.value)}
+                                                className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                                            <span className="shrink-0 text-sm text-slate-400">→</span>
+                                            <input type="time" value={slot.shift_end ?? ''}
+                                                onChange={(e) => setDayField(day, 'shift_end', e.target.value)}
+                                                className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                                            {onight && (
+                                                <span className="shrink-0 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-500">+1</span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ── Footer ── */}
+                <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+                    {saved ? <SavedBadge /> : <span />}
+                    <div className="flex gap-2">
+                        <button type="button" onClick={onClose}
+                            className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                            Cancel
+                        </button>
+                        <button type="submit" disabled={isLoading}
+                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60 transition-colors">
+                            {isLoading && <Spin size="small" />}
+                            Save Schedule
+                        </button>
+                    </div>
+                </div>
+
+            </form>
+        </Modal>
     );
+}
 
+/* ─── Schedule Tab ───────────────────────────────────────────────────────── */
+function ScheduleTab({ user }) {
+    const [editOpen, setEditOpen]           = useState(false);
+    const [localSchedule, setLocalSchedule] = useState(user?.schedule ?? null);
+
+    useEffect(() => {
+        setLocalSchedule(user?.schedule ?? null);
+    }, [user?.id]);
+
+    const schedule   = localSchedule;
+    const workDays   = schedule?.work_days ?? [];
+    const hasCustom  = Boolean(schedule?.time_by_day && Object.keys(schedule.time_by_day).length > 0);
+    const shiftStart = schedule?.shift_start ?? DEFAULT_SCHED.shift_start;
+    const shiftEnd   = schedule?.shift_end   ?? DEFAULT_SCHED.shift_end;
+    const isOvernight = Boolean(shiftStart && shiftEnd && shiftStart > shiftEnd);
+
+    const previewDays = workDays.map((day) => {
+        const slot  = hasCustom ? (schedule.time_by_day?.[day] ?? {}) : {};
+        const start = slot.shift_start ?? shiftStart;
+        const end   = slot.shift_end   ?? shiftEnd;
+        return { day, start, end };
+    });
 
     return (
-        <form onSubmit={handleSave} className="space-y-5 pt-1">
-            {/* Work Days */}
-            <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">Work Days</label>
-                <div className="flex flex-wrap gap-2">
-                    {ALL_DAYS.map((day) => {
-                        const selected = form.work_days.includes(day);
-                        return (
-                            <button key={day} type="button" onClick={() => toggleDay(day)}
-                                aria-pressed={selected}
-                                className={[
-                                    'rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500',
-                                    selected ? DAY_COLORS[day] : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600',
-                                ].join(' ')}>
-                                {day}
-                            </button>
-                        );
-                    })}
+        <div className="space-y-4 pt-1">
+            {/* Summary card */}
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                {/* Card header */}
+                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-3">
+                    <div className="flex items-center gap-2">
+                        <CalendarClock size={15} className="text-indigo-500" />
+                        <span className="text-sm font-semibold text-slate-700">Work Schedule</span>
+                    </div>
+                    <span className={`rounded-full border px-3 py-0.5 text-xs font-semibold ${
+                        hasCustom
+                            ? 'border-violet-200 bg-violet-50 text-violet-700'
+                            : 'border-indigo-200 bg-indigo-50 text-indigo-700'
+                    }`}>
+                        {hasCustom ? 'Custom per day' : 'Fixed shift'}
+                    </span>
                 </div>
-                {errors.work_days && <p className="mt-1 text-xs text-red-500">{errors.work_days[0]}</p>}
-                {form.work_days.length === 0 && !errors.work_days && (
-                    <p className="mt-1 text-xs text-amber-500">Select at least one day.</p>
-                )}
-            </div>
 
-            {/* Shift Hours */}
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-700">Shift Start</label>
-                    <input type="time" value={form.shift_start} onChange={(e) => setField('shift_start', e.target.value)}
-                        className={`w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.shift_start ? 'border-red-400' : 'border-slate-300'}`} />
-                    {errors.shift_start && <p className="mt-1 text-xs text-red-500">{errors.shift_start[0]}</p>}
-                </div>
-                <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-700">Shift End</label>
-                    <input type="time" value={form.shift_end} onChange={(e) => setField('shift_end', e.target.value)}
-                        className={`w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.shift_end ? 'border-red-400' : 'border-slate-300'}`} />
-                    {errors.shift_end && <p className="mt-1 text-xs text-red-500">{errors.shift_end[0]}</p>}
-                </div>
-            </div>
-
-            {/* Preview */}
-            {form.work_days.length > 0 && (
-                <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
-                    <p className="text-xs text-slate-500">Preview</p>
-                    <p className="mt-0.5 text-sm font-medium text-slate-700">
-                        {form.work_days.join(', ')} &nbsp;·&nbsp; {form.shift_start} → {form.shift_end}
+                {/* Work day grid — equal-width cells, no wrapping issues */}
+                <div className="border-b border-slate-100 px-4 pb-3 pt-3">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Work Days</p>
+                    <div className="grid grid-cols-7 gap-1.5">
+                        {ALL_DAYS.map((day) => {
+                            const active = workDays.includes(day);
+                            return (
+                                <div key={day} className={`rounded-xl py-2 text-center text-xs font-bold ${
+                                    active ? DAY_COLORS[day] : 'bg-slate-50 text-slate-300'
+                                }`}>
+                                    {day}
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <p className="mt-2 text-xs text-slate-400">
+                        {workDays.length} workday{workDays.length !== 1 ? 's' : ''} per week
                     </p>
                 </div>
-            )}
 
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
-                {saved && <SavedBadge />}
-                <button type="submit" disabled={isLoading}
-                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-60">
-                    {isLoading && <Spin size="small" />}
-                    Save Schedule
+                {/* Shift times */}
+                <div className="px-4 py-3">
+                    {previewDays.length === 0 ? (
+                        <p className="py-2 text-center text-sm text-slate-400">No schedule configured yet.</p>
+                    ) : !hasCustom ? (
+                        /* Same time every day — single summary row */
+                        <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">All work days</span>
+                            <div className="flex items-center gap-2 font-mono text-sm font-semibold text-slate-800">
+                                <span>{previewDays[0]?.start}</span>
+                                <span className="font-normal text-slate-400">→</span>
+                                <span>{previewDays[0]?.end}</span>
+                                {isOvernight && (
+                                    <span className="ml-1 rounded-full bg-indigo-100 px-2 py-0.5 font-sans text-xs font-semibold text-indigo-600">+1 day</span>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        /* Different per day — compact table */
+                        <div className="overflow-hidden rounded-xl border border-slate-100">
+                            {previewDays.map(({ day, start, end }, idx) => {
+                                const onight = start > end;
+                                const isLast = idx === previewDays.length - 1;
+                                return (
+                                    <div key={day} className={`flex items-center gap-3 px-3 py-2.5 ${
+                                        !isLast ? 'border-b border-slate-100' : ''
+                                    } ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>
+                                        <span className={`w-10 shrink-0 rounded-lg py-1 text-center text-xs font-bold ${
+                                            DAY_COLORS[day]
+                                        }`}>{day}</span>
+                                        <span className="flex-1 font-mono text-sm text-slate-700">{start}</span>
+                                        <span className="text-slate-400">→</span>
+                                        <span className="flex-1 font-mono text-sm text-slate-700">{end}</span>
+                                        {onight && (
+                                            <span className="shrink-0 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-500">+1</span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Edit trigger */}
+            <div className="flex justify-end">
+                <button type="button" onClick={() => setEditOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors">
+                    <Pencil size={14} /> Edit Schedule
                 </button>
             </div>
-        </form>
+
+            <ScheduleEditModal
+                open={editOpen}
+                onClose={() => setEditOpen(false)}
+                user={user}
+                onSaved={(saved) => setLocalSchedule(saved)}
+            />
+        </div>
     );
 }
 

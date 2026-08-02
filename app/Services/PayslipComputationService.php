@@ -346,6 +346,7 @@ class PayslipComputationService
         $cutoffType  = $periodEnd->day <= 15 ? 'first' : 'second';
         $schedule    = $employee->schedule;
         $workDays    = $schedule?->work_days ?? [];
+        $timeByDay   = $schedule?->time_by_day ?? [];
         // Normalize to HH:MM — DB may store as "13:00:00" (with seconds)
         $shiftStart  = substr($schedule?->shift_start ?? '08:00', 0, 5);
         $shiftEnd    = substr($schedule?->shift_end   ?? '17:00', 0, 5);
@@ -460,6 +461,10 @@ class PayslipComputationService
             $dateStr   = $cursor->toDateString();
             $isWorkDay = in_array($cursor->format('D'), $workDays)
                       || in_array(strtolower($cursor->englishDayOfWeek), $workDays);
+            $dayKey = $cursor->format('D');
+            $dayTimeOverride = $timeByDay[$dayKey] ?? null;
+            $dayShiftStart = $dayTimeOverride['shift_start'] ?? $shiftStart;
+            $dayShiftEnd = $dayTimeOverride['shift_end'] ?? $shiftEnd;
             $holiday = $holidays[$dateStr] ?? null;
             $log     = $logs[$dateStr] ?? null;
             $worked  = $log && $log->clock_in;
@@ -467,7 +472,9 @@ class PayslipComputationService
             // Apply schedule override for this date.
             $override = $overrideMap[$dateStr] ?? null;
             $training = $trainingMap[$dateStr] ?? null;
-            if ($override?->promotes_to_workday) {
+            if ($override?->demotes_to_restday) {
+                $isWorkDay = false;
+            } elseif ($override?->promotes_to_workday) {
                 $isWorkDay = true;
             }
 
@@ -604,12 +611,14 @@ class PayslipComputationService
 
             // Per-day effective shift overrides (set by admin when approving a correction).
             // These take precedence over the employee's permanent schedule.
+            // Note: day-status overrides (promotes_to_workday / demotes_to_restday) do NOT
+            // carry shift times — guard against null so the base schedule is preserved.
             $dayShiftStart = $log->effective_shift_start
                 ? substr($log->effective_shift_start, 0, 5)
-                : ($override ? substr($override->shift_start, 0, 5) : $shiftStart);
+                : ($override?->shift_start ? substr($override->shift_start, 0, 5) : $dayShiftStart);
             $dayShiftEnd   = $log->effective_shift_end
                 ? substr($log->effective_shift_end,   0, 5)
-                : ($override ? substr($override->shift_end,   0, 5) : $shiftEnd);
+                : ($override?->shift_end   ? substr($override->shift_end,   0, 5) : $dayShiftEnd);
 
             // Late / undertime — use modular helpers to handle overnight shifts correctly.
             if ($clockInTime) {

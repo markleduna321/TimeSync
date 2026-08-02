@@ -15,10 +15,12 @@ class Schedule extends Model
         'work_days',
         'shift_start',
         'shift_end',
+        'time_by_day',
     ];
 
     protected $casts = [
         'work_days' => 'array',
+        'time_by_day' => 'array',
     ];
 
     public function user(): BelongsTo
