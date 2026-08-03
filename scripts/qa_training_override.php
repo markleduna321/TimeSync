@@ -58,6 +58,16 @@ function manilaToUtc(string $date, string $localTime): string {
         ->format('Y-m-d H:i:s');
 }
 
+function upsertOverride(array $data): void {
+    ScheduleOverride::updateOrCreate(
+        [
+            'user_id' => $data['user_id'],
+            'date' => $data['date'],
+        ],
+        $data
+    );
+}
+
 // ── Bootstrap ───────────────────────────────────────────────────────────────
 DB::beginTransaction();
 
@@ -239,7 +249,7 @@ try {
     }
 
     // Override on May 13: new shift 10:00–19:00
-    ScheduleOverride::create([
+    upsertOverride([
         'user_id'              => $emp3->id,
         'date'                 => '2026-05-13',
         'shift_start'          => '10:00:00',
@@ -293,7 +303,7 @@ try {
     }
 
     // May 9 (Sat) override → promotes to work day, employee did NOT clock in
-    ScheduleOverride::create([
+    upsertOverride([
         'user_id'              => $emp4->id,
         'date'                 => '2026-05-09',
         'shift_start'          => '08:00:00',
