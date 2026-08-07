@@ -15,6 +15,7 @@ class TimeLog extends Model
         'user_id', 'date', 'clock_in', 'clock_out',
         'lunch_start', 'lunch_end', 'breaks', 'status',
         'overtime_minutes', 'effective_shift_start', 'effective_shift_end',
+        'device_log_id',
     ];
 
     protected $casts = [

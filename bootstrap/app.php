@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'password.changed' => \App\Http\Middleware\EnsurePasswordChanged::class,
+            'external.token'   => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
         ]);
 
         //

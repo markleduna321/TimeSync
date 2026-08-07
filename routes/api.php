@@ -1,6 +1,10 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\External\AuthTokenController;
+use App\Http\Controllers\Api\External\ExternalUserController;
+use App\Http\Controllers\Api\External\ExternalTimeLogController;
+use App\Http\Controllers\Api\External\ExternalTimeLogPunchController;
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AllowanceTypeController;
@@ -226,5 +230,28 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/leave-monetizations',                [LeaveMonetizationController::class, 'index']);
     Route::post('/admin/leave-monetizations/run',           [LeaveMonetizationController::class, 'run']);
     Route::patch('/admin/leave-monetizations/{monetization}', [LeaveMonetizationController::class, 'process']);
+});
+
+// ---------------------------------------------------------------------------
+// External API — Desktop Timekeeping App (Sanctum Personal Access Tokens)
+// ---------------------------------------------------------------------------
+Route::prefix('external')->group(function () {
+    // Token issuance is public but rate-limited to prevent brute force
+    Route::post('/auth/token', [AuthTokenController::class, 'issue'])
+        ->middleware('throttle:10,1');
+
+    Route::middleware(['auth:sanctum', 'external.token:external:timekeeping'])->group(function () {
+        Route::delete('/auth/token', [AuthTokenController::class, 'revoke']);
+
+        Route::get('/users',       [ExternalUserController::class, 'index']);
+        Route::get('/users/{user}', [ExternalUserController::class, 'show']);
+
+        Route::post('/time-logs',        [ExternalTimeLogController::class, 'store']);
+        Route::post('/time-logs/batch',   [ExternalTimeLogController::class, 'batch']);
+
+        // Punch-event endpoints — one row per event, assembled server-side into a day log
+        Route::post('/time-logs/punch',   [ExternalTimeLogPunchController::class, 'store']);
+        Route::post('/time-logs/punches', [ExternalTimeLogPunchController::class, 'batch']);
+    });
 });
 
