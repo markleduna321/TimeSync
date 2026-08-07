@@ -21,6 +21,43 @@ Laravel is a web application framework with expressive, elegant syntax. We belie
 
 Laravel is accessible, powerful, and provides tools required for large, robust applications.
 
+## TimeSync QA Scenarios
+
+Run all scripts from the project root.
+
+### Attendance and User Schedule
+
+- `php scripts/qa_training_override.php`
+	- Verifies training day carve-out for `days_worked` and `flat_rate` modes.
+	- Verifies shift override behavior (`shift_start`/`shift_end`) and `promotes_to_workday`.
+	- Uses transaction rollback; no data is persisted.
+
+- `php scripts/qa_cross_midnight.php`
+	- Verifies cross-midnight holiday pay and ND behavior for overnight shifts.
+	- Covers regular and special holiday scenarios plus flat-rate behavior.
+	- Uses transaction rollback; no data is persisted.
+
+- `php scripts/qa_cross_midnight.php --real-summary`
+	- Prints current real-data schedule coverage (users, shift patterns, and timelog counts).
+	- Helps detect when a cutoff window has limited schedule diversity.
+
+### Payslip Generation
+
+- `php scripts/smoke_payslip.php`
+	- Validates helper-level payslip computation behavior (late, undertime, ND, OT math).
+
+- `php scripts/smoke-payroll.php`
+	- Creates a transaction-only payroll fixture and generates a draft payslip + lines.
+	- Reports whether smoke fixture net pay is non-negative and flags policy follow-up if negative.
+
+### Expected Outcomes
+
+- All QA script assertions should pass.
+- Any temporary users, schedules, logs, overrides, and payslips should be rolled back.
+- If negative net pay appears in real-data runs, validate payroll policy decision:
+	- allow negative carry-forward, or
+	- clamp net pay to zero and track remaining deductions separately.
+
 ## Learning Laravel
 
 Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.

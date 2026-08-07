@@ -35,6 +35,49 @@ use Illuminate\Support\Facades\DB;
 $pass = 0;
 $fail = 0;
 
+if (in_array('--real-summary', $argv, true)) {
+    echo "\n=== Real Data Coverage Summary ===\n";
+    $summaryRows = User::query()
+        ->join('schedules', 'users.id', '=', 'schedules.user_id')
+        ->leftJoin('time_logs', 'users.id', '=', 'time_logs.user_id')
+        ->select(
+            'users.id',
+            'users.first_name',
+            'users.last_name',
+            'schedules.shift_start',
+            'schedules.shift_end',
+            DB::raw('COUNT(time_logs.id) as log_count')
+        )
+        ->groupBy(
+            'users.id',
+            'users.first_name',
+            'users.last_name',
+            'schedules.shift_start',
+            'schedules.shift_end'
+        )
+        ->orderBy('users.id')
+        ->get();
+
+    foreach ($summaryRows as $row) {
+        echo sprintf(
+            "  U%s %s %s %s-%s logs=%s\n",
+            $row->id,
+            $row->first_name,
+            $row->last_name,
+            $row->shift_start,
+            $row->shift_end,
+            $row->log_count
+        );
+    }
+
+    $patternCount = $summaryRows
+        ->map(fn ($r) => $r->shift_start . '-' . $r->shift_end)
+        ->unique()
+        ->count();
+
+    echo "  distinct_schedule_patterns={$patternCount}\n";
+}
+
 /* ─── Assertion helpers ──────────────────────────────────────────────────── */
 function ok(string $label, bool $cond, int &$pass, int &$fail): void
 {

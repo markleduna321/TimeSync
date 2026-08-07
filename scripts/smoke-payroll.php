@@ -9,6 +9,11 @@ use Illuminate\Support\Facades\DB;
 
 echo "Starting payroll smoke test...\n";
 
+function reportCheck(string $label, bool $ok): void
+{
+    echo $ok ? "[PASS] {$label}\n" : "[FAIL] {$label}\n";
+}
+
 try {
     DB::beginTransaction();
     echo "DB transaction started\n";
@@ -106,6 +111,15 @@ try {
     }
 
     echo "Payslip draft created (id: {$payslip->id}) net: {$payslip->net_pay}\n";
+
+    // Guardrail visibility: current implementation allows negative net for deduction-heavy scenarios.
+    $isNonNegativeNet = (float) $payslip->net_pay >= 0;
+    if ($isNonNegativeNet) {
+        reportCheck('Net pay is non-negative for smoke fixture', true);
+    } else {
+        echo "[INFO] Net pay is negative for smoke fixture ({$payslip->net_pay}).\n";
+        echo "[INFO] Validate policy choice: clamp to 0 vs carry-forward deduction.\n";
+    }
 
     DB::rollBack();
     echo "DB transaction rolled back — smoke test complete and non-destructive.\n";
