@@ -1,0 +1,22 @@
+### Phase 1: Fix Schedule `time_by_day` Column + QA (Creation, Edit, Payslip Relation)
+
+- **Timestamp:** 2026-08-12 12:20 (Asia/Manila)
+- **Mode:** Agent
+- **Persona(s) Active:** 🧪 QA + ⚙️ Backend + 🏗️ Tech Lead
+- **Files Modified/Created:**
+  - `database/migrations/2026_08_12_000001_add_time_by_day_to_schedules_table.php` — Created. Adds the missing nullable `time_by_day` JSON column to `schedules` via a proper new migration.
+  - `dev-logs/2026-08-12-schedule-timebyday-fix-qa.md` — This log.
+- **Issues Encountered:**
+  - Reported bug: "server error when editing a schedule". Reproduced deterministically across all 7 create/edit scenarios (day-shift, overnight, custom-per-day, toggle back to same-time, custom+overnight slot, brand-new schedule, removing a work day).
+  - Root cause: `database/migrations/2026_05_04_040555_create_schedules_table.php` was edited to add a `time_by_day` json column to its `up()` method *after* the migration had already run in the live database (recorded in batch 1). Laravel never re-executes an applied migration, so the live `schedules` table never actually had the column, even though `Schedule::$fillable`, `StoreScheduleRequest`, `ScheduleController::upsert`, and the frontend modals all assumed it existed.
+  - Every schedule `INSERT`/`UPDATE` therefore failed with `SQLSTATE[42S22]: Column not found: 1054 Unknown column 'time_by_day' in 'field list'` (a real 500), and the "different time per day" payroll feature in `PayslipComputationService` (reads `$schedule?->time_by_day`) was silently inert since the data could never persist.
+- **Resolution:**
+  - Added a new additive migration (`add_time_by_day_to_schedules_table`) with a reversible `down()`, instead of modifying the already-applied migration.
+  - Ran `php artisan migrate --force` — applied successfully.
+  - Verified via `Schema::getColumnListing('schedules')` that the column now exists.
+  - Re-ran the full 7-scenario reproduction suite through the real `ScheduleController::upsert` (validation + policy + save) — all now return `[OK]` (previously all `[500]`).
+  - Ran a dedicated schedule↔payslip QA scenario: employee with Mon–Thu day shift (08:00–17:00) plus a Friday-specific overnight override (22:00–06:00) via `time_by_day`. Confirmed `PayslipComputationService::compute()` correctly uses the per-day override (`late_minutes=0`, `nd_minutes=480` for the overnight Friday) rather than falling back to the global shift.
+  - Re-ran `scripts/qa_training_override.php` (22/22 pass) and `scripts/qa_cross_midnight.php` (21/21 pass) — no regressions.
+- **QA Checklist Result:** ✅ All pass (see table in chat response).
+- **Next Steps:**
+  - Awaiting instruction on further schedule/payslip QA scope, or any other reported issues.
