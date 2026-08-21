@@ -12,6 +12,7 @@ use App\Models\TrainingEntry;
 use App\Models\UserAllowance;
 use App\Models\UserDeduction;
 use App\Models\UserGovernmentDeductionSetting;
+use App\Models\UserPaySetting;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 
@@ -225,8 +226,12 @@ class PayslipComputationService
     // Simple HH:MM → minutes-since-midnight conversion.
     private function toMins(string $hhmm): int
     {
-        [$h, $m] = explode(':', $hhmm);
-        return (int)$h * 60 + (int)$m;
+        $parts = explode(':', $hhmm);
+        if (count($parts) < 2 || ! is_numeric($parts[0]) || ! is_numeric($parts[1])) {
+            \Log::warning("PayslipComputation: bad time value '{$hhmm}' in toMins(); defaulting to 0.");
+            return 0;
+        }
+        return (int)$parts[0] * 60 + (int)$parts[1];
     }
 
     /**
@@ -344,18 +349,22 @@ class PayslipComputationService
         }
 
         $cutoffType  = $periodEnd->day <= 15 ? 'first' : 'second';
+        $warnings    = [];
         $schedule    = $employee->schedule;
+        $isFlexi     = $schedule?->schedule_type === 'flexi';
         $workDays    = $schedule?->work_days ?? [];
-        $timeByDay   = $schedule?->time_by_day ?? [];
+        // Normalize keys to 3-letter title-case so 'monday', 'MON', and 'Mon' all resolve correctly
+        $timeByDay   = collect($schedule?->time_by_day ?? [])
+            ->mapWithKeys(fn ($v, $k) => [ucfirst(substr(strtolower($k), 0, 3)) => $v])
+            ->all();
         // Normalize to HH:MM — DB may store as "13:00:00" (with seconds)
         $shiftStart  = substr($schedule?->shift_start ?? '08:00', 0, 5);
         $shiftEnd    = substr($schedule?->shift_end   ?? '17:00', 0, 5);
         $localTz     = env('APP_LOCAL_TIMEZONE', 'Asia/Manila');
         $daysPerWeek = count($workDays);
         if ($daysPerWeek === 0) {
-            // Fallback: employee has no schedule configured. Log and default to 5-day week
-            // so the payslip is generated rather than silently producing ₱0 basic pay.
             \Log::warning("PayslipComputation: Employee [{$employee->name}] has no work_days configured; defaulting to 5 days/week.");
+            $warnings[] = "No work schedule configured for {$employee->name}; daily rate defaulted to a 5-day week. Assign a schedule before releasing this payslip.";
             $daysPerWeek = 5;
         }
         $dailyRate   = $this->computeDailyRate($monthlySalary, $daysPerWeek);
@@ -384,6 +393,13 @@ class PayslipComputationService
         $logs = $logsGrouped->map(function ($group) {
             $primary = $group->sortBy(fn ($l) => $l->getRawOriginal('clock_in') ?? '')->first();
             $primary->overtime_minutes = $group->sum('overtime_minutes');
+            // For split shifts: use the latest clock_out across all sessions so undertime is not overcounted
+            $latestOut = $group->filter(fn ($l) => $l->getRawOriginal('clock_out'))
+                ->sortByDesc(fn ($l) => $l->getRawOriginal('clock_out'))
+                ->first();
+            if ($latestOut && $latestOut->id !== $primary->id) {
+                $primary->clock_out = $latestOut->clock_out;
+            }
             return $primary;
         });
 
@@ -621,13 +637,16 @@ class PayslipComputationService
                 : ($override?->shift_end   ? substr($override->shift_end,   0, 5) : $dayShiftEnd);
 
             // Late / undertime — use modular helpers to handle overnight shifts correctly.
-            if ($clockInTime) {
-                $late = $this->calcLateMinutes($clockInTime, $dayShiftStart, $dayShiftEnd);
-                $lateMinutes += $late;
-            }
-            if ($clockOutTime) {
-                $ut = $this->calcUndertimeMinutes($clockOutTime, $dayShiftStart, $dayShiftEnd);
-                $undertimeMins += $ut;
+            // Skipped for flexi schedules (no fixed start/end expectations).
+            if (!$isFlexi) {
+                if ($clockInTime) {
+                    $late = $this->calcLateMinutes($clockInTime, $dayShiftStart, $dayShiftEnd);
+                    $lateMinutes += $late;
+                }
+                if ($clockOutTime) {
+                    $ut = $this->calcUndertimeMinutes($clockOutTime, $dayShiftStart, $dayShiftEnd);
+                    $undertimeMins += $ut;
+                }
             }
 
             if ($log->overtime_minutes ?? 0) {
@@ -724,6 +743,11 @@ class PayslipComputationService
         $piEnabled  = (bool)($govEnabled['PAGIBIG']          ?? true);
         $whtEnabled = (bool)($govEnabled['WITHHOLDING_TAX']  ?? true);
 
+        // --- Pay setting toggles (per-user override) ---
+        $payEnabled      = UserPaySetting::where('user_id', $employee->id)->pluck('is_enabled', 'code');
+        $nightDiffEnabled = (bool)($payEnabled['NIGHT_DIFF']  ?? true);
+        $holidayPayEnabled = (bool)($payEnabled['HOLIDAY_PAY'] ?? true);
+
         if (!$sssEnabled) { $sss = ['ss' => 0.0, 'wisp' => 0.0]; }
         if (!$phEnabled)  { $philhealth = 0.0; }
         if (!$piEnabled)  { $pagibig    = 0.0; }
@@ -739,7 +763,7 @@ class PayslipComputationService
         $sort = 0;
 
         $earnings[] = ['code' => 'BASIC',       'description' => 'Basic Pay',    'sort_order' => $sort++, 'amount' => $basicPay,      'is_taxable' => true];
-        if ($holidayPayExtra > 0) {
+        if ($holidayPayExtra > 0 && $holidayPayEnabled) {
             $earnings[] = ['code' => 'HOLIDAY_PAY', 'description' => 'Holiday Pay', 'sort_order' => $sort++, 'amount' => $holidayPayExtra, 'is_taxable' => true];
         }
         if ($overtimePay > 0) {
@@ -752,7 +776,7 @@ class PayslipComputationService
             $earnings[] = ['code' => 'RDOT',        'description' => 'Rest Day OT Pay (RDOT +69%)', 'sort_order' => $sort++, 'amount' => $restDayOtPay, 'is_taxable' => true];
         }
         $nightDiffPay = $this->computeNightDiffPay($dailyRate, $ndMinutes);
-        if ($nightDiffPay > 0) {
+        if ($nightDiffPay > 0 && $nightDiffEnabled) {
             $earnings[] = ['code' => 'NIGHT_DIFF', 'description' => 'Night Shift Differential (10%)', 'sort_order' => $sort++, 'amount' => $nightDiffPay, 'is_taxable' => true];
         }
 
@@ -882,6 +906,7 @@ class PayslipComputationService
         return [
             'earnings'   => $earnings,
             'deductions' => $deductions,
+            'warnings'   => $warnings,
             'summary'    => [
                 'cutoff_type'       => $cutoffType,
                 'method'            => $method,
@@ -906,7 +931,7 @@ class PayslipComputationService
                 'ot_minutes'          => $otMinutes,
                 'rest_day_minutes'    => $restDayMinutes,
                 'rest_day_ot_minutes' => $restDayOtMinutes,
-                'nd_minutes'          => $ndMinutes,
+                'nd_minutes'          => $nightDiffEnabled ? $ndMinutes : 0,
             ],
         ];
     }

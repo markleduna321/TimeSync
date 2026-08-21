@@ -19,6 +19,8 @@ import {
     useDeleteUserAllowanceMutation,
     useGetUserGovDeductionsQuery,
     useUpdateUserGovDeductionMutation,
+    useGetUserPaySettingsQuery,
+    useUpdateUserPaySettingMutation,
 } from '@/features/payroll/payrollApi';
 import {
     useGetDepartmentsQuery,
@@ -799,6 +801,7 @@ function ScheduleEditModal({ open, onClose, user, onSaved }) {
     const [errors, setErrors]         = useState({});
     const [saved, setSaved]           = useState(false);
     const [useCustomTimes, setUseCustomTimes] = useState(false);
+    const [isFlexi, setIsFlexi]       = useState(false);
 
     const [upsertSchedule, { isLoading }] = useUpsertScheduleMutation();
 
@@ -809,13 +812,15 @@ function ScheduleEditModal({ open, onClose, user, onSaved }) {
     useEffect(() => {
         if (!open) return;
         const s         = user?.schedule;
-        const hasCustom = Boolean(s?.time_by_day && Object.keys(s.time_by_day).length > 0);
+        const flexi     = s?.schedule_type === 'flexi';
+        const hasCustom = !flexi && Boolean(s?.time_by_day && Object.keys(s.time_by_day).length > 0);
         setForm({
             work_days:   s?.work_days   ?? DEFAULT_SCHED.work_days,
             shift_start: s?.shift_start ?? DEFAULT_SCHED.shift_start,
             shift_end:   s?.shift_end   ?? DEFAULT_SCHED.shift_end,
             time_by_day: s?.time_by_day ?? {},
         });
+        setIsFlexi(flexi);
         setUseCustomTimes(hasCustom);
         setErrors({});
         setSaved(false);
@@ -857,6 +862,7 @@ function ScheduleEditModal({ open, onClose, user, onSaved }) {
     }
 
     function toggleCustomMode(nextMode) {
+        setIsFlexi(false);
         setUseCustomTimes(nextMode);
         if (!nextMode) {
             setForm((f) => ({ ...f, time_by_day: {} }));
@@ -871,21 +877,28 @@ function ScheduleEditModal({ open, onClose, user, onSaved }) {
         });
     }
 
+    function setFlexiMode() {
+        setIsFlexi(true);
+        setUseCustomTimes(false);
+        setForm((f) => ({ ...f, time_by_day: {} }));
+    }
+
     async function handleSave(e) {
         e.preventDefault();
         setErrors({});
         setSaved(false);
 
         const payload = {
-            userId:       user.id,
-            work_days:    form.work_days,
-            shift_start:  form.shift_start,
-            shift_end:    form.shift_end,
-            is_overnight: isOvernight,
-            time_by_day:  null,   /* always sent — null clears custom times in DB */
+            userId:        user.id,
+            schedule_type: isFlexi ? 'flexi' : 'standard',
+            work_days:     form.work_days,
+            shift_start:   isFlexi ? null : form.shift_start,
+            shift_end:     isFlexi ? null : form.shift_end,
+            is_overnight:  isFlexi ? false : isOvernight,
+            time_by_day:   null,   /* always sent — null clears custom times in DB */
         };
 
-        if (useCustomTimes) {
+        if (useCustomTimes && !isFlexi) {
             const timeByDay = {};
             form.work_days.forEach((day) => {
                 const slot = form.time_by_day?.[day];
@@ -935,19 +948,30 @@ function ScheduleEditModal({ open, onClose, user, onSaved }) {
                     <div className="flex w-full rounded-xl border border-slate-200 bg-slate-100 p-1">
                         <button type="button" onClick={() => toggleCustomMode(false)}
                             className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-all focus:outline-none ${
-                                !useCustomTimes ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                !isFlexi && !useCustomTimes ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                             }`}>
                             Same time every day
                         </button>
                         <button type="button" onClick={() => toggleCustomMode(true)}
                             className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-all focus:outline-none ${
-                                useCustomTimes ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                !isFlexi && useCustomTimes ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                             }`}>
                             Different per day
                         </button>
+                        <button type="button" onClick={setFlexiMode}
+                            className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-all focus:outline-none ${
+                                isFlexi ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            }`}>
+                            Flexible Time
+                        </button>
                     </div>
                     <p className="mt-1.5 text-xs text-slate-500">
-                        {useCustomTimes ? 'Set a unique shift for each selected workday.' : 'All selected workdays share the same shift.'}
+                        {isFlexi
+                            ? 'Flexible schedule — no fixed start/end time. Late and undertime are not tracked.'
+                            : useCustomTimes
+                                ? 'Set a unique shift for each selected workday.'
+                                : 'All selected workdays share the same shift.'
+                        }
                     </p>
                 </div>
 
@@ -975,7 +999,7 @@ function ScheduleEditModal({ open, onClose, user, onSaved }) {
                 </div>
 
                 {/* ── Time inputs ── */}
-                {!useCustomTimes ? (
+                {!isFlexi && (!useCustomTimes ? (
                     <div>
                         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Shift Hours</p>
                         <div className="flex items-end gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
@@ -1039,7 +1063,7 @@ function ScheduleEditModal({ open, onClose, user, onSaved }) {
                             </div>
                         )}
                     </div>
-                )}
+                ))}
 
                 {/* ── Footer ── */}
                 <div className="flex items-center justify-between border-t border-slate-100 pt-4">
@@ -1073,7 +1097,9 @@ function ScheduleTab({ user }) {
 
     const schedule   = localSchedule;
     const workDays   = schedule?.work_days ?? [];
-    const hasCustom  = Boolean(schedule?.time_by_day && Object.keys(schedule.time_by_day).length > 0);
+    const scheduleType = schedule?.schedule_type ?? 'standard';
+    const isFlexi    = scheduleType === 'flexi';
+    const hasCustom  = !isFlexi && Boolean(schedule?.time_by_day && Object.keys(schedule.time_by_day).length > 0);
     const shiftStart = schedule?.shift_start ?? DEFAULT_SCHED.shift_start;
     const shiftEnd   = schedule?.shift_end   ?? DEFAULT_SCHED.shift_end;
     const isOvernight = Boolean(shiftStart && shiftEnd && shiftStart > shiftEnd);
@@ -1096,11 +1122,13 @@ function ScheduleTab({ user }) {
                         <span className="text-sm font-semibold text-slate-700">Work Schedule</span>
                     </div>
                     <span className={`rounded-full border px-3 py-0.5 text-xs font-semibold ${
-                        hasCustom
-                            ? 'border-violet-200 bg-violet-50 text-violet-700'
-                            : 'border-indigo-200 bg-indigo-50 text-indigo-700'
+                        isFlexi
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : hasCustom
+                                ? 'border-violet-200 bg-violet-50 text-violet-700'
+                                : 'border-indigo-200 bg-indigo-50 text-indigo-700'
                     }`}>
-                        {hasCustom ? 'Custom per day' : 'Fixed shift'}
+                        {isFlexi ? 'Flexible Time' : hasCustom ? 'Custom per day' : 'Fixed shift'}
                     </span>
                 </div>
 
@@ -1128,6 +1156,12 @@ function ScheduleTab({ user }) {
                 <div className="px-4 py-3">
                     {previewDays.length === 0 ? (
                         <p className="py-2 text-center text-sm text-slate-400">No schedule configured yet.</p>
+                    ) : isFlexi ? (
+                        /* Flexible schedule — no fixed times */
+                        <div className="flex items-center justify-between rounded-xl bg-emerald-50 px-4 py-3">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600">Flexible schedule</span>
+                            <span className="text-xs text-slate-500">No fixed start/end time. Late &amp; undertime not tracked.</span>
+                        </div>
                     ) : !hasCustom ? (
                         /* Same time every day — single summary row */
                         <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
@@ -1561,6 +1595,54 @@ function GovContributionsTab({ user }) {
     );
 }
 
+/* ─── Pay Settings Tab ──────────────────────────────────────────────────── */
+function PaySettingsTab({ user }) {
+    const { data, isLoading } = useGetUserPaySettingsQuery(user?.id, { skip: !user?.id });
+    const [updateToggle] = useUpdateUserPaySettingMutation();
+
+    const items = data?.data ?? [];
+
+    const handleToggle = (code, checked) => {
+        updateToggle({ userId: user.id, code, is_enabled: checked });
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center py-16">
+                <Spin />
+            </div>
+        );
+    }
+
+    return (
+        <TabSection title="Pay Settings">
+            <p className="text-xs text-slate-500 mb-4">
+                Toggle each pay type to include or exclude it from this employee's payslips.
+                Changes take effect on the next generated payslip.
+            </p>
+            <div className="space-y-3">
+                {items.map((item) => (
+                    <div key={item.code} className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 bg-white">
+                        <div>
+                            <p className="text-sm font-medium text-slate-800">{item.name}</p>
+                            <p className="text-xs text-slate-500 font-mono">{item.code}</p>
+                            {!item.is_enabled && (
+                                <p className="text-xs text-amber-600 mt-1">
+                                    Disabled — will be excluded from payslips until re-enabled
+                                </p>
+                            )}
+                        </div>
+                        <Switch
+                            checked={item.is_enabled}
+                            onChange={(checked) => handleToggle(item.code, checked)}
+                        />
+                    </div>
+                ))}
+            </div>
+        </TabSection>
+    );
+}
+
 /* ─── Breaks Tab ────────────────────────────────────────────────────────── */
 function BreaksTab({ user }) {
     const [form, setForm]     = useState({ break_allowed: false, break_count: 2, break_duration_minutes: 15, lunch_duration_minutes: 60 });
@@ -1737,6 +1819,11 @@ export default function UserEditModal({ open, onClose, user }) {
             key:      'gov-contributions',
             label:    <span className="flex items-center gap-1.5"><ShieldCheck size={13} /> Gov. Contributions</span>,
             children: <GovContributionsTab user={user} />,
+        },
+        {
+            key:      'pay-settings',
+            label:    <span className="flex items-center gap-1.5"><Wallet size={13} /> Pay Settings</span>,
+            children: <PaySettingsTab user={user} />,
         },
         {
             key:      'breaks',

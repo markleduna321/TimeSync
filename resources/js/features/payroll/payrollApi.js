@@ -4,7 +4,7 @@ import { baseQueryWithCsrf } from '@/features/csrfBaseQuery';
 export const payrollApi = createApi({
     reducerPath: 'payrollApi',
     baseQuery: baseQueryWithCsrf('/api'),
-    tagTypes: ['Holiday', 'DeductionType', 'UserDeduction', 'Payslip', 'AllowanceType', 'UserAllowance', 'UserGovDeduction'],
+    tagTypes: ['Holiday', 'DeductionType', 'UserDeduction', 'Payslip', 'AllowanceType', 'UserAllowance', 'UserGovDeduction', 'UserPaySetting'],
     endpoints: (builder) => ({
 
         /* ── Holidays ──────────────────────────────────────────────── */
@@ -159,6 +159,16 @@ export const payrollApi = createApi({
             query: ({ userId, code, ...body }) => ({ url: `/users/${userId}/government-deductions/${code}`, method: 'PATCH', body }),
             invalidatesTags: (_r, _e, { userId }) => [{ type: 'UserGovDeduction', id: `user-${userId}` }],
         }),
+
+        /* ── Pay Setting Toggles (Night Diff / Holiday Pay) ──────────── */
+        getUserPaySettings: builder.query({
+            query: (userId) => `/users/${userId}/pay-settings`,
+            providesTags: (_r, _e, userId) => [{ type: 'UserPaySetting', id: `user-${userId}` }],
+        }),
+        updateUserPaySetting: builder.mutation({
+            query: ({ userId, code, ...body }) => ({ url: `/users/${userId}/pay-settings/${code}`, method: 'PATCH', body }),
+            invalidatesTags: (_r, _e, { userId }) => [{ type: 'UserPaySetting', id: `user-${userId}` }],
+        }),
     }),
 });
 
@@ -193,4 +203,6 @@ export const {
     useDeleteUserAllowanceMutation,
     useGetUserGovDeductionsQuery,
     useUpdateUserGovDeductionMutation,
+    useGetUserPaySettingsQuery,
+    useUpdateUserPaySettingMutation,
 } = payrollApi;

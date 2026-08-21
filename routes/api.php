@@ -34,6 +34,7 @@ use App\Http\Controllers\Api\UserAllowanceController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserDeductionController;
 use App\Http\Controllers\Api\UserGovernmentDeductionController;
+use App\Http\Controllers\Api\UserPaySettingController;
 use App\Http\Controllers\Api\UserProfileController;
 use App\Http\Controllers\Api\UserExperienceController;
 use App\Http\Controllers\Api\UserDocumentController;
@@ -158,6 +159,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- Government Contribution Toggles (per user) ---
     Route::get('/users/{user}/government-deductions',          [UserGovernmentDeductionController::class, 'index']);
     Route::patch('/users/{user}/government-deductions/{code}', [UserGovernmentDeductionController::class, 'update']);
+
+    // --- Pay Setting Toggles (per user) ---
+    Route::get('/users/{user}/pay-settings',          [UserPaySettingController::class, 'index']);
+    Route::patch('/users/{user}/pay-settings/{code}', [UserPaySettingController::class, 'update']);
 
     // --- Departments ---
     Route::get('/departments',                   [DepartmentController::class, 'index']);

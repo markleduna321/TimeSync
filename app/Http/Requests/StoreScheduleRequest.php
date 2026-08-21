@@ -13,19 +13,24 @@ class StoreScheduleRequest extends FormRequest
 
     public function rules(): array
     {
+        $isFlexi = $this->input('schedule_type') === 'flexi';
+
         return [
+            'schedule_type' => ['nullable', 'string', 'in:standard,flexi'],
             'work_days'    => ['required', 'array', 'min:1'],
             'work_days.*'  => ['string', 'in:Mon,Tue,Wed,Thu,Fri,Sat,Sun'],
-            'shift_start'  => ['required', 'date_format:H:i'],
+            'shift_start'  => [$isFlexi ? 'nullable' : 'required', 'nullable', 'date_format:H:i'],
             'time_by_day'  => ['nullable', 'array'],
             'time_by_day.*' => ['nullable', 'array'],
             'time_by_day.*.shift_start' => ['nullable', 'date_format:H:i'],
             'time_by_day.*.shift_end' => ['nullable', 'date_format:H:i'],
             'is_overnight' => ['sometimes', 'boolean'],
             'shift_end'    => [
-                'required', 
+                $isFlexi ? 'nullable' : 'required',
+                'nullable',
                 'date_format:H:i',
-                function ($attribute, $value, $fail) {
+                function ($attribute, $value, $fail) use ($isFlexi) {
+                    if ($isFlexi || ! $value) return;
                     $start = $this->input('shift_start');
                     $isOvernight = filter_var($this->input('is_overnight'), FILTER_VALIDATE_BOOLEAN);
 

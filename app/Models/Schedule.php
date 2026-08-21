@@ -16,6 +16,7 @@ class Schedule extends Model
         'shift_start',
         'shift_end',
         'time_by_day',
+        'schedule_type',
     ];
 
     protected $casts = [

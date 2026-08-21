@@ -118,10 +118,14 @@ class AttendanceController extends Controller
 
         $schedule   = $target->schedule;
         $workDays   = $schedule?->work_days ?? []; // ['Mon', 'Tue', ...] or ['monday', ...]
+        $isFlexi    = $schedule?->schedule_type === 'flexi';
         // Normalize to HH:MM — DB may store as "13:00:00" (with seconds)
         $shiftStart = $schedule?->shift_start ? substr($schedule->shift_start, 0, 5) : null;
         $shiftEnd   = $schedule?->shift_end   ? substr($schedule->shift_end,   0, 5) : null;
-        $timeByDay  = $schedule?->time_by_day ?? [];
+        // Normalize keys to 3-letter title-case so 'monday', 'MON', and 'Mon' all resolve correctly
+        $timeByDay  = collect($schedule?->time_by_day ?? [])
+            ->mapWithKeys(fn ($v, $k) => [ucfirst(substr(strtolower($k), 0, 3)) => $v])
+            ->all();
         // Timestamps are stored as UTC in the DB. The local timezone for comparison
         // against schedule times must be the business timezone, not the app timezone
         // (which is kept as UTC so that ISO strings sent to the frontend are correct).
@@ -136,7 +140,13 @@ class AttendanceController extends Controller
         $allowedLunchMins = $breakConfig ? $breakConfig->lunch_duration_minutes : 60;
 
         // Overnight-safe late/undertime helpers (mirrors PayslipComputationService logic).
-        $toMins = fn(string $hhmm): int => (int)explode(':', $hhmm)[0] * 60 + (int)explode(':', $hhmm)[1];
+        $toMins = function (string $hhmm): int {
+            $parts = explode(':', $hhmm);
+            if (count($parts) < 2 || ! is_numeric($parts[0]) || ! is_numeric($parts[1])) {
+                return 0;
+            }
+            return (int)$parts[0] * 60 + (int)$parts[1];
+        };
 
         $calcLate = function(string $ci, string $ss, string $se) use ($toMins): int {
             $ciM = $toMins($ci); $ssM = $toMins($ss); $seM = $toMins($se);
@@ -220,16 +230,17 @@ class AttendanceController extends Controller
                     : ($override?->shift_end   ? substr($override->shift_end,   0, 5) : $dayShiftEnd);
 
                 // Late / undertime — use modular helpers to handle overnight shifts correctly.
+                // Skipped for flexi schedules (no fixed start/end expectations).
                 $status = 'present';
                 $lateMinutes = 0;
-                if ($dayShiftStart && $clockInTime) {
+                if (!$isFlexi && $dayShiftStart && $clockInTime) {
                     $lateMinutes = $calcLate($clockInTime, $dayShiftStart, $dayShiftEnd ?? '17:00');
                     if ($lateMinutes > 0) $status = 'late';
                 }
 
                 // Undertime: clock-out time is before shift end
                 $undertimeMinutes = 0;
-                if ($dayShiftEnd && $clockOutTime) {
+                if (!$isFlexi && $dayShiftEnd && $clockOutTime) {
                     $undertimeMinutes = $calcUT($clockOutTime, $dayShiftStart ?? '08:00', $dayShiftEnd);
                 }
             }
