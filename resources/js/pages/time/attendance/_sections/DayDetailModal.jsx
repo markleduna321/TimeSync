@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Modal, message } from 'antd';
-import { Upload, X, FileText, CheckCircle, XCircle, Clock, CalendarDays, Trash2, History } from 'lucide-react';
+import { Upload, X, FileText, CheckCircle, XCircle, Clock, CalendarDays, Trash2, History, Plus } from 'lucide-react';
 import { useFileCorrectionMutation, useRemoveCorrectionMutation } from '@/features/timekeeping/attendanceApi';
 import { useCancelLeaveApplicationMutation } from '@/features/leave/leaveApi';
 import LeaveApplicationModal from './LeaveApplicationModal';
@@ -46,6 +46,14 @@ function fmtDate(dateStr) {
     return new Date(dateStr + 'T00:00:00').toLocaleDateString([], {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     });
+}
+
+// ISO datetime → local "HH:MM" for <input type="time"> prefill
+function toInputTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 function fmtMinutes(mins) {
@@ -207,10 +215,26 @@ export default function DayDetailModal({ day, open, onClose, canFile = true, isA
         if (isRestDay || !canFileCorrection) return 'overtime';
         return 'correction';
     });
-    const [form, setForm]         = useState({ reason: '', requestedIn: '', requestedOut: '' });
+    const [form, setForm]         = useState({ reason: '', requestedIn: '', requestedOut: '', lunchStart: '', lunchEnd: '', breaks: [] });
     const [file, setFile]         = useState(null);
     const [errors, setErrors]     = useState({});
     const [success, setSuccess]   = useState(false);
+
+    // Prefill correction form with the day's current times so the employee
+    // adjusts what's wrong instead of re-typing everything.
+    useEffect(() => {
+        if (!open || !day || formType !== 'correction') return;
+        setForm((f) => ({
+            ...f,
+            requestedIn:  toInputTime(day.clock_in),
+            requestedOut: toInputTime(day.clock_out),
+            lunchStart:   toInputTime(day.lunch_start),
+            lunchEnd:     toInputTime(day.lunch_end),
+            breaks: (day.breaks ?? [])
+                .filter((b) => b.start)
+                .map((b) => ({ start: toInputTime(b.start), end: toInputTime(b.end) })),
+        }));
+    }, [open, day?.date, formType]);
 
     // Admin remove state
     const [removingType, setRemovingType]   = useState(null); // 'correction' | 'overtime' | null
@@ -218,7 +242,7 @@ export default function DayDetailModal({ day, open, onClose, canFile = true, isA
     const [removeError, setRemoveError]     = useState('');
 
     function resetForm() {
-        setForm({ reason: '', requestedIn: '', requestedOut: '' });
+        setForm({ reason: '', requestedIn: '', requestedOut: '', lunchStart: '', lunchEnd: '', breaks: [] });
         setFile(null);
         setErrors({});
         setSuccess(false);
@@ -231,7 +255,8 @@ export default function DayDetailModal({ day, open, onClose, canFile = true, isA
         if (newType === 'correction' && !canFileCorrection) return;
         if (newType === 'overtime'   && !canFileOvertime)   return;
         setFormType(newType);
-        setForm((f) => ({ ...f, requestedIn: '', requestedOut: '' }));
+        // Overtime uses blank start/end; correction re-prefills via the effect above.
+        setForm((f) => ({ ...f, requestedIn: '', requestedOut: '', lunchStart: '', lunchEnd: '', breaks: [] }));
         setErrors({});
     }
 
@@ -268,6 +293,18 @@ export default function DayDetailModal({ day, open, onClose, canFile = true, isA
         if (file) fd.append('proof', file);
         if (form.requestedIn)  fd.append('requested_clock_in',  form.requestedIn);
         if (form.requestedOut) fd.append('requested_clock_out', form.requestedOut);
+        if (formType === 'correction') {
+            if (form.lunchStart && form.lunchEnd) {
+                fd.append('requested_lunch_start', form.lunchStart);
+                fd.append('requested_lunch_end',   form.lunchEnd);
+            }
+            form.breaks
+                .filter((b) => b.start && b.end)
+                .forEach((b, i) => {
+                    fd.append(`requested_breaks[${i}][start]`, b.start);
+                    fd.append(`requested_breaks[${i}][end]`,   b.end);
+                });
+        }
 
         try {
             await fileCorrection(fd).unwrap();
@@ -280,11 +317,15 @@ export default function DayDetailModal({ day, open, onClose, canFile = true, isA
         } catch (err) {
             const errs = err?.data?.errors ?? {};
             const hasFieldErrors = Object.keys(errs).length > 0;
+            const breakError = Object.keys(errs).find((k) => k.startsWith('requested_breaks'));
             setErrors({
                 reason:       errs.reason?.[0],
                 proof:        errs.proof?.[0],
                 requestedIn:  errs.requested_clock_in?.[0],
                 requestedOut: errs.requested_clock_out?.[0],
+                lunchStart:   errs.requested_lunch_start?.[0],
+                lunchEnd:     errs.requested_lunch_end?.[0],
+                breaks:       breakError ? errs[breakError][0] : null,
                 general:      !hasFieldErrors ? (err?.data?.message ?? 'Something went wrong.') : null,
             });
             message.error(err?.data?.message ?? 'Unable to file request. Please check your input.');
@@ -417,6 +458,16 @@ export default function DayDetailModal({ day, open, onClose, canFile = true, isA
                                         {correction.requested_clock_in ? fmtLocalTime(correction.requested_clock_in) : '—'}
                                         {' – '}
                                         {correction.requested_clock_out ? fmtLocalTime(correction.requested_clock_out) : '—'}
+                                    </p>
+                                )}
+                                {(correction.requested_lunch_start && correction.requested_lunch_end) && (
+                                    <p className="mt-0.5 text-xs opacity-80">
+                                        Lunch: {fmtLocalTime(correction.requested_lunch_start)} – {fmtLocalTime(correction.requested_lunch_end)}
+                                    </p>
+                                )}
+                                {correction.requested_breaks?.length > 0 && (
+                                    <p className="mt-0.5 text-xs opacity-80">
+                                        Breaks: {correction.requested_breaks.map((b) => `${fmtLocalTime(b.start)} – ${fmtLocalTime(b.end)}`).join(', ')}
                                     </p>
                                 )}
                                 {correction.admin_note && (
@@ -765,6 +816,9 @@ export default function DayDetailModal({ day, open, onClose, canFile = true, isA
                             {formType === 'overtime' && (
                                 <p className="mt-0.5 text-xs text-slate-400">Report extra hours worked. Start and end times are required.</p>
                             )}
+                            {formType === 'correction' && (
+                                <p className="mt-0.5 text-xs text-slate-400">Current recorded times are prefilled — adjust only what needs correcting.</p>
+                            )}
                         </div>
 
                         {errors.general && (
@@ -830,6 +884,91 @@ export default function DayDetailModal({ day, open, onClose, canFile = true, isA
                                 {errors.requestedOut && <p className="mt-1 text-xs text-rose-600">{errors.requestedOut}</p>}
                             </div>
                         </div>
+
+                        {/* Lunch + breaks — correction only */}
+                        {formType === 'correction' && (
+                            <>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="mb-1 block text-xs font-medium text-slate-600">Lunch Start</label>
+                                        <input
+                                            type="time"
+                                            value={form.lunchStart}
+                                            onChange={(e) => setForm((f) => ({ ...f, lunchStart: e.target.value }))}
+                                            className={[
+                                                'w-full rounded-lg border px-3 py-2 text-sm text-slate-800',
+                                                'focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors',
+                                                errors.lunchStart ? 'border-rose-400 bg-rose-50' : 'border-slate-200 bg-white',
+                                            ].join(' ')}
+                                        />
+                                        {errors.lunchStart && <p className="mt-1 text-xs text-rose-600">{errors.lunchStart}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="mb-1 block text-xs font-medium text-slate-600">Lunch End</label>
+                                        <input
+                                            type="time"
+                                            value={form.lunchEnd}
+                                            onChange={(e) => setForm((f) => ({ ...f, lunchEnd: e.target.value }))}
+                                            className={[
+                                                'w-full rounded-lg border px-3 py-2 text-sm text-slate-800',
+                                                'focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors',
+                                                errors.lunchEnd ? 'border-rose-400 bg-rose-50' : 'border-slate-200 bg-white',
+                                            ].join(' ')}
+                                        />
+                                        {errors.lunchEnd && <p className="mt-1 text-xs text-rose-600">{errors.lunchEnd}</p>}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="mb-1 block text-xs font-medium text-slate-600">Breaks</label>
+                                    <div className="space-y-2">
+                                        {form.breaks.map((b, i) => (
+                                            <div key={i} className="flex items-center gap-2">
+                                                <input
+                                                    type="time"
+                                                    value={b.start}
+                                                    onChange={(e) => setForm((f) => ({
+                                                        ...f,
+                                                        breaks: f.breaks.map((x, xi) => xi === i ? { ...x, start: e.target.value } : x),
+                                                    }))}
+                                                    aria-label={`Break ${i + 1} start`}
+                                                    className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors"
+                                                />
+                                                <span className="shrink-0 text-xs text-slate-400">–</span>
+                                                <input
+                                                    type="time"
+                                                    value={b.end}
+                                                    onChange={(e) => setForm((f) => ({
+                                                        ...f,
+                                                        breaks: f.breaks.map((x, xi) => xi === i ? { ...x, end: e.target.value } : x),
+                                                    }))}
+                                                    aria-label={`Break ${i + 1} end`}
+                                                    className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setForm((f) => ({ ...f, breaks: f.breaks.filter((_, xi) => xi !== i) }))}
+                                                    aria-label={`Remove break ${i + 1}`}
+                                                    className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        {form.breaks.length < 5 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setForm((f) => ({ ...f, breaks: [...f.breaks, { start: '', end: '' }] }))}
+                                                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-xs font-medium text-slate-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                            >
+                                                <Plus size={13} /> Add break
+                                            </button>
+                                        )}
+                                    </div>
+                                    {errors.breaks && <p className="mt-1 text-xs text-rose-600">{errors.breaks}</p>}
+                                </div>
+                            </>
+                        )}
 
                         {/* Proof upload */}
                         <FileUploadArea

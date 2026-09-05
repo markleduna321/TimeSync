@@ -16,6 +16,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Idempotent: DBs migrated after the create-table fix already have the column.
+        if (Schema::hasColumn('schedules', 'time_by_day')) {
+            return;
+        }
         Schema::table('schedules', function (Blueprint $table) {
             $table->json('time_by_day')->nullable()->after('shift_end');
         });
@@ -23,6 +27,9 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (! Schema::hasColumn('schedules', 'time_by_day')) {
+            return;
+        }
         Schema::table('schedules', function (Blueprint $table) {
             $table->dropColumn('time_by_day');
         });

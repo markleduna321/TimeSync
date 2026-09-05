@@ -107,3 +107,18 @@ Phase 2 complete. Possible Phase 3 candidates:
 - **Resolution:** Gated `nd_minutes` in the summary. **Note:** payslips drafted before the toggle change retain old data — regenerate the draft to reflect it.
 - **QA Checklist Result:** ✅ Smoke suite 25/25 pass, syntax clean, zero data residue.
 - **Next Steps:** None — behavior confirmed.
+
+---
+
+### Phase 2.2: Fully disable holiday pay when toggled off
+
+- **Timestamp:** 2026-09-05
+- **Mode:** Agent
+- **Persona(s) Active:** ⚙️ Backend · 🧪 QA
+- **Files Modified:**
+  - `app/Services/PayslipComputationService.php` — pay-toggle read moved above the day loop; OT holiday multiplier gated (`$holidayPayEnabled && (bool)$holiday`); summary `holiday_days`/`holiday_days_worked` report 0 when toggle off
+  - `scripts/smoke-test-phase2.php` — Aug 12 holiday log now carries 60m OT; 4 new assertions
+- **Issues Encountered:** User report: "Holiday Days" still visible in payslip with HOLIDAY_PAY disabled. QA found a deeper leak: OT worked on a holiday was still paid at the holiday OT rate (1.30 × 1.25) instead of plain 1.25 when the toggle was off — an actual overpayment path, not just a display issue.
+- **Resolution:** Toggles read before the day loop; multiplier and summary stats gated. Worked holidays still count as days worked (basic pay retained — only the premium is waived). **Old drafts must be regenerated.**
+- **QA Checklist Result:** ✅ Smoke suite 29/29 pass (incl. exact plain-rate OT recomputation check), zero data residue.
+- **Next Steps:** None — behavior confirmed.

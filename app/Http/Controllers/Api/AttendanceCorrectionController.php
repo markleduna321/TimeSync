@@ -113,6 +113,9 @@ class AttendanceCorrectionController extends Controller
             'proof_path'           => $proofPath,
             'requested_clock_in'   => $request->requested_clock_in,
             'requested_clock_out'  => $request->requested_clock_out,
+            'requested_lunch_start' => $request->requested_lunch_start,
+            'requested_lunch_end'   => $request->requested_lunch_end,
+            'requested_breaks'      => $request->input('requested_breaks') ?: null,
             'status'               => 'pending',
         ]);
 
@@ -177,6 +180,32 @@ class AttendanceCorrectionController extends Controller
                 if ($correction->requested_clock_out) {
                     $fields['clock_out'] = $newClockOut;
                 }
+
+                // Lunch / breaks corrections — local HH:MM converted to UTC, same
+                // date-roll rule as clock_out: times before clock-in roll to the next day.
+                $refIn = $correction->requested_clock_in
+                    ?? ($existingLog?->getRawOriginal('clock_in')
+                        ? Carbon::parse($existingLog->getRawOriginal('clock_in'), 'UTC')->setTimezone($localTz)->format('H:i')
+                        : null);
+                $toUtc = function (?string $hhmm) use ($dateStr, $localTz, $refIn) {
+                    if (!$hhmm) return null;
+                    $day = ($refIn && $hhmm < $refIn)
+                        ? Carbon::parse($dateStr)->addDay()->format('Y-m-d')
+                        : $dateStr;
+                    return Carbon::parse("$day $hhmm", $localTz)->utc();
+                };
+
+                if ($correction->requested_lunch_start && $correction->requested_lunch_end) {
+                    $fields['lunch_start'] = $toUtc($correction->requested_lunch_start);
+                    $fields['lunch_end']   = $toUtc($correction->requested_lunch_end);
+                }
+                if (!empty($correction->requested_breaks)) {
+                    $fields['breaks'] = collect($correction->requested_breaks)->map(fn ($b) => [
+                        'start' => $toUtc($b['start'] ?? null)?->toISOString(),
+                        'end'   => $toUtc($b['end'] ?? null)?->toISOString(),
+                    ])->filter(fn ($b) => $b['start'] && $b['end'])->values()->all();
+                }
+
                 // Copy any admin-set effective shift override so that late/undertime
                 // is re-evaluated against the temporary schedule, not the permanent one.
                 $fields['effective_shift_start'] = $correction->effective_shift_start;

@@ -473,6 +473,12 @@ class PayslipComputationService
         $ndMinutes = 0;
         $trainingDays = 0; // scheduled work days with a training entry (paid hourly, not as full day)
 
+        // --- Pay setting toggles (per-user override) --- read before the day loop
+        // so the OT holiday multiplier can be gated when holiday pay is waived.
+        $payEnabled        = UserPaySetting::where('user_id', $employee->id)->pluck('is_enabled', 'code');
+        $nightDiffEnabled  = (bool)($payEnabled['NIGHT_DIFF']  ?? true);
+        $holidayPayEnabled = (bool)($payEnabled['HOLIDAY_PAY'] ?? true);
+
         foreach (CarbonPeriod::create($periodStart, $periodEnd) as $cursor) {
             $dateStr   = $cursor->toDateString();
             $isWorkDay = in_array($cursor->format('D'), $workDays)
@@ -652,7 +658,7 @@ class PayslipComputationService
             if ($log->overtime_minutes ?? 0) {
                 $otMins = (int)$log->overtime_minutes;
                 $otMinutes += $otMins;
-                $overtimePay += $this->computeOvertimePay($dailyRate, $otMins, (bool)$holiday);
+                $overtimePay += $this->computeOvertimePay($dailyRate, $otMins, $holidayPayEnabled && (bool)$holiday);
             }
 
             // Night Shift Differential (DOLE Art. 86) — 10% premium for 22:00–06:00 work.
@@ -742,11 +748,6 @@ class PayslipComputationService
         $phEnabled  = (bool)($govEnabled['PHILHEALTH']       ?? true);
         $piEnabled  = (bool)($govEnabled['PAGIBIG']          ?? true);
         $whtEnabled = (bool)($govEnabled['WITHHOLDING_TAX']  ?? true);
-
-        // --- Pay setting toggles (per-user override) ---
-        $payEnabled      = UserPaySetting::where('user_id', $employee->id)->pluck('is_enabled', 'code');
-        $nightDiffEnabled = (bool)($payEnabled['NIGHT_DIFF']  ?? true);
-        $holidayPayEnabled = (bool)($payEnabled['HOLIDAY_PAY'] ?? true);
 
         if (!$sssEnabled) { $sss = ['ss' => 0.0, 'wisp' => 0.0]; }
         if (!$phEnabled)  { $philhealth = 0.0; }
@@ -923,8 +924,8 @@ class PayslipComputationService
                 'training_days'        => $trainingDays,
                 'paid_leave_days'      => $paidLeaveDays,
                 'unpaid_leave_days'   => $unpaidLeaveDays,
-                'holiday_days'        => $holidayDays,
-                'holiday_days_worked' => $holidayDaysWorked,
+                'holiday_days'        => $holidayPayEnabled ? $holidayDays : 0,
+                'holiday_days_worked' => $holidayPayEnabled ? $holidayDaysWorked : 0,
                 'late_minutes'        => $lateMinutes,
                 'undertime_minutes'   => $undertimeMins,
                 'over_break_minutes'  => $overBreakMins,

@@ -413,11 +413,21 @@ export default function CorrectionQueueTable() {
         {
             title: 'Requested Times',
             key: 'times',
-            width: 150,
+            width: 170,
             render: (_, r) => (
-                <div className="text-xs text-slate-500 tabular-nums">
-                    <span>In: <strong>{fmtTimeStr(r.requested_clock_in)}</strong></span>
-                    <span className="ml-2">Out: <strong>{fmtTimeStr(r.requested_clock_out)}</strong></span>
+                <div className="text-xs text-slate-500 tabular-nums space-y-0.5">
+                    <div>
+                        <span>In: <strong>{fmtTimeStr(r.requested_clock_in)}</strong></span>
+                        <span className="ml-2">Out: <strong>{fmtTimeStr(r.requested_clock_out)}</strong></span>
+                    </div>
+                    {(r.requested_lunch_start && r.requested_lunch_end) && (
+                        <div>Lunch: <strong>{fmtTimeStr(r.requested_lunch_start)} – {fmtTimeStr(r.requested_lunch_end)}</strong></div>
+                    )}
+                    {r.requested_breaks?.length > 0 && (
+                        <div>
+                            Breaks: <strong>{r.requested_breaks.map((b) => `${fmtTimeStr(b.start)}–${fmtTimeStr(b.end)}`).join(', ')}</strong>
+                        </div>
+                    )}
                 </div>
             ),
         },

@@ -73,7 +73,7 @@ try {
     $mk($u1->id, '2026-08-08', '2026-08-08 00:00:00', '2026-08-08 04:00:00', ['overtime_minutes' => 240]);     // RDOT: Saturday, approved 4h OT
     $mk($u1->id, '2026-08-10', '2026-08-10 00:00:00', '2026-08-10 09:00:00');
     $mk($u1->id, '2026-08-11', '2026-08-11 00:00:00', '2026-08-11 09:00:00');
-    $mk($u1->id, '2026-08-12', '2026-08-12 00:00:00', '2026-08-12 09:00:00');                                  // regular holiday, worked
+    $mk($u1->id, '2026-08-12', '2026-08-12 00:00:00', '2026-08-12 09:00:00', ['overtime_minutes' => 60]);     // regular holiday, worked + 1h approved OT
     $mk($u1->id, '2026-08-13', '2026-08-13 00:00:00', '2026-08-13 09:00:00');
     $mk($u1->id, '2026-08-14', '2026-08-14 00:00:00', '2026-08-14 09:00:00');
 
@@ -133,6 +133,14 @@ try {
     $p1b = $svc->compute($u1, $start->copy(), $end->copy());
     $codes1b = collect($p1b['earnings'])->pluck('amount', 'code');
     $check('HOLIDAY_PAY line removed after toggle OFF', !isset($codes1b['HOLIDAY_PAY']));
+    $check('holiday_days_worked = 0 in summary after toggle OFF', ($p1b['summary']['holiday_days_worked'] ?? -1) == 0, "got " . ($p1b['summary']['holiday_days_worked'] ?? 'n/a'));
+    $check('holiday_days = 0 in summary after toggle OFF', ($p1b['summary']['holiday_days'] ?? -1) == 0);
+
+    // OT on the holiday must drop to the plain 1.25 rate when holiday pay is off
+    $dr = $p1b['summary']['daily_rate'];
+    $expectedPlainOt = $svc->computeOvertimePay($dr, 120, false) + $svc->computeOvertimePay($dr, 60, false);
+    $check('Holiday OT reverts to plain 1.25 rate when toggled OFF', abs(($codes1b['OVERTIME'] ?? 0) - $expectedPlainOt) < 0.02, "got {$codes1b['OVERTIME']}, expected {$expectedPlainOt}");
+    $check('OT was higher when holiday pay was enabled', ($codes['OVERTIME'] ?? 0) > ($codes1b['OVERTIME'] ?? 0), "enabled={$codes['OVERTIME']}, disabled={$codes1b['OVERTIME']}");
     $check('OVERTIME still present (unaffected by holiday toggle)', isset($codes1b['OVERTIME']));
     $check('RDOT still present (unaffected by holiday toggle)', isset($codes1b['RDOT']));
 
@@ -150,6 +158,53 @@ try {
         echo "  INFO  Controller authorize denied for non-admin (policy working) — verified via model instead\n";
         $nd = UserPaySetting::where('user_id', $u3->id)->where('code', 'NIGHT_DIFF')->first();
         $check('NIGHT_DIFF toggle persisted in DB', $nd && $nd->is_enabled === false);
+    }
+
+    echo "\n== 8. Correction with lunch + breaks (approval applies to time log) ==\n";
+    try {
+        // Original log: 09:00-15:00 local, no lunch, no breaks
+        $origLog = $mk($u2->id, '2026-08-05', '2026-08-05 01:00:00', '2026-08-05 07:00:00');
+
+        $corr = AttendanceCorrection::create([
+            'user_id'               => $u2->id,
+            'date'                  => '2026-08-05',
+            'type'                  => 'correction',
+            'reason'                => 'Smoke: forgot to log lunch and breaks',
+            'requested_clock_in'    => '08:00',
+            'requested_clock_out'   => '17:00',
+            'requested_lunch_start' => '12:00',
+            'requested_lunch_end'   => '13:00',
+            'requested_breaks'      => [
+                ['start' => '10:00', 'end' => '10:15'],
+                ['start' => '15:30', 'end' => '15:45'],
+            ],
+            'status'                => 'pending',
+        ]);
+
+        \Illuminate\Support\Facades\Gate::before(fn () => true); // policy bypass for smoke only
+        auth()->login($u1);
+        $req = \App\Http\Requests\ReviewAttendanceCorrectionRequest::create(
+            "/api/attendance/corrections/{$corr->id}", 'PATCH', ['action' => 'approved']
+        );
+        $req->setContainer(app())->setRedirector(app('redirect'));
+        $req->setUserResolver(fn () => $u1);
+        $req->validateResolved();
+        app(\App\Http\Controllers\Api\AttendanceCorrectionController::class)->review($req, $corr);
+        auth()->logout();
+
+        $log = TimeLog::where('user_id', $u2->id)->where('date', '2026-08-05')->first();
+        // 08:00 local = 00:00 UTC; 12:00 local = 04:00 UTC; break 10:00 local = 02:00 UTC
+        $check('Clock in applied (08:00 local = 00:00 UTC)', $log?->getRawOriginal('clock_in') === '2026-08-05 00:00:00', "got " . $log?->getRawOriginal('clock_in'));
+        $check('Clock out applied (17:00 local = 09:00 UTC)', $log?->getRawOriginal('clock_out') === '2026-08-05 09:00:00', "got " . $log?->getRawOriginal('clock_out'));
+        $check('Lunch start applied (12:00 local = 04:00 UTC)', $log?->getRawOriginal('lunch_start') === '2026-08-05 04:00:00', "got " . $log?->getRawOriginal('lunch_start'));
+        $check('Lunch end applied (13:00 local = 05:00 UTC)', $log?->getRawOriginal('lunch_end') === '2026-08-05 05:00:00', "got " . $log?->getRawOriginal('lunch_end'));
+        $breaks = $log?->breaks ?? [];
+        $check('2 breaks applied to time log', count($breaks) === 2, "got " . count($breaks));
+        $b1ok = isset($breaks[0]['start']) && str_contains($breaks[0]['start'], '02:00:00') && str_contains($breaks[0]['end'] ?? '', '02:15:00');
+        $check('Break 1 converted to UTC (10:00-10:15 local = 02:00-02:15 UTC)', $b1ok, json_encode($breaks[0] ?? null));
+        $check('Correction status = approved', $corr->fresh()->status === 'approved');
+    } catch (\Throwable $e) {
+        $check('Correction lunch/breaks approval flow', false, get_class($e) . ': ' . $e->getMessage());
     }
 
 } catch (\Throwable $e) {

@@ -20,6 +20,9 @@ class AttendanceCorrection extends Model
         'proof_path',
         'requested_clock_in',
         'requested_clock_out',
+        'requested_lunch_start',
+        'requested_lunch_end',
+        'requested_breaks',
         'effective_shift_start',
         'effective_shift_end',
         'status',
@@ -31,9 +34,10 @@ class AttendanceCorrection extends Model
     ];
 
     protected $casts = [
-        'date'        => 'date',
-        'reviewed_at' => 'datetime',
-        'deleted_at'  => 'datetime',
+        'date'             => 'date',
+        'requested_breaks' => 'array',
+        'reviewed_at'      => 'datetime',
+        'deleted_at'       => 'datetime',
     ];
 
     public function user(): BelongsTo
