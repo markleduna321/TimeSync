@@ -1,1 +1,0 @@
-import{R as t}from"./app-BdBoefGk.js";import{S as n}from"./index-lEhceLw4.js";const s=e=>{const r=t.useContext(n);return t.useMemo(()=>e?typeof e=="string"?e??r:typeof e=="function"?e(r):r:r,[e,r])};export{s as u};

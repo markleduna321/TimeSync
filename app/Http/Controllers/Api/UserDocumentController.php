@@ -65,7 +65,7 @@ class UserDocumentController extends Controller
         $user = $request->user();
         abort_unless(
             $document->user_id === $user->id
-                || in_array($user->role?->slug ?? '', ['super_admin', 'admin', 'manager']),
+                || $user->hasAnyRole(['super_admin', 'admin']),
             403
         );
 

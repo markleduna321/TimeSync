@@ -19,6 +19,6 @@ class UserDocumentPolicy
     /** Admins can delete any document (used by AdminUserDocumentController). */
     public function forceDelete(User $authUser, UserDocument $document): bool
     {
-        return in_array($authUser->role?->slug ?? '', ['super_admin', 'admin']);
+        return $authUser->hasAnyRole(['super_admin', 'admin']);
     }
 }

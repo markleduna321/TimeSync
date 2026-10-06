@@ -9,3 +9,16 @@
 - **Resolution:** N/A.
 - **QA Checklist Result:** ✅ All pass. Code-level passing for UI/UX browser-dependent checks.
 - **Next Steps:** None — Phase 1 complete. Awaiting further instruction.
+
+### Phase 1.1: Fix 403 Forbidden on Document Preview
+
+- **Timestamp:** 2026-10-06T22:58:30+08:00
+- **Mode:** Agent
+- **Persona(s) Active:** ⚙️ Backend + 🏗️ Tech Lead
+- **Files Modified/Created:**
+  - `app/Http/Controllers/Api/UserDocumentController.php` — Changed `$user->role?->slug` to `$user->hasAnyRole(['super_admin', 'admin'])`.
+  - `app/Policies/UserDocumentPolicy.php` — Changed `$authUser->role?->slug` to `$authUser->hasAnyRole(['super_admin', 'admin'])`.
+- **Issues Encountered:** Admin users received a 403 Forbidden when trying to preview/download user documents because the `User` model uses a `roles()` relation instead of a `role` attribute.
+- **Resolution:** Replaced the incorrect property accessor with the correct `hasAnyRole()` method call.
+- **QA Checklist Result:** ✅ All pass.
+- **Next Steps:** None — Fix applied. Awaiting further instruction.
