@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Modal } from 'antd';
 import {
     FolderArchive, Search, Upload, Trash2, Download,
-    FileText, FileImage, File, Loader2, User, X, Check,
+    FileText, FileImage, File, Loader2, User, X, Check, Eye,
 } from 'lucide-react';
 import MainLayout from '@/Layouts/MainLayout';
 import { useGetUsersQuery } from '@/features/users/usersApi';
@@ -183,9 +183,59 @@ function UploadModal({ open, onClose, user }) {
     );
 }
 
+/* ── Document Preview Modal ─────────────────────────────────────────── */
+function DocumentPreviewModal({ doc, onClose }) {
+    if (!doc) return null;
+
+    const isImage = doc.mime_type?.startsWith('image/');
+    const isPdf = doc.mime_type === 'application/pdf';
+    const canPreview = isImage || isPdf;
+
+    return (
+        <Modal
+            open={!!doc}
+            onCancel={onClose}
+            title={
+                <div className="flex items-center gap-2">
+                    <FileText size={16} className="text-indigo-600" />
+                    <span className="truncate pr-6">{doc.name}</span>
+                </div>
+            }
+            footer={null}
+            destroyOnHidden
+            width={800}
+            centered
+        >
+            <div className="mt-4 flex flex-col items-center justify-center bg-slate-50 rounded-xl overflow-hidden min-h-[400px]">
+                {isImage && (
+                    <img src={doc.download_url} alt={doc.name} className="max-w-full max-h-[70vh] object-contain" />
+                )}
+                {isPdf && (
+                    <iframe src={doc.download_url} className="w-full h-[70vh] border-0" title={doc.name} />
+                )}
+                {!canPreview && (
+                    <div className="flex flex-col items-center py-12 gap-3 text-slate-500">
+                        <FileText size={48} className="text-slate-300" />
+                        <p className="text-sm font-medium text-slate-600">Preview not available for this file type.</p>
+                        <a
+                            href={doc.download_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition mt-2"
+                        >
+                            <Download size={14} /> Download File
+                        </a>
+                    </div>
+                )}
+            </div>
+        </Modal>
+    );
+}
+
 /* ── Document Panel (right side) ────────────────────────────────────── */
 function DocumentPanel({ user }) {
     const [uploadOpen, setUploadOpen] = useState(false);
+    const [previewDoc, setPreviewDoc] = useState(null);
     const { data, isLoading } = useGetAdminUserDocumentsQuery(user.id);
     const [deleteDoc, { isLoading: deleting }] = useDeleteAdminDocumentMutation();
     const docs = data?.data ?? [];
@@ -241,16 +291,31 @@ function DocumentPanel({ user }) {
                             const Icon = docIcon(doc.mime_type);
                             return (
                                 <div key={doc.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white p-3 hover:border-slate-200 transition group">
-                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                                    <div 
+                                        onClick={() => setPreviewDoc(doc)}
+                                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 cursor-pointer hover:bg-indigo-100 transition"
+                                        title="Click to view"
+                                    >
                                         <Icon size={18} />
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-slate-800 truncate">{doc.name}</p>
+                                    <div 
+                                        onClick={() => setPreviewDoc(doc)}
+                                        className="flex-1 min-w-0 cursor-pointer"
+                                        title="Click to view"
+                                    >
+                                        <p className="text-sm font-medium text-slate-800 truncate hover:text-indigo-600 transition">{doc.name}</p>
                                         <p className="text-xs text-slate-400">
                                             {DOC_TYPE_MAP[doc.type] ?? doc.type} · {fmtBytes(doc.file_size)} · {new Date(doc.created_at).toLocaleDateString('en-PH')}
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition shrink-0">
+                                        <button
+                                            onClick={() => setPreviewDoc(doc)}
+                                            className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
+                                            title="View"
+                                        >
+                                            <Eye size={12} /> View
+                                        </button>
                                         <a
                                             href={doc.download_url}
                                             target="_blank"
@@ -277,6 +342,7 @@ function DocumentPanel({ user }) {
             </div>
 
             <UploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} user={user} />
+            <DocumentPreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} />
         </div>
     );
 }
