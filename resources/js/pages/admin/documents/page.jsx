@@ -218,7 +218,7 @@ function DocumentPreviewModal({ doc, onClose }) {
                         <FileText size={48} className="text-slate-300" />
                         <p className="text-sm font-medium text-slate-600">Preview not available for this file type.</p>
                         <a
-                            href={doc.download_url}
+                            href={`${doc.download_url}?download=1`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition mt-2"
@@ -317,7 +317,7 @@ function DocumentPanel({ user }) {
                                             <Eye size={12} /> View
                                         </button>
                                         <a
-                                            href={doc.download_url}
+                                            href={`${doc.download_url}?download=1`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="flex items-center gap-1 rounded-lg border border-indigo-200 px-2.5 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 transition"

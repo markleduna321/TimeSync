@@ -71,6 +71,10 @@ class UserDocumentController extends Controller
 
         abort_unless(Storage::disk('local')->exists($document->file_path), 404);
 
-        return Storage::disk('local')->download($document->file_path, $document->name);
+        if ($request->query('download')) {
+            return Storage::disk('local')->download($document->file_path, $document->name);
+        }
+
+        return Storage::disk('local')->response($document->file_path, $document->name);
     }
 }

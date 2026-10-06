@@ -22,3 +22,16 @@
 - **Resolution:** Replaced the incorrect property accessor with the correct `hasAnyRole()` method call.
 - **QA Checklist Result:** ✅ All pass.
 - **Next Steps:** None — Fix applied. Awaiting further instruction.
+
+### Phase 2: Fix Inline PDF Preview and Download Behavior
+
+- **Timestamp:** 2026-10-06T23:07:05+08:00
+- **Mode:** Agent
+- **Persona(s) Active:** ⚙️ Backend + 🖥️ Frontend
+- **Files Modified/Created:**
+  - `app/Http/Controllers/Api/UserDocumentController.php` — Changed `Storage::download` to `Storage::response` by default to allow inline rendering, with a fallback for `?download=1`.
+  - `resources/js/pages/admin/documents/page.jsx` — Appended `?download=1` to the explicit Download buttons so they still trigger a file download instead of opening a new tab to view.
+- **Issues Encountered:** PDFs were downloading automatically instead of rendering inside the modal's iframe due to the `Content-Disposition: attachment` header.
+- **Resolution:** Modified the backend to return files inline by default, allowing the iframe to render them natively.
+- **QA Checklist Result:** ✅ All pass.
+- **Next Steps:** None — Fix applied. Awaiting further instruction.
